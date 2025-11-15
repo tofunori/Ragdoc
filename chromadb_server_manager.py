@@ -26,9 +26,19 @@ SERVER_HOST = "localhost"
 SERVER_PORT = 8000
 STARTUP_TIMEOUT = 15  # secondes
 
-# Utiliser conda run pour lancer avec ragdoc-env
-USE_CONDA_ENV = True
-CONDA_ENV_NAME = "ragdoc-env"
+# Configuration Python
+# Détecter le chemin de Python dans ragdoc-env
+RAGDOC_PYTHON = Path.home() / "miniforge3" / "envs" / "ragdoc-env" / "python.exe"
+if not RAGDOC_PYTHON.exists():
+    # Fallback: essayer d'autres emplacements communs
+    alt_paths = [
+        Path.home() / "anaconda3" / "envs" / "ragdoc-env" / "python.exe",
+        Path.home() / "miniconda3" / "envs" / "ragdoc-env" / "python.exe",
+    ]
+    for alt_path in alt_paths:
+        if alt_path.exists():
+            RAGDOC_PYTHON = alt_path
+            break
 
 
 class ChromaDBServerManager:
@@ -112,12 +122,8 @@ class ChromaDBServerManager:
             # Lancer le serveur en arrière-plan
             log_file = open(LOG_FILE, "w")
 
-            # Préparer la commande
-            if USE_CONDA_ENV:
-                # Utiliser conda run pour activer ragdoc-env
-                cmd = ["conda", "run", "-n", CONDA_ENV_NAME, "python", str(server_script)]
-            else:
-                cmd = [sys.executable, str(server_script)]
+            # Préparer la commande - utiliser le Python de ragdoc-env
+            cmd = [str(RAGDOC_PYTHON), str(server_script)]
 
             if sys.platform == "win32":
                 # Windows: CREATE_NO_WINDOW
@@ -223,9 +229,9 @@ class ChromaDBServerManager:
         try:
             # Tenter d'arrêter le processus
             if sys.platform == "win32":
-                # Windows: utiliser taskkill
+                # Windows: utiliser taskkill avec /T pour tuer l'arbre de processus complet
                 subprocess.run(
-                    ["taskkill", "/F", "/PID", str(pid)],
+                    ["taskkill", "/F", "/T", "/PID", str(pid)],
                     capture_output=True
                 )
             else:
