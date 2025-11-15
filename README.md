@@ -155,6 +155,7 @@ What are the remote sensing methods for albedo analysis?
 
 #### Search Tools
 - `semantic_search_hybrid(query, top_k=10, alpha=0.7)` - Hybrid search (BM25 + Semantic) with reranking
+- `search_by_source(query, sources, top_k=10, alpha=0.7)` - Search limited to specific documents
 
 #### Document Management Tools
 - `list_documents()` - List all indexed documents
@@ -173,6 +174,10 @@ semantic_search_hybrid("black carbon impact on glacier albedo", top_k=10, alpha=
 
 # Adjust semantic/lexical weight (alpha=0.5 = equal weight)
 semantic_search_hybrid("remote sensing albedo measurement", alpha=0.5)
+
+# Search in specific documents only (NEW v1.3.0)
+search_by_source("glacier albedo", sources=["1982_RGSP.md"])
+search_by_source("ice mass balance", sources=["Warren_1982.md", "Painter_2009.md"], top_k=5)
 
 # Get document list
 list_documents()

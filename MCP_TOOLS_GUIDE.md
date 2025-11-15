@@ -1,4 +1,4 @@
-# MCP Tools Guide - RAGDOC v1.1.0
+# MCP Tools Guide - RAGDOC v1.3.0
 
 Complete guide to all available MCP tools in RAGDOC for scientific literature research.
 
@@ -74,6 +74,68 @@ semantic_search_hybrid("specific absorption coefficient", alpha=0.0)
 - Searching for acronyms and technical terms
 - Finding numerical values and measurements
 - Exploring related concepts
+
+---
+
+### search_by_source
+
+**Hybrid search limited to specific documents. (NEW v1.3.0)**
+
+#### Signature
+```python
+search_by_source(
+    query: str,
+    sources: list,
+    top_k: int = 10,
+    alpha: float = 0.7
+) -> str
+```
+
+#### Parameters
+- `query` (str, required): Search query about your indexed knowledge base
+- `sources` (list, required): List of document filenames to search in
+  - Single document: `["1982_RGSP.md"]`
+  - Multiple documents: `["Warren_1982.md", "Painter_2009.md"]`
+- `top_k` (int, default=10): Number of results to return
+- `alpha` (float, default=0.7): Semantic weight (same as semantic_search_hybrid)
+
+#### Returns
+Formatted search results with same structure as semantic_search_hybrid, but limited to specified documents only.
+
+#### Examples
+
+**Search in a single document:**
+```python
+search_by_source("glacier albedo measurements", sources=["1982_RGSP.md"])
+```
+
+**Search in multiple documents:**
+```python
+search_by_source(
+    "ice mass balance techniques",
+    sources=["Warren_1982.md", "Painter_2009.md", "Ren_et_al_2021.md"],
+    top_k=5
+)
+```
+
+**Adjust semantic/lexical balance:**
+```python
+# More emphasis on exact terms
+search_by_source("black carbon", sources=["1982_RGSP.md"], alpha=0.5)
+```
+
+#### Use Cases
+- **Re-reading a specific paper:** Search within a paper you've already found relevant
+- **Comparing across papers:** Search the same query in 2-3 specific papers
+- **Topic-focused research:** Limit search to papers from a specific author or year
+- **Verification:** Find where a specific concept is mentioned in a known paper
+- **Deep dive:** After finding a relevant paper, search for related concepts within it
+
+#### Tips
+- Get document names first with `list_documents()`
+- Use exact filenames from the list (case-sensitive)
+- Combine with `get_chunk_with_context()` to explore results
+- For all documents, use `semantic_search_hybrid()` instead
 
 ---
 
