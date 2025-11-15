@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MCP Server for Glacier Research Search
-HYBRID VERSION: BM25 + Voyage-Context-3 embeddings + Cohere v3.5 reranking
+HYBRID VERSION: BM25 + Voyage-3-Large embeddings + Cohere v3.5 reranking
 """
 
 import os
@@ -74,7 +74,7 @@ def init_clients():
 
         # Embedding function for hybrid retriever
         def voyage_embed(texts):
-            result = voyage_client.embed(texts=texts, model="voyage-context-3")
+            result = voyage_client.embed(texts=texts, model="voyage-3-large")
             return result.embeddings
 
         hybrid_retriever = HybridRetriever(
