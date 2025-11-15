@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MCP Server for Glacier Research Search
-HYBRID VERSION: BM25 + Voyage-3-Large embeddings + Cohere v3.5 reranking
+Voyage-Context-3 embeddings + Cohere v3.5 reranking
 """
 
 import os
@@ -16,10 +16,6 @@ from dotenv import load_dotenv
 import chromadb
 import voyageai
 import cohere
-
-# Import hybrid retriever
-sys.path.insert(0, str(Path(__file__).parent))
-from hybrid_retriever import HybridRetriever
 
 # Load environment
 load_dotenv()
@@ -38,18 +34,17 @@ VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 # Initialize MCP server
-mcp = FastMCP("ragdoc-hybrid")
+mcp = FastMCP("ragdoc")
 
 # Global clients (initialized on first use)
 voyage_client = None
 chroma_client = None
 cohere_client = None
-hybrid_retriever = None
 
 
 def init_clients():
     """Initialize API clients with auto-detection of ChromaDB server"""
-    global voyage_client, chroma_client, cohere_client, hybrid_retriever
+    global voyage_client, chroma_client, cohere_client
 
     if not voyage_client:
         voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
@@ -60,33 +55,32 @@ def init_clients():
             test_client = chromadb.HttpClient(host="localhost", port=8000)
             test_client.heartbeat()
             chroma_client = test_client
-            logging.info("[OK] MCP: Connected to ChromaDB server (localhost:8000)")
+            logging.info("[OK] MCP: Connecte au serveur ChromaDB (localhost:8000)")
         except Exception as e:
-            logging.info("[INFO] MCP: ChromaDB server not available, using local mode")
+            logging.info("[INFO] MCP: Serveur ChromaDB non disponible, utilisation du mode local")
             chroma_client = chromadb.PersistentClient(path=str(CHROMA_DB_HYBRID_PATH))
 
     if not cohere_client:
         cohere_client = cohere.ClientV2(api_key=COHERE_API_KEY)
 
-    # Initialize hybrid retriever
-    if not hybrid_retriever:
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
-
-        # Embedding function for hybrid retriever
-        def voyage_embed(texts):
-            result = voyage_client.embed(texts=texts, model="voyage-3-large")
-            return result.embeddings
-
-        hybrid_retriever = HybridRetriever(
-            collection=collection,
-            embedding_function=voyage_embed
-        )
-        logging.info("[OK] Hybrid retriever initialized (BM25 + Semantic)")
-
 
 def _compute_doc_hash(content: str) -> str:
     """Compute MD5 hash of document content"""
     return hashlib.md5(content.encode()).hexdigest()
+
+
+def _chunk_markdown(content: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list:
+    """Split markdown content into overlapping chunks"""
+    chunks = []
+    start = 0
+    while start < len(content):
+        end = min(start + chunk_size, len(content))
+        chunk = content[start:end]
+        chunks.append(chunk)
+        start = end - overlap
+        if start >= len(content) - overlap:
+            break
+    return chunks
 
 
 def _fetch_document_chunks(collection, source: str) -> dict:
@@ -104,7 +98,7 @@ def _fetch_document_chunks(collection, source: str) -> dict:
             )
         except Exception as fetch_error:
             logging.warning(
-                "Failed to fetch chunks for %s=%s : %s",
+                "Echec recuperation chunks pour %s=%s : %s",
                 field,
                 source,
                 fetch_error
@@ -186,65 +180,60 @@ def _get_adjacent_chunks(collection, source: str, chunk_index: int, total_chunks
 
     except Exception as e:
         logging.warning(
-            "Error retrieving adjacent chunks for %s: %s",
+            "Erreur lors de la recuperation des chunks adjacents pour %s: %s",
             source,
             e
         )
         return []
 
 
-def _perform_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> str:
+def _perform_search(query: str, top_k: int = 10) -> str:
     """
-    HYBRID search implementation
-    Pipeline: BM25 + Semantic (RRF) → Cohere v3.5 reranking → Context window expansion
-
-    Args:
-        query: Search query
-        top_k: Number of final results
-        alpha: Weight for semantic (0.7 = 70% semantic, 30% BM25)
+    Internal search implementation (shared by multiple tools)
+    Voyage-Context-3 + Cohere v3.5 reranking pipeline with context window expansion
     """
     try:
         init_clients()
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
 
-        # 1. Hybrid retrieval (BM25 + Semantic with RRF)
-        hybrid_results = hybrid_retriever.search(
-            query=query,
-            top_k=50,  # Get 50 candidates for reranking
-            alpha=alpha,
-            bm25_top_n=100,
-            semantic_top_n=100
+        # 1. Embed query with Voyage-Context-3
+        query_result = voyage_client.contextualized_embed(
+            inputs=[[query]],
+            model="voyage-context-3",
+            input_type="query"
+        )
+        query_embedding = query_result.results[0].embeddings[0]
+
+        # 2. Search Chroma (top-50 candidates)
+        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=50
         )
 
-        if not hybrid_results:
-            return "No results found for your search."
+        if not results or not results['documents'] or len(results['documents'][0]) == 0:
+            return "Aucun resultat trouve pour votre recherche."
 
-        # 2. Prepare for reranking
-        documents_for_rerank = [r['text'] for r in hybrid_results]
-        metadatas = [r['metadata'] for r in hybrid_results]
+        documents = results['documents'][0]
+        metadatas = results['metadatas'][0]
+        doc_cache: dict[str, dict] = {}
 
         # 3. Rerank with Cohere v3.5
         rerank_results = cohere_client.rerank(
             model="rerank-v3.5",
             query=query,
-            documents=documents_for_rerank,
+            documents=documents,
             top_n=top_k
         )
 
         # 4. Format results with context window expansion
-        output = f"HYBRID SEARCH RESULTS: {query}\n"
+        output = f"RESULTATS DE RECHERCHE: {query}\n"
         output += "=" * 70 + "\n\n"
-
-        doc_cache = {}
 
         for i, result in enumerate(rerank_results.results, 1):
             idx = result.index
             score = result.relevance_score
             metadata = metadatas[idx]
-            hybrid_score = hybrid_results[idx]['score']
-            bm25_rank = hybrid_results[idx].get('bm25_rank')
-            semantic_rank = hybrid_results[idx].get('semantic_rank')
-
+            # Utiliser 'source' en priorité, puis 'filename' pour compatibilité
             source = metadata.get('source', metadata.get('filename', 'unknown'))
             chunk_index = metadata.get('chunk_index', 0)
 
@@ -259,10 +248,9 @@ def _perform_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> s
                 meta_list = doc_entry.get('metadatas') if doc_entry else []
                 total_chunks = len(meta_list) if meta_list else 1
 
-            output += f"[{i}] Rerank Score: {score:.4f} | Hybrid: {hybrid_score:.4f}\n"
+            output += f"[{i}] Score: {score:.4f}\n"
             output += f"    Source: {source}\n"
-            output += f"    Position: chunk {chunk_index}/{total_chunks}\n"
-            output += f"    Rankings: BM25 #{bm25_rank}, Semantic #{semantic_rank}\n\n"
+            output += f"    Position: chunk {chunk_index}/{total_chunks}\n\n"
 
             # Retrieve adjacent chunks for context
             adjacent_chunks = _get_adjacent_chunks(
@@ -277,7 +265,7 @@ def _perform_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> s
 
                     output += f"{marker} [Chunk {chunk_meta['chunk_index']}]"
                     if is_main:
-                        output += " <-- MAIN RESULT"
+                        output += " <-- RESULTAT PRINCIPAL"
                     output += "\n"
 
                     # Show content preview
@@ -288,30 +276,29 @@ def _perform_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> s
                     output += f"    {preview}\n\n"
             else:
                 # Fallback if adjacent chunks not found
-                output += f"    Content: {documents_for_rerank[idx][:200]}...\n\n"
+                output += f"    Contenu: {documents[idx][:200]}...\n\n"
 
             output += "-" * 70 + "\n\n"
 
         return output
 
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        return f"ERREUR: {str(e)}"
 
 
 @mcp.tool()
-def semantic_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> str:
+def semantic_search(query: str, top_k: int = 10) -> str:
     """
-    Hybrid search with BM25 + Voyage-Context-3 + Cohere v3.5 reranking.
+    Search glacier research papers with Voyage-Context-3 + Cohere v3.5 reranking.
 
     Args:
         query: Search query about the indexed knowledge base.
         top_k: Number of results to return (default: 10)
-        alpha: Semantic weight (0.7 = 70% semantic, 30% BM25). Use 0.5 for equal weight.
 
     Returns:
-        Formatted search results with hybrid ranking scores and source information.
+        Formatted search results with relevance scores and source information.
     """
-    return _perform_search_hybrid(query, top_k, alpha)
+    return _perform_search(query, top_k)
 
 
 @mcp.tool()
@@ -333,22 +320,50 @@ def list_documents() -> str:
         # Extract unique sources
         sources = {}
         for metadata in all_docs['metadatas']:
+            # Utiliser 'filename' au lieu de 'source' pour la base hybride
             source = metadata.get('source', metadata.get('filename', 'unknown'))
             if source not in sources:
                 sources[source] = metadata
 
-        output = f"INDEXED DOCUMENTS: {len(sources)} papers\n"
+        output = f"DOCUMENTS INDEXES: {len(sources)} papiers\n"
         output += "=" * 70 + "\n\n"
 
         for i, (source, metadata) in enumerate(sorted(sources.items()), 1):
             output += f"[{i}] {source}\n"
-            output += f"    Title: {metadata.get('title', 'No title')}\n"
+            output += f"    Titre: {metadata.get('title', 'Sans titre')}\n"
             output += f"    Chunks: {metadata.get('total_chunks', 'N/A')}\n\n"
 
         return output
 
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        return f"ERREUR: {str(e)}"
+
+
+@mcp.tool()
+def topic_search(topic: str, top_k: int = 5) -> str:
+    """
+    Quick search by topic shortcut.
+
+    Args:
+        topic: Research topic (e.g., "black carbon", "snow albedo", "glacier melt")
+        top_k: Number of results to return
+
+    Returns:
+        Top papers for the topic with relevance scores.
+    """
+
+    # Expand topic to full query
+    topic_queries = {
+        "black carbon": "black carbon soot impurities glacier albedo",
+        "snow albedo": "snow surface albedo reflectance glaciers",
+        "glacier melt": "glacier melt ablation surface energy budget",
+        "dust": "mineral dust impurities glacier darkening",
+        "cryoconite": "cryoconite holes algae glacier surface",
+        "remote sensing": "remote sensing satellite albedo glaciers"
+    }
+
+    query = topic_queries.get(topic.lower(), topic)
+    return _perform_search(query, top_k=top_k)
 
 
 @mcp.tool()
@@ -367,6 +382,7 @@ def get_indexation_status() -> str:
 
         docs_by_source = {}
         for metadata in all_docs['metadatas']:
+            # Utiliser 'filename' au lieu de 'source' pour la base hybride
             source = metadata.get('source', metadata.get('filename', 'unknown'))
             if source not in docs_by_source:
                 docs_by_source[source] = {
@@ -380,40 +396,91 @@ def get_indexation_status() -> str:
         total_chunks = len(all_docs['ids'])
         total_docs = len(docs_by_source)
 
-        output = "INDEXATION STATUS - HYBRID SEARCH ENABLED\n"
+        output = "ETAT DE L'INDEXATION - CHROMA DB\n"
         output += "=" * 70 + "\n\n"
 
-        output += f"GLOBAL STATISTICS:\n"
-        output += f"   Number of documents: {total_docs}\n"
-        output += f"   Total chunks: {total_chunks}\n"
+        output += f"STATISTIQUES GLOBALES:\n"
+        output += f"   Nombre de documents: {total_docs}\n"
+        output += f"   Nombre total de chunks: {total_chunks}\n"
         if total_docs > 0:
-            output += f"   Average chunks/doc: {total_chunks / total_docs:.1f}\n\n"
+            output += f"   Moyenne chunks/doc: {total_chunks / total_docs:.1f}\n\n"
 
         docs_with_hash = sum(1 for d in docs_by_source.values() if d['hash'])
         docs_with_date = sum(1 for d in docs_by_source.values() if d['indexed_date'])
 
-        output += f"METADATA VERIFICATION:\n"
-        output += f"   Documents with MD5 hash: {docs_with_hash}/{total_docs}\n"
-        output += f"   Documents with date: {docs_with_date}/{total_docs}\n\n"
+        output += f"VERIFICATION DES METADONNEES:\n"
+        output += f"   Documents avec hash MD5: {docs_with_hash}/{total_docs}\n"
+        output += f"   Documents avec date: {docs_with_date}/{total_docs}\n\n"
 
         models = {}
         for doc in docs_by_source.values():
             model = doc['model'] or 'unknown'
             models[model] = models.get(model, 0) + 1
 
-        output += f"MODEL DISTRIBUTION:\n"
+        output += f"REPARTITION PAR MODELE:\n"
         for model, count in sorted(models.items()):
             pct = (count / total_docs) * 100
             output += f"   {model:30} {count:3d} docs ({pct:5.1f}%)\n"
 
         output += f"\n" + "=" * 70 + "\n"
-        output += "RETRIEVAL MODE: HYBRID (BM25 + Semantic + Reranking)\n"
-        output += "=" * 70
+        if docs_with_hash == total_docs and docs_with_date > 0:
+            output += "STATUS: READY FOR PRODUCTION"
+        else:
+            output += "STATUS: ATTENTION - Missing metadata"
+        output += "\n" + "=" * 70
 
         return output
 
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        return f"ERREUR: {str(e)}"
+
+
+@mcp.tool()
+def reindex_documents(force: bool = False) -> str:
+    """
+    Trigger document reindexation from the MCP server.
+
+    Args:
+        force: If True, force complete reindex (remove duplicates). If False, only add missing documents.
+
+    Returns:
+        Indexation report with document and chunk statistics.
+    """
+    try:
+        import subprocess
+        init_clients()
+
+        script_path = Path(__file__).parent.parent / "index_hybrid_collection.py"
+
+        cmd = [
+            "python",
+            str(script_path)
+        ]
+
+        if force:
+            cmd.append("--force")
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+
+        if result.returncode == 0:
+            output = "REINDEXATION EFFECTUEE\n"
+            output += "=" * 70 + "\n\n"
+            output += result.stdout
+            output += "\n" + "=" * 70
+            output += "\nPour verifier l'etat, utilisez: get_indexation_status()"
+            return output
+        else:
+            return f"ERREUR lors de la reindexation:\n{result.stderr}"
+
+    except subprocess.TimeoutExpired:
+        return "ERREUR: Reindexation timeout (> 5 minutes)"
+    except Exception as e:
+        return f"ERREUR: {str(e)}"
 
 
 if __name__ == "__main__":
