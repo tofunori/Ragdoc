@@ -68,7 +68,9 @@ class HybridRetriever:
         alpha: float = 0.5,
         bm25_top_n: int = 100,
         semantic_top_n: int = 100,
-        rrf_k: int = 60
+        rrf_k: int = 60,
+        where: dict = None,
+        where_document: dict = None
     ) -> List[Dict]:
         """
         Hybrid search with Reciprocal Rank Fusion
@@ -80,6 +82,8 @@ class HybridRetriever:
             bm25_top_n: Number of BM25 candidates
             semantic_top_n: Number of semantic candidates
             rrf_k: RRF constant (typically 60)
+            where: Optional metadata filter (e.g., {"source": "doc.md"})
+            where_document: Optional document content filter (e.g., {"$contains": "text"})
 
         Returns:
             List of dicts with keys: id, text, metadata, score, ranks
@@ -88,8 +92,13 @@ class HybridRetriever:
         # 1. BM25 search
         bm25_results = self._bm25_search(query, top_n=bm25_top_n)
 
-        # 2. Semantic search (ChromaDB)
-        semantic_results = self._semantic_search(query, top_n=semantic_top_n)
+        # 2. Semantic search (ChromaDB) with filtering
+        semantic_results = self._semantic_search(
+            query,
+            top_n=semantic_top_n,
+            where=where,
+            where_document=where_document
+        )
 
         # 3. Reciprocal Rank Fusion
         fused_results = self._reciprocal_rank_fusion(
@@ -122,9 +131,21 @@ class HybridRetriever:
 
         return results
 
-    def _semantic_search(self, query: str, top_n: int) -> List[Tuple[str, float, int]]:
+    def _semantic_search(
+        self,
+        query: str,
+        top_n: int,
+        where: dict = None,
+        where_document: dict = None
+    ) -> List[Tuple[str, float, int]]:
         """
         Semantic search via ChromaDB
+
+        Args:
+            query: Search query
+            top_n: Number of results
+            where: Optional metadata filter
+            where_document: Optional document content filter
 
         Returns:
             List of (doc_id, distance, rank)
@@ -135,10 +156,12 @@ class HybridRetriever:
         # Embed query
         query_embedding = self.embedding_function([query])[0]
 
-        # Query ChromaDB
+        # Query ChromaDB with optional filters
         results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=top_n,
+            where=where,
+            where_document=where_document,
             include=["distances"]
         )
 
