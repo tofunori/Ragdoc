@@ -1,0 +1,35 @@
+# Model Configuration for RAGDOC
+# Embedding models and their usage parameters
+
+embedding:
+  # Default model for general documents
+  default:
+    name: "voyage-context-3"
+    dimensions: 1024
+    context_window: 32000  # tokens
+    max_batch_size: 25  # chunks per contextualized call
+    input_type: "document"
+    use_contextualized: true
+
+  # Model for large documents
+  large:
+    name: "voyage-3-large"
+    dimensions: 1536
+    context_window: 16000  # tokens
+    max_batch_size: 100  # chunks
+    input_type: "document"
+    use_contextualized: false
+
+  # Threshold to switch from default to large model
+  large_doc_threshold: 50000  # characters
+
+reranking:
+  # Cohere reranking model
+  model: "rerank-v3.5"
+  top_n: 10  # number of results after reranking
+  max_chunks_per_query: 100  # maximum chunks to rerank
+
+retrieval:
+  # Context window expansion for better coherence
+  context_window_size: 2  # chunks before/after main result
+  default_top_k: 10  # default number of results to retrieve

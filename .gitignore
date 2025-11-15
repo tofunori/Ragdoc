@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+dist/
+build/
+
+# Temporary indexation files
+.indexing.lock
+*.log
+indexation*.log
+
+# Windows artifacts
+nul
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Chroma databases (ALL - user data, not shared on GitHub)
+chroma_db*/
+chroma_db_fresh/
+chroma_db_fresh_v2/
+chroma_db_new/
+
+# Article markdown files (user documents, not shared)
+articles_markdown/
+
+# Temporary development files
+*.whl
+check_aubry.py
+read_aubry_chunks.py
+patch_index_incremental.py
+solution_*.py
+index_with_updates.py
+
+# Temporary text files
+stroeve_search.txt
+warren_search_result.txt
+albedo_measurements_articles.txt
+
+# PowerShell setup scripts (already in env)
+disable_python_aliases*.ps1
+fix_python_path.ps1
+setup_conda_path.ps1
+add_python_to_path.ps1
+ragdoc.ps1
+ragdoc-tui.bat
+
+# Server PID files
+.chroma_server.pid
+
+# Local development configs
+.claude/
+
+# Config overrides (allow users to override without committing)
+config/local.yaml
+config/*_local.yaml
+config/*.local.yaml

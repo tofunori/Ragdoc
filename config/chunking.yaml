@@ -1,0 +1,39 @@
+# Chunking Configuration for RAGDOC
+# Hybrid pipeline: TokenChunker → SemanticChunker → OverlapRefinery
+
+# Legacy chunking (simple character-based)
+legacy:
+  normal:
+    chunk_size: 2000  # characters
+    chunk_overlap: 400  # characters
+  large:
+    chunk_size: 1024  # characters
+    chunk_overlap: 200  # characters
+
+# Chonkie Token Chunker (first stage)
+token_chunker:
+  chunk_size: 1024  # tokens (optimal for voyage-context-3)
+  chunk_overlap: 180  # tokens (~17.5% for context preservation)
+  tokenizer: "gpt2"  # compatible with Voyage AI
+  min_chunk_size: 100  # minimum tokens per chunk
+
+# Chonkie Semantic Chunker (second stage)
+semantic_chunker:
+  enabled: true
+  similarity_threshold: 0.5  # merge chunks if similarity > threshold
+  max_chunk_size: 2048  # tokens
+  embedding_model: "minishlab/potion-base-8M"  # Model2Vec for speed
+
+# Chonkie Overlap Refinery (third stage)
+overlap_refinery:
+  enabled: true
+  overlap_size: 200  # characters
+  mode: "sentences"  # preserve sentence boundaries
+
+# Pipeline selection
+pipeline:
+  type: "hybrid"  # "simple" | "token" | "hybrid"
+  stages:
+    - "token"     # TokenChunker
+    - "semantic"  # SemanticChunker
+    - "overlap"   # OverlapRefinery

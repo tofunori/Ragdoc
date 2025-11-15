@@ -1,0 +1,62 @@
+# Database Configuration for RAGDOC
+# ChromaDB paths, collections, and HNSW parameters
+
+paths:
+  # Source documents directory
+  markdown_dir: "articles_markdown"  # relative to project root
+
+  # ChromaDB storage path
+  chroma_db: "chroma_db_new"  # relative to project root
+
+# ChromaDB Server (optional)
+server:
+  enabled: false  # true = use HTTP client, false = use PersistentClient
+  host: "localhost"
+  port: 8000
+  auto_start: false  # automatically start server if not running
+
+# Collections
+collections:
+  # Legacy collection (simple TokenChunker)
+  legacy:
+    name: "zotero_research_context_v2"
+    active: false
+
+  # Hybrid pipeline collection (current)
+  hybrid:
+    name: "zotero_research_context_hybrid_v3"
+    active: true
+    metadata:
+      pipeline: "hybrid_token_semantic_overlap"
+
+# HNSW Index Configuration
+# See: https://docs.trychroma.com/guides#changing-the-distance-function
+hnsw:
+  # Distance metric
+  space: "cosine"  # "cosine" | "l2" | "ip"
+
+  # Construction parameters (higher = better quality, slower indexing)
+  construction_ef: 400  # default: 100, range: [100-2000]
+
+  # Number of bi-directional links (higher = better recall, more memory)
+  M: 64  # default: 16, range: [2-100]
+
+  # Search parameter (higher = better recall, slower search)
+  search_ef: 100  # default: 10, range: [10-512]
+
+# Deduplication and tracking
+deduplication:
+  # Use MD5 hash for change detection
+  use_content_hash: true
+
+  # Track indexation dates
+  track_indexed_date: true
+
+  # Automatically delete chunks from missing documents
+  auto_delete_missing: false
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG | INFO | WARNING | ERROR
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  file: null  # path to log file, or null for console only
