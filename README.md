@@ -153,12 +153,20 @@ What are the remote sensing methods for albedo analysis?
 
 ### Available MCP Tools
 
+#### Search Tools
 - `semantic_search_hybrid(query, top_k=10, alpha=0.7)` - Hybrid search (BM25 + Semantic) with reranking
+
+#### Document Management Tools
 - `list_documents()` - List all indexed documents
+- `get_document_content(source, format="markdown", max_length=None)` - Retrieve complete document content
+- `get_chunk_with_context(chunk_id, context_size=2, highlight=True)` - Show chunk with surrounding context
+
+#### Database Tools
 - `get_indexation_status()` - Database statistics
 
-### Search Examples
+### Tool Examples
 
+#### Search and Discovery
 ```python
 # Hybrid search (BM25 + Semantic)
 semantic_search_hybrid("black carbon impact on glacier albedo", top_k=10, alpha=0.7)
@@ -168,7 +176,34 @@ semantic_search_hybrid("remote sensing albedo measurement", alpha=0.5)
 
 # Get document list
 list_documents()
+```
 
+#### Document Reading
+```python
+# Read complete document in markdown format
+get_document_content("1982_RGSP.md", format="markdown")
+
+# Read document as plain text with length limit
+get_document_content("1982_RGSP.md", format="text", max_length=5000)
+
+# View document as individual chunks with metadata
+get_document_content("1982_RGSP.md", format="chunks")
+```
+
+#### Context Exploration
+```python
+# Show chunk with 2 surrounding chunks on each side (default)
+get_chunk_with_context("1982_RGSP_chunk_042", context_size=2, highlight=True)
+
+# Show more context (5 chunks before and after)
+get_chunk_with_context("1982_RGSP_chunk_042", context_size=5)
+
+# Show context without highlighting
+get_chunk_with_context("1982_RGSP_chunk_042", context_size=3, highlight=False)
+```
+
+#### Database Management
+```python
 # Get database statistics
 get_indexation_status()
 ```
