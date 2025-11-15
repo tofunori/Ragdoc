@@ -163,6 +163,40 @@ class ChromaDBServerManager:
             self.delete_pid_file()
             return False, f"[ERREUR] Erreur lors du demarrage: {e}"
 
+    def find_pid_by_port(self) -> Optional[int]:
+        """
+        Trouve le PID du processus utilisant le port ChromaDB
+        Utile quand le fichier PID est désynchronisé
+        """
+        try:
+            if sys.platform == "win32":
+                # Windows: utiliser netstat
+                result = subprocess.run(
+                    ["netstat", "-ano"],
+                    capture_output=True,
+                    text=True
+                )
+                for line in result.stdout.splitlines():
+                    if f":{self.port}" in line and "LISTENING" in line:
+                        parts = line.split()
+                        if parts:
+                            try:
+                                return int(parts[-1])
+                            except (ValueError, IndexError):
+                                continue
+            else:
+                # Unix: utiliser lsof
+                result = subprocess.run(
+                    ["lsof", "-ti", f":{self.port}"],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    return int(result.stdout.strip().split()[0])
+        except Exception:
+            pass
+        return None
+
     def stop(self) -> Tuple[bool, str]:
         """
         Arrête le serveur ChromaDB
@@ -172,12 +206,19 @@ class ChromaDBServerManager:
         """
         pid = self.get_pid()
 
-        if not pid:
-            if self.is_running():
-                return False, "[WARN] Serveur actif mais PID inconnu. Impossible d'arreter proprement."
+        # Si pas de PID valide mais serveur actif, chercher le PID via le port
+        if not pid and self.is_running():
+            pid = self.find_pid_by_port()
+            if pid:
+                print(f"[INFO] PID trouve via port {self.port}: {pid}")
+                # Nettoyer l'ancien fichier PID désynchronisé
+                self.delete_pid_file()
             else:
-                self.delete_pid_file()  # Nettoyer fichier PID orphelin
-                return True, "[INFO] Serveur ChromaDB n'est pas actif"
+                return False, "[WARN] Serveur actif mais PID introuvable. Verifiez manuellement avec 'netstat -ano | findstr :8000'"
+
+        if not pid:
+            self.delete_pid_file()  # Nettoyer fichier PID orphelin
+            return True, "[INFO] Serveur ChromaDB n'est pas actif"
 
         try:
             # Tenter d'arrêter le processus
