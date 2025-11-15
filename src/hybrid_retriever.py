@@ -207,12 +207,33 @@ class HybridRetriever:
         final_results = []
         for doc_id, scores in sorted_results:
             # Get document text and metadata
-            idx = self.ids.index(doc_id)
+            try:
+                # Try to get from cached index (fast path)
+                idx = self.ids.index(doc_id)
+                text = self.docs[idx]
+                metadata = self.metadatas[idx]
+            except ValueError:
+                # Fallback: refetch from collection if doc_id not in index
+                # This can happen if collection was updated after retriever initialization
+                try:
+                    result = self.collection.get(
+                        ids=[doc_id],
+                        include=["documents", "metadatas"]
+                    )
+                    if result['documents']:
+                        text = result['documents'][0]
+                        metadata = result['metadatas'][0]
+                    else:
+                        # Skip this document if it can't be found
+                        continue
+                except Exception:
+                    # Skip documents that can't be retrieved
+                    continue
 
             final_results.append({
                 'id': doc_id,
-                'text': self.docs[idx],
-                'metadata': self.metadatas[idx],
+                'text': text,
+                'metadata': metadata,
                 'score': scores['combined'],
                 'bm25_score': scores.get('bm25_raw', 0),
                 'semantic_score': scores.get('semantic_raw', 0),
