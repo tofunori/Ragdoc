@@ -26,9 +26,19 @@ SERVER_HOST = "localhost"
 SERVER_PORT = 8000
 STARTUP_TIMEOUT = 15  # secondes
 
-# Utiliser conda run pour lancer avec ragdoc-env
-USE_CONDA_ENV = True
-CONDA_ENV_NAME = "ragdoc-env"
+# Configuration Python
+# Détecter le chemin de Python dans ragdoc-env
+RAGDOC_PYTHON = Path.home() / "miniforge3" / "envs" / "ragdoc-env" / "python.exe"
+if not RAGDOC_PYTHON.exists():
+    # Fallback: essayer d'autres emplacements communs
+    alt_paths = [
+        Path.home() / "anaconda3" / "envs" / "ragdoc-env" / "python.exe",
+        Path.home() / "miniconda3" / "envs" / "ragdoc-env" / "python.exe",
+    ]
+    for alt_path in alt_paths:
+        if alt_path.exists():
+            RAGDOC_PYTHON = alt_path
+            break
 
 
 class ChromaDBServerManager:
@@ -112,12 +122,8 @@ class ChromaDBServerManager:
             # Lancer le serveur en arrière-plan
             log_file = open(LOG_FILE, "w")
 
-            # Préparer la commande
-            if USE_CONDA_ENV:
-                # Utiliser conda run pour activer ragdoc-env
-                cmd = ["conda", "run", "-n", CONDA_ENV_NAME, "python", str(server_script)]
-            else:
-                cmd = [sys.executable, str(server_script)]
+            # Préparer la commande - utiliser le Python de ragdoc-env
+            cmd = [str(RAGDOC_PYTHON), str(server_script)]
 
             if sys.platform == "win32":
                 # Windows: CREATE_NO_WINDOW
@@ -163,6 +169,40 @@ class ChromaDBServerManager:
             self.delete_pid_file()
             return False, f"[ERREUR] Erreur lors du demarrage: {e}"
 
+    def find_pid_by_port(self) -> Optional[int]:
+        """
+        Trouve le PID du processus utilisant le port ChromaDB
+        Utile quand le fichier PID est désynchronisé
+        """
+        try:
+            if sys.platform == "win32":
+                # Windows: utiliser netstat
+                result = subprocess.run(
+                    ["netstat", "-ano"],
+                    capture_output=True,
+                    text=True
+                )
+                for line in result.stdout.splitlines():
+                    if f":{self.port}" in line and "LISTENING" in line:
+                        parts = line.split()
+                        if parts:
+                            try:
+                                return int(parts[-1])
+                            except (ValueError, IndexError):
+                                continue
+            else:
+                # Unix: utiliser lsof
+                result = subprocess.run(
+                    ["lsof", "-ti", f":{self.port}"],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    return int(result.stdout.strip().split()[0])
+        except Exception:
+            pass
+        return None
+
     def stop(self) -> Tuple[bool, str]:
         """
         Arrête le serveur ChromaDB
@@ -172,19 +212,26 @@ class ChromaDBServerManager:
         """
         pid = self.get_pid()
 
-        if not pid:
-            if self.is_running():
-                return False, "[WARN] Serveur actif mais PID inconnu. Impossible d'arreter proprement."
+        # Si pas de PID valide mais serveur actif, chercher le PID via le port
+        if not pid and self.is_running():
+            pid = self.find_pid_by_port()
+            if pid:
+                print(f"[INFO] PID trouve via port {self.port}: {pid}")
+                # Nettoyer l'ancien fichier PID désynchronisé
+                self.delete_pid_file()
             else:
-                self.delete_pid_file()  # Nettoyer fichier PID orphelin
-                return True, "[INFO] Serveur ChromaDB n'est pas actif"
+                return False, "[WARN] Serveur actif mais PID introuvable. Verifiez manuellement avec 'netstat -ano | findstr :8000'"
+
+        if not pid:
+            self.delete_pid_file()  # Nettoyer fichier PID orphelin
+            return True, "[INFO] Serveur ChromaDB n'est pas actif"
 
         try:
             # Tenter d'arrêter le processus
             if sys.platform == "win32":
-                # Windows: utiliser taskkill
+                # Windows: utiliser taskkill avec /T pour tuer l'arbre de processus complet
                 subprocess.run(
-                    ["taskkill", "/F", "/PID", str(pid)],
+                    ["taskkill", "/F", "/T", "/PID", str(pid)],
                     capture_output=True
                 )
             else:
