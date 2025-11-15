@@ -193,7 +193,13 @@ def _get_adjacent_chunks(collection, source: str, chunk_index: int, total_chunks
         return []
 
 
-def _perform_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> str:
+def _perform_search_hybrid(
+    query: str,
+    top_k: int = 10,
+    alpha: float = 0.7,
+    where: dict = None,
+    where_document: dict = None
+) -> str:
     """
     HYBRID search implementation
     Pipeline: BM25 + Semantic (RRF) → Cohere v3.5 reranking → Context window expansion
@@ -202,6 +208,8 @@ def _perform_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> s
         query: Search query
         top_k: Number of final results
         alpha: Weight for semantic (0.7 = 70% semantic, 30% BM25)
+        where: Optional metadata filter (e.g., {"source": "doc.md"})
+        where_document: Optional document content filter (e.g., {"$contains": "text"})
     """
     try:
         init_clients()
@@ -213,7 +221,9 @@ def _perform_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> s
             top_k=50,  # Get 50 candidates for reranking
             alpha=alpha,
             bm25_top_n=100,
-            semantic_top_n=100
+            semantic_top_n=100,
+            where=where,
+            where_document=where_document
         )
 
         if not hybrid_results:
@@ -312,6 +322,33 @@ def semantic_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> s
         Formatted search results with hybrid ranking scores and source information.
     """
     return _perform_search_hybrid(query, top_k, alpha)
+
+
+@mcp.tool()
+def search_by_source(query: str, sources: list, top_k: int = 10, alpha: float = 0.7) -> str:
+    """
+    Hybrid search limited to specific documents.
+
+    Args:
+        query: Search query about the indexed knowledge base.
+        sources: List of document filenames to search in (e.g., ["1982_RGSP.md", "2009_RSE_Painter.md"])
+        top_k: Number of results to return (default: 10)
+        alpha: Semantic weight (0.7 = 70% semantic, 30% BM25). Use 0.5 for equal weight.
+
+    Returns:
+        Formatted search results from specified documents only.
+
+    Examples:
+        search_by_source("glacier albedo", sources=["1982_RGSP.md"])
+        search_by_source("ice mass balance", sources=["Warren_1982.md", "Painter_2009.md"], top_k=5)
+    """
+    # Build where filter for source filtering
+    if len(sources) == 1:
+        where = {"source": sources[0]}
+    else:
+        where = {"source": {"$in": sources}}
+
+    return _perform_search_hybrid(query, top_k, alpha, where=where)
 
 
 @mcp.tool()
