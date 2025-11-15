@@ -352,6 +352,183 @@ def list_documents() -> str:
 
 
 @mcp.tool()
+def get_document_content(source: str, format: str = "markdown", max_length: int = None) -> str:
+    """
+    Get complete document content by reconstructing from chunks.
+
+    Args:
+        source: Document source filename (from list_documents)
+        format: Output format - "markdown" (default), "text", or "chunks"
+        max_length: Maximum characters to return (None = unlimited)
+
+    Returns:
+        Complete reconstructed document with metadata
+    """
+    try:
+        init_clients()
+        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+
+        # Fetch all chunks for this document
+        doc_data = _fetch_document_chunks(collection, source)
+
+        if not doc_data['documents']:
+            return f"ERROR: Document '{source}' not found in the database."
+
+        documents = doc_data['documents']
+        metadatas = doc_data['metadatas']
+
+        # Sort chunks by chunk_index
+        combined = list(zip(documents, metadatas))
+        combined.sort(key=lambda x: x[1].get('chunk_index', 0))
+
+        # Extract metadata from first chunk
+        first_meta = combined[0][1]
+        total_chunks = len(combined)
+        doc_hash = first_meta.get('doc_hash', 'N/A')
+        indexed_date = first_meta.get('indexed_date', 'N/A')
+        model = first_meta.get('model', 'N/A')
+        title = first_meta.get('title', source)
+
+        # Build output based on format
+        output = ""
+
+        if format == "chunks":
+            # Show individual chunks with metadata
+            output += f"DOCUMENT: {source}\n"
+            output += "=" * 70 + "\n"
+            output += f"Title: {title}\n"
+            output += f"Total chunks: {total_chunks}\n"
+            output += f"Indexed: {indexed_date}\n"
+            output += f"Model: {model}\n"
+            output += f"Hash: {doc_hash}\n"
+            output += "=" * 70 + "\n\n"
+
+            for chunk_text, chunk_meta in combined:
+                chunk_idx = chunk_meta.get('chunk_index', 0)
+                output += f"[Chunk {chunk_idx}]\n"
+                output += f"{chunk_text}\n"
+                output += "-" * 70 + "\n\n"
+
+        elif format == "text":
+            # Plain text reconstruction
+            full_text = "\n\n".join([chunk for chunk, _ in combined])
+            output = full_text
+
+        else:  # markdown (default)
+            # Markdown with metadata header
+            output += f"# {title}\n\n"
+            output += f"**Source:** {source}  \n"
+            output += f"**Total chunks:** {total_chunks}  \n"
+            output += f"**Indexed:** {indexed_date}  \n"
+            output += f"**Model:** {model}  \n"
+            output += f"**Hash:** {doc_hash}  \n"
+            output += "\n" + "=" * 70 + "\n\n"
+
+            # Reconstruct full text
+            full_text = "\n\n".join([chunk for chunk, _ in combined])
+            output += full_text
+
+        # Apply max_length if specified
+        if max_length and len(output) > max_length:
+            output = output[:max_length] + "\n\n... (truncated)"
+
+        return output
+
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+
+@mcp.tool()
+def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool = True) -> str:
+    """
+    Show a chunk with surrounding chunks for context.
+
+    Args:
+        chunk_id: ID of the target chunk (from search results)
+        context_size: Number of chunks before and after (default: 2)
+        highlight: Highlight the matched chunk (default: True)
+
+    Returns:
+        Target chunk with surrounding context chunks
+    """
+    try:
+        init_clients()
+        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+
+        # Get the target chunk
+        target = collection.get(
+            ids=[chunk_id],
+            include=["documents", "metadatas"]
+        )
+
+        if not target['documents']:
+            return f"ERROR: Chunk '{chunk_id}' not found in the database."
+
+        target_text = target['documents'][0]
+        target_meta = target['metadatas'][0]
+
+        source = target_meta.get('source', target_meta.get('filename', 'unknown'))
+        chunk_index = target_meta.get('chunk_index', 0)
+        total_chunks = target_meta.get('total_chunks')
+
+        # Convert total_chunks to int
+        try:
+            total_chunks = int(total_chunks)
+        except (TypeError, ValueError):
+            # Fallback: fetch all chunks to determine total
+            doc_data = _fetch_document_chunks(collection, source)
+            total_chunks = len(doc_data['metadatas']) if doc_data['metadatas'] else 1
+
+        # Get adjacent chunks using existing helper
+        adjacent_chunks = _get_adjacent_chunks(
+            collection,
+            source,
+            chunk_index,
+            total_chunks,
+            window_size=context_size
+        )
+
+        if not adjacent_chunks:
+            # Fallback to showing just the target chunk
+            output = f"CHUNK CONTEXT: {source}\n"
+            output += "=" * 70 + "\n"
+            output += f"⚠️  No context chunks found. Showing target chunk only.\n\n"
+            output += f"[Chunk {chunk_index}/{total_chunks}]\n"
+            output += f"{target_text}\n"
+            return output
+
+        # Build output with context
+        output = f"CHUNK CONTEXT: {source}\n"
+        output += "=" * 70 + "\n"
+        output += f"Showing chunk {chunk_index}/{total_chunks} "
+        output += f"with ±{context_size} chunks of context\n"
+        output += "=" * 70 + "\n\n"
+
+        for chunk_text, chunk_meta in adjacent_chunks:
+            current_idx = chunk_meta.get('chunk_index', 0)
+            is_target = current_idx == chunk_index
+
+            # Add visual marker
+            if highlight and is_target:
+                output += ">>> [TARGET CHUNK] <<<\n"
+                output += f"[Chunk {current_idx}/{total_chunks}] *** MATCHED RESULT ***\n"
+            else:
+                output += f"[Chunk {current_idx}/{total_chunks}]\n"
+
+            output += f"{chunk_text}\n"
+
+            if highlight and is_target:
+                output += ">>> [END TARGET CHUNK] <<<\n"
+
+            output += "-" * 70 + "\n\n"
+
+        return output
+
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+
+@mcp.tool()
 def get_indexation_status() -> str:
     """
     Get current indexation database statistics.
