@@ -12,12 +12,12 @@ A production-ready Model Context Protocol (MCP) server with hybrid chunking pipe
 
 ## 🚀 Key Features
 
-- **Hybrid Chonkie Pipeline**: Token → Semantic → Overlap for optimal understanding
-- **Voyage AI Embeddings**: Context-3 and Large models for ultra-precise search
+- **Hybrid Search (NEW v1.1.0)**: BM25 (lexical) + Voyage-3-Large (semantic) with Reciprocal Rank Fusion
+- **Voyage AI Embeddings**: voyage-3-large (1536 dims) for ultra-precise semantic search
 - **Cohere Reranking**: v3.5 for intelligent result ranking
 - **MCP Integration**: Native integration with Claude Desktop and compatible applications
 - **Incremental Indexing**: MD5-based change detection for efficient updates
-- **YAML Configuration**: Centralized, declarative configuration system
+- **Production Ready**: 24,884+ chunks indexed with +67% diversity improvement
 
 ## 📋 Table of Contents
 
@@ -153,23 +153,24 @@ What are the remote sensing methods for albedo analysis?
 
 ### Available MCP Tools
 
-- `semantic_search(query)` - Main search with reranking
-- `topic_search(topic)` - Quick topic-based search
+- `semantic_search_hybrid(query, top_k=10, alpha=0.7)` - Hybrid search (BM25 + Semantic) with reranking
 - `list_documents()` - List all indexed documents
 - `get_indexation_status()` - Database statistics
-- `reindex_documents()` - Reindex documents
 
 ### Search Examples
 
 ```python
-# Keyword search
-semantic_search("black carbon impact on glacier albedo")
+# Hybrid search (BM25 + Semantic)
+semantic_search_hybrid("black carbon impact on glacier albedo", top_k=10, alpha=0.7)
 
-# Topic search
-topic_search("remote sensing albedo measurement")
+# Adjust semantic/lexical weight (alpha=0.5 = equal weight)
+semantic_search_hybrid("remote sensing albedo measurement", alpha=0.5)
 
 # Get document list
 list_documents()
+
+# Get database statistics
+get_indexation_status()
 ```
 
 ### Indexing Your Documents
@@ -187,44 +188,43 @@ python scripts/index_incremental.py --force
 
 ## 🏗️ Architecture
 
-### Hybrid Chunking Pipeline
+### Hybrid Search Pipeline (v1.1.0)
 
 ```
-Academic Document
-        ↓
-   TokenChunker
-   (global structure)
-        ↓
- SemanticChunker
- (thematic coherence)
-        ↓
- OverlapRefinery
-   (context preserved)
-        ↓
-  Voyage Embeddings
-   (semantic vectors)
-        ↓
-   ChromaDB HNSW
-   (fast retrieval)
-        ↓
-  Cohere Reranking
-  (optimized results)
+Query
+  ↓
+┌─────────────────────────────┐
+│ BM25 Search (rank-bm25)     │ → Top 100 candidates (lexical)
+│ Voyage-3-Large Semantic     │ → Top 100 candidates (semantic)
+└─────────────────────────────┘
+  ↓
+┌─────────────────────────────┐
+│ Reciprocal Rank Fusion      │ → Top 50 merged results
+└─────────────────────────────┘
+  ↓
+┌─────────────────────────────┐
+│ Cohere v3.5 Reranking       │ → Top 10 final results
+└─────────────────────────────┘
+  ↓
+┌─────────────────────────────┐
+│ Context Window Expansion    │ → Results with adjacent chunks
+└─────────────────────────────┘
 ```
 
 ### Technologies Used
 
-- **Chonkie 1.4.1**: Hybrid chunking pipeline with Model2Vec
-- **Voyage AI**: High-quality contextual embeddings
-- **ChromaDB**: HNSW-optimized vector database
-- **Cohere**: Intelligent result reranking
+- **rank-bm25**: BM25 Okapi for lexical search
+- **Voyage AI**: voyage-3-large embeddings (1536 dimensions)
+- **ChromaDB 1.3.4**: HNSW-optimized vector database
+- **Cohere v3.5**: Intelligent result reranking
 - **FastMCP**: High-performance MCP server
 
 ### Document Database
 
-- **114+ articles** on glaciology and albedo (example dataset)
-- **20,000+ chunks** with semantic segmentation
-- **Rich metadata** (strategy, model, context, indexed_date)
-- **Continuous updates** with new articles
+- **100+ research papers** on glaciology and climate science
+- **24,884+ chunks** with hybrid indexing
+- **Rich metadata** (source, chunk_index, total_chunks, doc_hash, indexed_date)
+- **Continuous updates** with incremental indexing
 
 ## 🔧 Troubleshooting
 
@@ -271,21 +271,22 @@ python scripts/index_incremental.py
 
 ## 📈 Performance
 
-### Benchmarks
+### Benchmarks (v1.1.0)
 
-- **Search**: <500ms for 10 results
-- **Indexing**: ~2min/document (full hybrid pipeline)
-- **Retrieval**: 95%+ relevance with reranking
-- **Scalability**: Supports 10,000+ documents
+- **Search**: 2-3s for hybrid search + reranking (10 results)
+- **Indexing**: ~2min/document with embeddings
+- **Retrieval**: +67% diversity improvement vs semantic-only
+- **Scalability**: 24,884+ chunks indexed and validated
 
-### Hybrid vs Simple Chunking
+### Hybrid Search vs Semantic-Only
 
-| Metric | Simple TokenChunker | Hybrid Pipeline |
-|--------|---------------------|-----------------|
-| Chunks/document | ~20 | ~200 |
-| Semantic coherence | Medium | High |
-| Context preservation | Limited | Optimized |
-| Search relevance | 75% | 95% |
+| Metric | Semantic Only | Hybrid Search (v1.1.0) |
+|--------|---------------|------------------------|
+| Result diversity | Baseline | +67% improvement |
+| Exact term matching | Medium | Excellent |
+| Acronym handling | Variable | Excellent |
+| Number precision | Low | Excellent |
+| Concept understanding | Excellent | Excellent |
 
 ## 🤝 Contributing
 
