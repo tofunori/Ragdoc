@@ -20,14 +20,31 @@ class HybridRetriever:
         results = retriever.search("black carbon albedo", top_k=10)
     """
 
-    def __init__(self, collection: chromadb.Collection, embedding_function=None):
+    def __init__(self, collection: chromadb.Collection, embedding_function=None,
+                 use_advanced_tokenizer: bool = True):
         """
         Args:
             collection: ChromaDB collection
             embedding_function: Function to embed queries (e.g., voyage_client.embed)
+            use_advanced_tokenizer: If True, use advanced tokenization with stemming,
+                                   stopwords removal, and n-grams (default: True)
+                                   If False, use simple tokenization (backward compatible)
         """
         self.collection = collection
         self.embedding_function = embedding_function
+
+        # Initialize tokenizer
+        self.tokenizer = None
+        if use_advanced_tokenizer:
+            try:
+                from bm25_tokenizers import AdvancedTokenizer
+                self.tokenizer = AdvancedTokenizer()
+                print("[OK] Advanced tokenization enabled (stemming + stopwords + scientific terms)")
+            except ImportError as e:
+                print(f"[WARNING] Advanced tokenizer unavailable ({e}), using simple tokenization")
+                self.tokenizer = None
+        else:
+            print("[INFO] Simple tokenization mode (backward compatible)")
 
         # Build BM25 index
         print("Building BM25 index...")
@@ -52,14 +69,29 @@ class HybridRetriever:
 
     def _tokenize(self, text: str) -> List[str]:
         """
-        Simple tokenization (lowercase + split)
+        Tokenize text using advanced or simple tokenizer.
 
-        TODO: Améliorer avec:
+        If advanced tokenizer is enabled:
         - Stemming (SnowballStemmer)
-        - Stopwords removal
-        - N-grams pour termes composés
+        - Stopwords removal (with scientific exceptions)
+        - N-grams for scientific compound terms
+        - Pattern protection (acronyms, formulas, numbers)
+
+        Otherwise:
+        - Simple tokenization (lowercase + split) for backward compatibility
+
+        Args:
+            text: Text to tokenize
+
+        Returns:
+            List of tokens
         """
-        return text.lower().split()
+        if self.tokenizer:
+            # Advanced tokenization
+            return self.tokenizer.tokenize(text)
+        else:
+            # Fallback: simple tokenization
+            return text.lower().split()
 
     def search(
         self,
