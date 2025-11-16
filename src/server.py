@@ -196,7 +196,7 @@ def _get_adjacent_chunks(collection, source: str, chunk_index: int, total_chunks
 def _perform_search_hybrid(
     query: str,
     top_k: int = 10,
-    alpha: float = 0.7,
+    alpha: float = 0.5,
     where: dict = None,
     where_document: dict = None
 ) -> str:
@@ -309,14 +309,14 @@ def _perform_search_hybrid(
 
 
 @mcp.tool()
-def semantic_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> str:
+def semantic_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.5) -> str:
     """
     Hybrid search with BM25 + Voyage-Context-3 + Cohere v3.5 reranking.
 
     Args:
         query: Search query about the indexed knowledge base.
         top_k: Number of results to return (default: 10)
-        alpha: Semantic weight (0.7 = 70% semantic, 30% BM25). Use 0.5 for equal weight.
+        alpha: Semantic weight (0.5 = balanced hybrid). Use 0.3 for BM25-heavy, 0.7 for semantic-heavy.
 
     Returns:
         Formatted search results with hybrid ranking scores and source information.
@@ -325,7 +325,7 @@ def semantic_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.7) -> s
 
 
 @mcp.tool()
-def search_by_source(query: str, sources: list, top_k: int = 10, alpha: float = 0.7) -> str:
+def search_by_source(query: str, sources: list, top_k: int = 10, alpha: float = 0.5) -> str:
     """
     Hybrid search limited to specific documents.
 

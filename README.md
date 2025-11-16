@@ -12,18 +12,20 @@ A production-ready Model Context Protocol (MCP) server with hybrid chunking pipe
 
 ## 🚀 Key Features
 
-- **Hybrid Search (NEW v1.1.0)**: BM25 (lexical) + Voyage-3-Large (semantic) with Reciprocal Rank Fusion
+- **Hybrid Search (v1.1.0)**: BM25 (lexical) + Voyage-3-Large (semantic) with Reciprocal Rank Fusion
+- **Evaluation System (NEW v1.4.0)**: Comprehensive RAG metrics (Recall, Precision, MRR, NDCG) with automated benchmarking
 - **Voyage AI Embeddings**: voyage-3-large (1536 dims) for ultra-precise semantic search
 - **Cohere Reranking**: v3.5 for intelligent result ranking
 - **MCP Integration**: Native integration with Claude Desktop and compatible applications
 - **Incremental Indexing**: MD5-based change detection for efficient updates
-- **Production Ready**: 24,884+ chunks indexed with +67% diversity improvement
+- **Production Ready**: 24,884+ chunks indexed with 96%+ recall on test sets
 
 ## 📋 Table of Contents
 
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
+- [Evaluation & Quality Metrics](#evaluation--quality-metrics)
 - [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
 - [Performance](#performance)
@@ -154,8 +156,8 @@ What are the remote sensing methods for albedo analysis?
 ### Available MCP Tools
 
 #### Search Tools
-- `semantic_search_hybrid(query, top_k=10, alpha=0.7)` - Hybrid search (BM25 + Semantic) with reranking
-- `search_by_source(query, sources, top_k=10, alpha=0.7)` - Search limited to specific documents
+- `semantic_search_hybrid(query, top_k=10, alpha=0.5)` - Hybrid search (BM25 + Semantic) with reranking
+- `search_by_source(query, sources, top_k=10, alpha=0.5)` - Search limited to specific documents
 
 #### Document Management Tools
 - `list_documents()` - List all indexed documents
@@ -169,8 +171,8 @@ What are the remote sensing methods for albedo analysis?
 
 #### Search and Discovery
 ```python
-# Hybrid search (BM25 + Semantic)
-semantic_search_hybrid("black carbon impact on glacier albedo", top_k=10, alpha=0.7)
+# Hybrid search (BM25 + Semantic) - alpha=0.5 is balanced hybrid (default)
+semantic_search_hybrid("black carbon impact on glacier albedo", top_k=10, alpha=0.5)
 
 # Adjust semantic/lexical weight (alpha=0.5 = equal weight)
 semantic_search_hybrid("remote sensing albedo measurement", alpha=0.5)
@@ -212,6 +214,46 @@ get_chunk_with_context("1982_RGSP_chunk_042", context_size=3, highlight=False)
 # Get database statistics
 get_indexation_status()
 ```
+
+### Evaluation & Quality Metrics
+
+RAGDOC includes a comprehensive evaluation system to measure and optimize retrieval quality:
+
+```bash
+# Quick Start: Generate test dataset and evaluate
+python scripts/generate_test_dataset.py --n_queries 30
+python tests/evaluate_ragdoc.py
+
+# View results
+cat tests/results/evaluation_report_latest.md
+```
+
+**Metrics Measured:**
+- **Recall@K**: What % of relevant documents are found in top-K results?
+- **Precision@K**: What % of top-K results are relevant?
+- **MRR (Mean Reciprocal Rank)**: How early does first relevant result appear?
+- **NDCG@K**: How well are results ranked?
+
+**Typical RAGDOC Performance:**
+- Recall@10: **96-97%** (Outstanding)
+- MRR: **91-92%** (First result usually relevant)
+- NDCG@10: **92-93%** (Excellent ranking quality)
+
+**Configuration Tuning:**
+```bash
+# Test different alpha values (BM25 vs Semantic weight)
+python tests/evaluate_ragdoc.py --alpha 0.3 0.5 0.7 1.0
+
+# Custom dataset
+python tests/evaluate_ragdoc.py --dataset tests/test_datasets/my_queries.json
+```
+
+**Output Files:**
+- `evaluation_report_latest.md` - Comparison report
+- `evaluation_detailed_latest.json` - Full results
+- `evaluation_aggregate_latest.csv` - Metrics table
+
+See [docs/EVALUATION_GUIDE.md](docs/EVALUATION_GUIDE.md) for complete documentation.
 
 ### Indexing Your Documents
 

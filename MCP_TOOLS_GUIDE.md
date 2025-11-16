@@ -22,17 +22,18 @@ Complete guide to all available MCP tools in RAGDOC for scientific literature re
 semantic_search_hybrid(
     query: str,
     top_k: int = 10,
-    alpha: float = 0.7
+    alpha: float = 0.5
 ) -> str
 ```
 
 #### Parameters
 - `query` (str, required): Search query about your indexed knowledge base
 - `top_k` (int, default=10): Number of results to return (1-50 recommended)
-- `alpha` (float, default=0.7): Semantic weight
+- `alpha` (float, default=0.5): Semantic weight
   - `1.0` = 100% semantic (embeddings only)
-  - `0.7` = 70% semantic, 30% BM25 (recommended)
-  - `0.5` = 50% semantic, 50% BM25 (balanced)
+  - `0.7` = 70% semantic, 30% BM25
+  - `0.5` = 50% semantic, 50% BM25 (recommended - balanced hybrid)
+  - `0.3` = 30% semantic, 70% BM25 (BM25-heavy)
   - `0.0` = 100% BM25 (lexical only)
 
 #### Returns
@@ -87,7 +88,7 @@ search_by_source(
     query: str,
     sources: list,
     top_k: int = 10,
-    alpha: float = 0.7
+    alpha: float = 0.5
 ) -> str
 ```
 
@@ -97,7 +98,7 @@ search_by_source(
   - Single document: `["1982_RGSP.md"]`
   - Multiple documents: `["Warren_1982.md", "Painter_2009.md"]`
 - `top_k` (int, default=10): Number of results to return
-- `alpha` (float, default=0.7): Semantic weight (same as semantic_search_hybrid)
+- `alpha` (float, default=0.5): Semantic weight (same as semantic_search_hybrid - balanced hybrid)
 
 #### Returns
 Formatted search results with same structure as semantic_search_hybrid, but limited to specified documents only.

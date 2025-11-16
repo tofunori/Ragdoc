@@ -1,0 +1,1826 @@
+[
+  {
+    "aggregate": {
+      "recall": {
+        "5": 0.9666666666666667,
+        "10": 0.9666666666666667,
+        "20": 1.0
+      },
+      "precision": {
+        "5": 0.19333333333333338,
+        "10": 0.09666666666666669,
+        "20": 0.05000000000000002
+      },
+      "f1": {
+        "5": 0.3222222222222223,
+        "10": 0.17575757575757572,
+        "20": 0.09523809523809526
+      },
+      "ndcg": {
+        "5": 0.9297596420238124,
+        "10": 0.9297596420238124,
+        "20": 0.9382915761841396
+      },
+      "mrr": 0.919047619047619
+    },
+    "per_query": [
+      {
+        "query_id": "q001",
+        "query": "- Matson, M., and D. R. Wiesnet, New data base for climate studies, Nature, 289, 451-456, 1981.\n- Maykut, G. A., and P. E. Church, Radiation climate of Barrow, Alaska, 1962-66, J. Appl. Meteorol. 12, 620-628, 1973.\n- Meador, W. E., and W. R. Weaver, Two-stream approximations to radiative transfer in planetary atmospheres: A unified description of existing methods and a new improvement, J. Atmos. Sci., 37, 630-64",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q002",
+        "query": "</tr>\n<tr>\n  <td>`A`</td>\n<td>albedo of surface beneath snow</td>\n</tr>\n</tbody>\n</table>\n\nThe last two variables are only used if the snow is so thin that the underlying surface \"shows through.\" `L` is obtained as the product `ρd`, where `ρ` is the snow density (g cm<sup>-3</sup>) and `d` the snow thickness (cm). The ice volume absorption coefficient is\n\n$$\\beta_{abs} = 4 \\pi \\lambda^{-1} m_{im}(\\lambda)$$\n\nand assumes the same units as `λ^{-1}`. This relation has been used to deduce `m_im` fro",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q003",
+        "query": "Otherwise, there is a tendency for research to “proceed in gradualist way until, out of exhaustion (of funds, human energy, or computer resources), the model is declared satisfactory” (Steyn and Galmarini 2008). For this reason, we set as our first task the establishment of suitable evaluation criteria, through an exploration of how forecasters and other professionals use WFAQM guidance during the wildﬁre season.\n\nEven after a decision has been made regarding evaluation criteria, it is insuffici",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q004",
+        "query": "\n**Key findings:**\n\n**V1N1:** Profiles do not agree with exact model; discontinuous changes with depth\n\n**V1N5:** Good agreement for re = 1000 μm; some overestimation for smaller grains\n\n**V5N5:** Good agreement for all grain sizes\n\n**Conclusion:** At least V3N3 needed for accurate solar heating profiles.\n\n### 6.2 Solar Heating at Sapporo\n\nUsing measured snow pit and radiation data, PBSAM calculated solar radiation absorption:\n\n**Accumulation season:**\n",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q005",
+        "query": "\nvalues generally fell above the 1 : 1 line in both the corrected and uncorrected datasets (Fig. 13). Because lakes are flat, the corrections do not substantially alter the lake albedo values. Glacier measurements actually cluster around the 1 : 1 line in the uncorrected data, suggesting that the uncorrected glacier data does reasonably well in representing true albedo. The corrected glacier data pulls many measurements much higher, and many more glacier values are far above the 1 : 1 line, leve",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 0.6309297535714575,
+            "10": 0.6309297535714575,
+            "20": 0.6309297535714575
+          },
+          "mrr": 0.5
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q006",
+        "query": "5a, b). Lake Fryxell has significantly higher albedo than lakes Hoare and Bonney. On the second flight of the 2015–2016 season with no measured snowfall between flights, we observe that albedo of all lakes increased and that there is no difference between the lakes (Fig. 5d). Albedo of the glaciers did not change significantly.\n\nOn 22 and 23 November 2016, a very large, valley-wide snow event occurred. The greatest accumulation was observed at the Lake Fryxell meteorological station. ",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q007",
+        "query": "In some cases, however, these polygons contain substantial errors that stem from interpretation errors, presence of debris cover, and seasonal snow. Debris-covered ice, for example, was often incorrectly mapped on large glacier tongues. These mapping errors were identified based on the unrealistic shape of mapped glacier termini and through comparison with satellite imagery. Additional information was provided by the hillshaded TRIM-DEM (sun elevation angle: 45°, azimuth: 315°). We also utilized",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q008",
+        "query": "|               | Battye et al. \\[2002]                           | 430           | −                | High             | 1999 |\n|               | SPEW                                            | 350           | 500              | Med              | 2000 |\n|               | GAINS                                           | 260           | 370              | Med              | 2000 |\n\naSubsets of global inventories are given under each country for comparison. All emission rate values are rounded",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q009",
+        "query": "\nCurrent emission estimates agree on the major sources and emitting regions, but significant uncertainties remain. Information gaps include the amounts of biofuel or biomass combusted and the type of technology or burning, especially in developing countries. Emission estimates from open biomass burning lack data on fuel consumed, and black-carbon emission factors from this source may be too low.\n\nBlack carbon undergoes regional and intercontinental transport during its short atmospheric lifetime",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q010",
+        "query": "\n*Converted to Markdown: October 23, 2025*\n\n*Original Document:* Bond, T. C., et al. (2013) - Journal of Geophysical Research: Atmospheres, Vol. 118, 5380–5552\n\n*Chapters Included:* 3 (Measurements and Microphysical Properties) and 4 (Emission Magnitudes",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q011",
+        "query": "3. Aircraft measurements of BC vertical profiles show insufficient BC at altitude in some regions.\n\n### 6.10. Summary of Uncertainties in BC DRF\n\n**The discussion shows** that several factors affecting BC radiative forcing are not well constrained. First, the most quantitative and widespread data set for determining atmosph",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q012",
+        "query": "The main patterns of $\\alpha$ variation which emerge are:\n\n### 4.1 Spatial Variability and Temporal Evolution\n\n**Low spatial $\\alpha$ variability at the start of the ablation season** (Fig. 2a) evolved to strong variability, particularly during late May, June and early July 1993 and early September 1993 (Fig. 2f). The associated increase in $\\alpha$ range (Fig. 3a–f) resulted from the transition from a complete glacier-wide snow cover to a mixture of surface types, including snow at dif",
+        "metrics": {
+          "recall": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.2559580248098155
+          },
+          "mrr": 0.07142857142857142
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q013",
+        "query": "(2019). Biomass burning aerosol over the Amazon: Analysis of aircraft, surface and satellite observations using a global aerosol model. Atmospheric Chemistry and Physics, 19(14), 9125–9152. https://doi.org/10.5194/acp-19-9125-2019\n\nRoth, G. A., Abate, D., Abate, K. H., Abay, S. M., Abbafati, C., Abbasi, N., et al. (2018). Global, regional, and national age-sex-specific mortality for 282 causes of death in 19",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q014",
+        "query": "| 2          | HGdA central 2001, 25 Jul.–2 Aug.  | 0.955                         | 0.956                             | 0.788                         |\n| 2          | HGdA central 2001, 10–15 Aug.      | 0.931                         | 0.932                             | 0.480                         |\n",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q015",
+        "query": "In most cases refreezing of melt water is the dominant process. In spring, when the energy budget of the snow surface becomes positive and melt water forms, the temperature of the snowpack is normally well below freezing point. As a consequence, melt water penetrating into the snow refreezes and a large amount of heat is released. This process occurs everywhere below the dry snow line.  \n\nFurther down the glacier more energy becomes available for melting and the snow is not as cold as higher up.",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q016",
+        "query": "Model performance statistics are slightly better for Canada than for the US, with lower errors and biases. The new system is still unable to capture the hourly variability of the observed values for PM2.5, but it captured the observed hourly variability for O3 concentration adequately. FireWork–CFFEPS also improves upon FireWork-Ops categorical scores for forecasting the occurrence of elevated air pollutant concentrations in terms of false alarm ratio (FAR) and critical success index (CSI).\n\nPub",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q017",
+        "query": "\n# Author for correspondence:\n\nCaroline Clason, E-mail: caroline.clason@durham.ac.uk\n\n# Abstract\n\nMountain glaciers are crucial sources of fresh water, contributing directly and indirectly to water, energy and food supplies for hundreds of millions of people. Asses",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q018",
+        "query": "\n---\n\n## 2.3 Zones in a Glacier\n\nAhlmann (1935) proposed a \"geophysical\" classification of glaciers according to ice temperature and amount of surface melting. His categories were temperate, sub-polar, and high-polar. (A temperate glacier is at melting point throughout. On a high-polar glacier, the surface never melts.) More recent author",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q019",
+        "query": "This equation is known as the **Orowan relation**. Both ρd and vd can vary with stress according to power laws; defining r and q as constants, ρd ∝ τʳ and vd ∝ τᵍ, implying that ε̇c ∝ τʳ⁺ᵍ.\n\nIn theory, the velocity vd of an isolated dislocation depends linearly on τ, so q = 1 is often assumed., arising from dislocation glide depends on the product of dislocation density ρd (length of linear defect per volume) and dislocation velocity vd:\n\n$$\\dot{\\epsilon}_c = b^* \\rho_d",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q020",
+        "query": "\n$$E_z^{\\downarrow} = E_S^{\\downarrow} \\cdot \\exp(-\\chi(z))$$\n\nThe depth of penetration depends on the extinction coefficient, χ, and the path length, a measure of how much ice the radiation travels through. Extinction includes both scattering and absorption, and increases in proportion to both depth and density and varies with incidence angle.\n\nAbsorption within ice depends strongly o",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q021",
+        "query": "For SMB reconstruction purpose, a future line of research could rest upon linking morpho-topographic features of the glacier such has glacier surface area, mean altitude or slope to the regression coefficients of both annual and seasonal SMB vs.\n\n31\n\n\n\n---\n\n\nThe Cryosphere Discuss., doi:10.5194/tc-2017-49, 2017\nManuscript under review for journal The Cryosphere\n\nDiscussion started: 18 April 2017\n\n© Author(s) 2017. CC-BY 3.0 License.\n\n628 albedo relationships, giving the opportunity to establish ",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 0.6309297535714575,
+            "10": 0.6309297535714575,
+            "20": 0.6309297535714575
+          },
+          "mrr": 0.5
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q022",
+        "query": "\nReceived: 28 March 2017 – Discussion started: 18 April 2017\n\nRevised: 3 November 2017 – Accepted: 24 November 2017 – Published: 23 January 2018\n\n# Abstract\n\nLess than 0.25 % of the 250 000 glaciers inventoried in the Randolph Glacier Inventory (RGI V.5) are currently monitored with in situ measurements of surface mass bala",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q023",
+        "query": "\n574 As illustrated by Fig. 10, a way to confidently consider the albedo signal is to exclude values\n\n575 with too large share of corrected pixels. However, because of the inter-annual approach carried\n\n576 out in this study, such systematic artifact is not depreciating the results but would be a major\n\n577 issue on studies fo",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q024",
+        "query": "\nin this study due to the absence of continuous snow pit or SWE mea\n\nsurements and the high uncertainty involved with the calculation pro\n\ncess (Dewalle and Rango, 2008; Helgason and Pomeroy, 2012a;\n\nJennings\n\net\n\nal.,\n\n2018a).\n",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q025",
+        "query": "(1981). Tellus 33, 68-77.\n\nParton, W. S., Laurenroth, W. K., and Smith, F. M. (1981). Agric. Meteorol. 24, 97-109.\n\nPatterson, E. M. (1981). JGR, J. Geophys. Res. 86, 3236-3246.\n\nPetzold, D. E. (1981). Arct. Alp. Res. 13, 287-293.\n",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q026",
+        "query": "23, 5227–5241. https://doi.org/10.5194/hess-23-5227-2019.\n\nHersbach, H., Bell, B., Berrisford, P., Hirahara, S., Horányi, A., Muñoz-Sabater, J., Nicolas, J., Peubey, C., Radu, R., Schepers, D., Simmons, A., Soci, C., Abdalla,0034-4257(02)00095-0.\n\nHall, D.K., Riggs, G.A., DiGirolamo, N.E., Román, M.O., 2019. Evaluation of MODIS and VIIRS cloud-gap-filled snow-cover products for production of an Earth s",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q027",
+        "query": "Vincent for providing the topographic data of the glacier and N. Cullen for his kind review of the manuscript.\n\n# Edited by\n\nA. Klein\n\n# References\n\n- Aoki, T., Motoyoshi, H., Kodama, Y., Yasunari, T., and Sugiura, K.: Variations of snow physical parameters and their effects on albedo in Sa",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q028",
+        "query": "\nTo investigate the effect of change of the macroscale roughness and/or surface elevation, the DEM was modified and the difference in terms of retrieved albedo was computed. The results of this comparison are indicated in Table 3. For both scenarios, the difference in terms of retrieved albedo is smaller than the uncertainties introduced by the method. The differences are larger in June, when the albedo is larger (snow is present instead of ice), than in August. It appears that the retrieved alb",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 0.6309297535714575,
+            "10": 0.6309297535714575,
+            "20": 0.6309297535714575
+          },
+          "mrr": 0.5
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q029",
+        "query": "\nThe Icelandic volcanic eruptions of Eyjafjallajökull in April 2010 and Grimsvötn in May 2011 are potentially important sources of impurities in the most recent years (Supplementary Fig. 7). However, as the spring albedo anomaly started before 2010, other sources of impurities must be invoked. In the ablation area, the recent outcropping of old ice layers containing high amounts of dust partially explains the anomaly in the ablation area, but this does not apply to the a",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q030",
+        "query": "227–246, DOI: 10.1007/978-981-15-1902-4_12.\n24. L. G. Benning, A. M. Anesio, S. Lutz and M. Tranter, Biological impact on Greenland's albedo, Nat. Geosci., 2014, 7, 691.\n25. N. Takeuchi, S. Kohshima and K. Seko, Structure, Formation, and Darkening Process of Albedo-reducing Material (Cryoconite) on a Himalayan Glacier: A Granular Algal Mat Growing on the Glacier, Arct. Antarct. Alp. Res., 2001, 33(2), 115–122.\n26. A. Hodson, K. Cameron, C. Bøggild, T. Irvine-Fynn, H. Langford, D. Pearce, et al.,",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      }
+    ],
+    "metadata": {
+      "num_queries": 30,
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "use_graded_relevance": false,
+      "evaluation_date": "2025-11-15T19:42:42.578163"
+    },
+    "config": {
+      "alpha": 0.5,
+      "search_mode": "hybrid",
+      "evaluation_time": 24.398298263549805
+    }
+  },
+  {
+    "aggregate": {
+      "recall": {
+        "5": 0.9666666666666667,
+        "10": 0.9666666666666667,
+        "20": 0.9666666666666667
+      },
+      "precision": {
+        "5": 0.19333333333333338,
+        "10": 0.09666666666666669,
+        "20": 0.048333333333333346
+      },
+      "f1": {
+        "5": 0.3222222222222223,
+        "10": 0.17575757575757572,
+        "20": 0.09206349206349208
+      },
+      "ndcg": {
+        "5": 0.9297596420238124,
+        "10": 0.9297596420238124,
+        "20": 0.9297596420238124
+      },
+      "mrr": 0.9166666666666666
+    },
+    "per_query": [
+      {
+        "query_id": "q001",
+        "query": "- Matson, M., and D. R. Wiesnet, New data base for climate studies, Nature, 289, 451-456, 1981.\n- Maykut, G. A., and P. E. Church, Radiation climate of Barrow, Alaska, 1962-66, J. Appl. Meteorol. 12, 620-628, 1973.\n- Meador, W. E., and W. R. Weaver, Two-stream approximations to radiative transfer in planetary atmospheres: A unified description of existing methods and a new improvement, J. Atmos. Sci., 37, 630-64",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q002",
+        "query": "</tr>\n<tr>\n  <td>`A`</td>\n<td>albedo of surface beneath snow</td>\n</tr>\n</tbody>\n</table>\n\nThe last two variables are only used if the snow is so thin that the underlying surface \"shows through.\" `L` is obtained as the product `ρd`, where `ρ` is the snow density (g cm<sup>-3</sup>) and `d` the snow thickness (cm). The ice volume absorption coefficient is\n\n$$\\beta_{abs} = 4 \\pi \\lambda^{-1} m_{im}(\\lambda)$$\n\nand assumes the same units as `λ^{-1}`. This relation has been used to deduce `m_im` fro",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q003",
+        "query": "Otherwise, there is a tendency for research to “proceed in gradualist way until, out of exhaustion (of funds, human energy, or computer resources), the model is declared satisfactory” (Steyn and Galmarini 2008). For this reason, we set as our first task the establishment of suitable evaluation criteria, through an exploration of how forecasters and other professionals use WFAQM guidance during the wildﬁre season.\n\nEven after a decision has been made regarding evaluation criteria, it is insuffici",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q004",
+        "query": "\n**Key findings:**\n\n**V1N1:** Profiles do not agree with exact model; discontinuous changes with depth\n\n**V1N5:** Good agreement for re = 1000 μm; some overestimation for smaller grains\n\n**V5N5:** Good agreement for all grain sizes\n\n**Conclusion:** At least V3N3 needed for accurate solar heating profiles.\n\n### 6.2 Solar Heating at Sapporo\n\nUsing measured snow pit and radiation data, PBSAM calculated solar radiation absorption:\n\n**Accumulation season:**\n",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q005",
+        "query": "\nvalues generally fell above the 1 : 1 line in both the corrected and uncorrected datasets (Fig. 13). Because lakes are flat, the corrections do not substantially alter the lake albedo values. Glacier measurements actually cluster around the 1 : 1 line in the uncorrected data, suggesting that the uncorrected glacier data does reasonably well in representing true albedo. The corrected glacier data pulls many measurements much higher, and many more glacier values are far above the 1 : 1 line, leve",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q006",
+        "query": "5a, b). Lake Fryxell has significantly higher albedo than lakes Hoare and Bonney. On the second flight of the 2015–2016 season with no measured snowfall between flights, we observe that albedo of all lakes increased and that there is no difference between the lakes (Fig. 5d). Albedo of the glaciers did not change significantly.\n\nOn 22 and 23 November 2016, a very large, valley-wide snow event occurred. The greatest accumulation was observed at the Lake Fryxell meteorological station. ",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 0.6309297535714575,
+            "10": 0.6309297535714575,
+            "20": 0.6309297535714575
+          },
+          "mrr": 0.5
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q007",
+        "query": "In some cases, however, these polygons contain substantial errors that stem from interpretation errors, presence of debris cover, and seasonal snow. Debris-covered ice, for example, was often incorrectly mapped on large glacier tongues. These mapping errors were identified based on the unrealistic shape of mapped glacier termini and through comparison with satellite imagery. Additional information was provided by the hillshaded TRIM-DEM (sun elevation angle: 45°, azimuth: 315°). We also utilized",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q008",
+        "query": "|               | Battye et al. \\[2002]                           | 430           | −                | High             | 1999 |\n|               | SPEW                                            | 350           | 500              | Med              | 2000 |\n|               | GAINS                                           | 260           | 370              | Med              | 2000 |\n\naSubsets of global inventories are given under each country for comparison. All emission rate values are rounded",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q009",
+        "query": "\nCurrent emission estimates agree on the major sources and emitting regions, but significant uncertainties remain. Information gaps include the amounts of biofuel or biomass combusted and the type of technology or burning, especially in developing countries. Emission estimates from open biomass burning lack data on fuel consumed, and black-carbon emission factors from this source may be too low.\n\nBlack carbon undergoes regional and intercontinental transport during its short atmospheric lifetime",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q010",
+        "query": "\n*Converted to Markdown: October 23, 2025*\n\n*Original Document:* Bond, T. C., et al. (2013) - Journal of Geophysical Research: Atmospheres, Vol. 118, 5380–5552\n\n*Chapters Included:* 3 (Measurements and Microphysical Properties) and 4 (Emission Magnitudes",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q011",
+        "query": "3. Aircraft measurements of BC vertical profiles show insufficient BC at altitude in some regions.\n\n### 6.10. Summary of Uncertainties in BC DRF\n\n**The discussion shows** that several factors affecting BC radiative forcing are not well constrained. First, the most quantitative and widespread data set for determining atmosph",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q012",
+        "query": "The main patterns of $\\alpha$ variation which emerge are:\n\n### 4.1 Spatial Variability and Temporal Evolution\n\n**Low spatial $\\alpha$ variability at the start of the ablation season** (Fig. 2a) evolved to strong variability, particularly during late May, June and early July 1993 and early September 1993 (Fig. 2f). The associated increase in $\\alpha$ range (Fig. 3a–f) resulted from the transition from a complete glacier-wide snow cover to a mixture of surface types, including snow at dif",
+        "metrics": {
+          "recall": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.0
+          },
+          "precision": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.0
+          },
+          "f1": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.0
+          },
+          "ndcg": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.0
+          },
+          "mrr": 0.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q013",
+        "query": "(2019). Biomass burning aerosol over the Amazon: Analysis of aircraft, surface and satellite observations using a global aerosol model. Atmospheric Chemistry and Physics, 19(14), 9125–9152. https://doi.org/10.5194/acp-19-9125-2019\n\nRoth, G. A., Abate, D., Abate, K. H., Abay, S. M., Abbafati, C., Abbasi, N., et al. (2018). Global, regional, and national age-sex-specific mortality for 282 causes of death in 19",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q014",
+        "query": "| 2          | HGdA central 2001, 25 Jul.–2 Aug.  | 0.955                         | 0.956                             | 0.788                         |\n| 2          | HGdA central 2001, 10–15 Aug.      | 0.931                         | 0.932                             | 0.480                         |\n",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q015",
+        "query": "In most cases refreezing of melt water is the dominant process. In spring, when the energy budget of the snow surface becomes positive and melt water forms, the temperature of the snowpack is normally well below freezing point. As a consequence, melt water penetrating into the snow refreezes and a large amount of heat is released. This process occurs everywhere below the dry snow line.  \n\nFurther down the glacier more energy becomes available for melting and the snow is not as cold as higher up.",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q016",
+        "query": "Model performance statistics are slightly better for Canada than for the US, with lower errors and biases. The new system is still unable to capture the hourly variability of the observed values for PM2.5, but it captured the observed hourly variability for O3 concentration adequately. FireWork–CFFEPS also improves upon FireWork-Ops categorical scores for forecasting the occurrence of elevated air pollutant concentrations in terms of false alarm ratio (FAR) and critical success index (CSI).\n\nPub",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q017",
+        "query": "\n# Author for correspondence:\n\nCaroline Clason, E-mail: caroline.clason@durham.ac.uk\n\n# Abstract\n\nMountain glaciers are crucial sources of fresh water, contributing directly and indirectly to water, energy and food supplies for hundreds of millions of people. Asses",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q018",
+        "query": "\n---\n\n## 2.3 Zones in a Glacier\n\nAhlmann (1935) proposed a \"geophysical\" classification of glaciers according to ice temperature and amount of surface melting. His categories were temperate, sub-polar, and high-polar. (A temperate glacier is at melting point throughout. On a high-polar glacier, the surface never melts.) More recent author",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q019",
+        "query": "This equation is known as the **Orowan relation**. Both ρd and vd can vary with stress according to power laws; defining r and q as constants, ρd ∝ τʳ and vd ∝ τᵍ, implying that ε̇c ∝ τʳ⁺ᵍ.\n\nIn theory, the velocity vd of an isolated dislocation depends linearly on τ, so q = 1 is often assumed., arising from dislocation glide depends on the product of dislocation density ρd (length of linear defect per volume) and dislocation velocity vd:\n\n$$\\dot{\\epsilon}_c = b^* \\rho_d",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q020",
+        "query": "\n$$E_z^{\\downarrow} = E_S^{\\downarrow} \\cdot \\exp(-\\chi(z))$$\n\nThe depth of penetration depends on the extinction coefficient, χ, and the path length, a measure of how much ice the radiation travels through. Extinction includes both scattering and absorption, and increases in proportion to both depth and density and varies with incidence angle.\n\nAbsorption within ice depends strongly o",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q021",
+        "query": "For SMB reconstruction purpose, a future line of research could rest upon linking morpho-topographic features of the glacier such has glacier surface area, mean altitude or slope to the regression coefficients of both annual and seasonal SMB vs.\n\n31\n\n\n\n---\n\n\nThe Cryosphere Discuss., doi:10.5194/tc-2017-49, 2017\nManuscript under review for journal The Cryosphere\n\nDiscussion started: 18 April 2017\n\n© Author(s) 2017. CC-BY 3.0 License.\n\n628 albedo relationships, giving the opportunity to establish ",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q022",
+        "query": "\nReceived: 28 March 2017 – Discussion started: 18 April 2017\n\nRevised: 3 November 2017 – Accepted: 24 November 2017 – Published: 23 January 2018\n\n# Abstract\n\nLess than 0.25 % of the 250 000 glaciers inventoried in the Randolph Glacier Inventory (RGI V.5) are currently monitored with in situ measurements of surface mass bala",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q023",
+        "query": "\n574 As illustrated by Fig. 10, a way to confidently consider the albedo signal is to exclude values\n\n575 with too large share of corrected pixels. However, because of the inter-annual approach carried\n\n576 out in this study, such systematic artifact is not depreciating the results but would be a major\n\n577 issue on studies fo",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 0.6309297535714575,
+            "10": 0.6309297535714575,
+            "20": 0.6309297535714575
+          },
+          "mrr": 0.5
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q024",
+        "query": "\nin this study due to the absence of continuous snow pit or SWE mea\n\nsurements and the high uncertainty involved with the calculation pro\n\ncess (Dewalle and Rango, 2008; Helgason and Pomeroy, 2012a;\n\nJennings\n\net\n\nal.,\n\n2018a).\n",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q025",
+        "query": "(1981). Tellus 33, 68-77.\n\nParton, W. S., Laurenroth, W. K., and Smith, F. M. (1981). Agric. Meteorol. 24, 97-109.\n\nPatterson, E. M. (1981). JGR, J. Geophys. Res. 86, 3236-3246.\n\nPetzold, D. E. (1981). Arct. Alp. Res. 13, 287-293.\n",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q026",
+        "query": "23, 5227–5241. https://doi.org/10.5194/hess-23-5227-2019.\n\nHersbach, H., Bell, B., Berrisford, P., Hirahara, S., Horányi, A., Muñoz-Sabater, J., Nicolas, J., Peubey, C., Radu, R., Schepers, D., Simmons, A., Soci, C., Abdalla,0034-4257(02)00095-0.\n\nHall, D.K., Riggs, G.A., DiGirolamo, N.E., Román, M.O., 2019. Evaluation of MODIS and VIIRS cloud-gap-filled snow-cover products for production of an Earth s",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q027",
+        "query": "Vincent for providing the topographic data of the glacier and N. Cullen for his kind review of the manuscript.\n\n# Edited by\n\nA. Klein\n\n# References\n\n- Aoki, T., Motoyoshi, H., Kodama, Y., Yasunari, T., and Sugiura, K.: Variations of snow physical parameters and their effects on albedo in Sa",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q028",
+        "query": "\nTo investigate the effect of change of the macroscale roughness and/or surface elevation, the DEM was modified and the difference in terms of retrieved albedo was computed. The results of this comparison are indicated in Table 3. For both scenarios, the difference in terms of retrieved albedo is smaller than the uncertainties introduced by the method. The differences are larger in June, when the albedo is larger (snow is present instead of ice), than in August. It appears that the retrieved alb",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 0.6309297535714575,
+            "10": 0.6309297535714575,
+            "20": 0.6309297535714575
+          },
+          "mrr": 0.5
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q029",
+        "query": "\nThe Icelandic volcanic eruptions of Eyjafjallajökull in April 2010 and Grimsvötn in May 2011 are potentially important sources of impurities in the most recent years (Supplementary Fig. 7). However, as the spring albedo anomaly started before 2010, other sources of impurities must be invoked. In the ablation area, the recent outcropping of old ice layers containing high amounts of dust partially explains the anomaly in the ablation area, but this does not apply to the a",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      },
+      {
+        "query_id": "q030",
+        "query": "227–246, DOI: 10.1007/978-981-15-1902-4_12.\n24. L. G. Benning, A. M. Anesio, S. Lutz and M. Tranter, Biological impact on Greenland's albedo, Nat. Geosci., 2014, 7, 691.\n25. N. Takeuchi, S. Kohshima and K. Seko, Structure, Formation, and Darkening Process of Albedo-reducing Material (Cryoconite) on a Himalayan Glacier: A Granular Algal Mat Growing on the Glacier, Arct. Antarct. Alp. Res., 2001, 33(2), 115–122.\n26. A. Hodson, K. Cameron, C. Bøggild, T. Irvine-Fynn, H. Langford, D. Pearce, et al.,",
+        "metrics": {
+          "recall": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "precision": {
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.05
+          },
+          "f1": {
+            "5": 0.33333333333333337,
+            "10": 0.18181818181818182,
+            "20": 0.09523809523809523
+          },
+          "ndcg": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "mrr": 1.0
+        },
+        "num_retrieved": 50,
+        "num_relevant": 1
+      }
+    ],
+    "metadata": {
+      "num_queries": 30,
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "use_graded_relevance": false,
+      "evaluation_date": "2025-11-15T19:43:08.263434"
+    },
+    "config": {
+      "alpha": 0.7,
+      "search_mode": "hybrid",
+      "evaluation_time": 25.6852707862854
+    }
+  }
+]
