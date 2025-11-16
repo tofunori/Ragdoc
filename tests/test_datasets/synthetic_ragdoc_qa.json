@@ -1,0 +1,641 @@
+{
+  "name": "RAGDOC Synthetic Evaluation Dataset",
+  "version": "1.0",
+  "description": "Self-retrieval test set for RAGDOC evaluation",
+  "created": "2025-11-15T19:39:07.366968",
+  "num_queries": 30,
+  "strategy": "self_retrieval",
+  "diversity_mode": "balanced",
+  "queries": [
+    {
+      "id": "q001",
+      "query": "- Matson, M., and D. R. Wiesnet, New data base for climate studies, Nature, 289, 451-456, 1981.\n- Maykut, G. A., and P. E. Church, Radiation climate of Barrow, Alaska, 1962-66, J. Appl. Meteorol. 12, 620-628, 1973.\n- Meador, W. E., and W. R. Weaver, Two-stream approximations to radiative transfer in planetary atmospheres: A unified description of existing methods and a new improvement, J. Atmos. Sci., 37, 630-64",
+      "relevant_chunks": [
+        "1982_RGSP_chunk_231"
+      ],
+      "relevant_docs": [
+        "1982_RGSP.md"
+      ],
+      "relevance_scores": {
+        "1982_RGSP_chunk_231": 3
+      },
+      "category": "climate",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "1982_RGSP.md",
+        "chunk_index": 231,
+        "total_chunks": 258,
+        "chunk_length": 415
+      }
+    },
+    {
+      "id": "q002",
+      "query": "</tr>\n<tr>\n  <td>`A`</td>\n<td>albedo of surface beneath snow</td>\n</tr>\n</tbody>\n</table>\n\nThe last two variables are only used if the snow is so thin that the underlying surface \"shows through.\" `L` is obtained as the product `ρd`, where `ρ` is the snow density (g cm<sup>-3</sup>) and `d` the snow thickness (cm). The ice volume absorption coefficient is\n\n$$\\beta_{abs} = 4 \\pi \\lambda^{-1} m_{im}(\\lambda)$$\n\nand assumes the same units as `λ^{-1}`. This relation has been used to deduce `m_im` fro",
+      "relevant_chunks": [
+        "A Model for the Spectral Albedo of Snow. I Pure Snow_chunk_041"
+      ],
+      "relevant_docs": [
+        "A Model for the Spectral Albedo of Snow. I Pure Snow.md"
+      ],
+      "relevance_scores": {
+        "A Model for the Spectral Albedo of Snow. I Pure Snow_chunk_041": 3
+      },
+      "category": "albedo",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "A Model for the Spectral Albedo of Snow. I Pure Snow.md",
+        "chunk_index": 41,
+        "total_chunks": 292,
+        "chunk_length": 516
+      }
+    },
+    {
+      "id": "q003",
+      "query": "Otherwise, there is a tendency for research to “proceed in gradualist way until, out of exhaustion (of funds, human energy, or computer resources), the model is declared satisfactory” (Steyn and Galmarini 2008). For this reason, we set as our first task the establishment of suitable evaluation criteria, through an exploration of how forecasters and other professionals use WFAQM guidance during the wildﬁre season.\n\nEven after a decision has been made regarding evaluation criteria, it is insuffici",
+      "relevant_chunks": [
+        "Ainslie et al. - 2022 - Operational Evaluation of a Wildfire Air Quality Model from a Forecaster Point of View_chunk_013"
+      ],
+      "relevant_docs": [
+        "Ainslie et al. - 2022 - Operational Evaluation of a Wildfire Air Quality Model from a Forecaster Point of View.md"
+      ],
+      "relevance_scores": {
+        "Ainslie et al. - 2022 - Operational Evaluation of a Wildfire Air Quality Model from a Forecaster Point of View_chunk_013": 3
+      },
+      "category": "general",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Ainslie et al. - 2022 - Operational Evaluation of a Wildfire Air Quality Model from a Forecaster Point of View.md",
+        "chunk_index": 13,
+        "total_chunks": 199,
+        "chunk_length": 685
+      }
+    },
+    {
+      "id": "q004",
+      "query": "\n**Key findings:**\n\n**V1N1:** Profiles do not agree with exact model; discontinuous changes with depth\n\n**V1N5:** Good agreement for re = 1000 μm; some overestimation for smaller grains\n\n**V5N5:** Good agreement for all grain sizes\n\n**Conclusion:** At least V3N3 needed for accurate solar heating profiles.\n\n### 6.2 Solar Heating at Sapporo\n\nUsing measured snow pit and radiation data, PBSAM calculated solar radiation absorption:\n\n**Accumulation season:**\n",
+      "relevant_chunks": [
+        "Aoki_Snow_Albedo_Model_2011_chunk_053"
+      ],
+      "relevant_docs": [
+        "Aoki_Snow_Albedo_Model_2011.md"
+      ],
+      "relevance_scores": {
+        "Aoki_Snow_Albedo_Model_2011_chunk_053": 3
+      },
+      "category": "glaciology",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "Aoki_Snow_Albedo_Model_2011.md",
+        "chunk_index": 53,
+        "total_chunks": 67,
+        "chunk_length": 457
+      }
+    },
+    {
+      "id": "q005",
+      "query": "\nvalues generally fell above the 1 : 1 line in both the corrected and uncorrected datasets (Fig. 13). Because lakes are flat, the corrections do not substantially alter the lake albedo values. Glacier measurements actually cluster around the 1 : 1 line in the uncorrected data, suggesting that the uncorrected glacier data does reasonably well in representing true albedo. The corrected glacier data pulls many measurements much higher, and many more glacier values are far above the 1 : 1 line, leve",
+      "relevant_chunks": [
+        "Bergstrom et al. - 2020 - The seasonal evolution of albedo across glaciers and the surrounding landscape of Taylor Valley, Ant_chunk_104"
+      ],
+      "relevant_docs": [
+        "Bergstrom et al. - 2020 - The seasonal evolution of albedo across glaciers and the surrounding landscape of Taylor Valley, Ant.md"
+      ],
+      "relevance_scores": {
+        "Bergstrom et al. - 2020 - The seasonal evolution of albedo across glaciers and the surrounding landscape of Taylor Valley, Ant_chunk_104": 3
+      },
+      "category": "albedo",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Bergstrom et al. - 2020 - The seasonal evolution of albedo across glaciers and the surrounding landscape of Taylor Valley, Ant.md",
+        "chunk_index": 104,
+        "total_chunks": 216,
+        "chunk_length": 736
+      }
+    },
+    {
+      "id": "q006",
+      "query": "5a, b). Lake Fryxell has significantly higher albedo than lakes Hoare and Bonney. On the second flight of the 2015–2016 season with no measured snowfall between flights, we observe that albedo of all lakes increased and that there is no difference between the lakes (Fig. 5d). Albedo of the glaciers did not change significantly.\n\nOn 22 and 23 November 2016, a very large, valley-wide snow event occurred. The greatest accumulation was observed at the Lake Fryxell meteorological station. ",
+      "relevant_chunks": [
+        "Bergstrom_et_al_2020_chunk_085"
+      ],
+      "relevant_docs": [
+        "Bergstrom_et_al_2020.md"
+      ],
+      "relevance_scores": {
+        "Bergstrom_et_al_2020_chunk_085": 3
+      },
+      "category": "albedo",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Bergstrom_et_al_2020.md",
+        "chunk_index": 85,
+        "total_chunks": 217,
+        "chunk_length": 489
+      }
+    },
+    {
+      "id": "q007",
+      "query": "In some cases, however, these polygons contain substantial errors that stem from interpretation errors, presence of debris cover, and seasonal snow. Debris-covered ice, for example, was often incorrectly mapped on large glacier tongues. These mapping errors were identified based on the unrealistic shape of mapped glacier termini and through comparison with satellite imagery. Additional information was provided by the hillshaded TRIM-DEM (sun elevation angle: 45°, azimuth: 315°). We also utilized",
+      "relevant_chunks": [
+        "Bolch et al. - 2010 - Landsat-based inventory of glaciers in western Canada, 1985–2005_chunk_034"
+      ],
+      "relevant_docs": [
+        "Bolch et al. - 2010 - Landsat-based inventory of glaciers in western Canada, 1985–2005.md"
+      ],
+      "relevance_scores": {
+        "Bolch et al. - 2010 - Landsat-based inventory of glaciers in western Canada, 1985–2005_chunk_034": 3
+      },
+      "category": "glaciology",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Bolch et al. - 2010 - Landsat-based inventory of glaciers in western Canada, 1985–2005.md",
+        "chunk_index": 34,
+        "total_chunks": 109,
+        "chunk_length": 558
+      }
+    },
+    {
+      "id": "q008",
+      "query": "|               | Battye et al. \\[2002]                           | 430           | −                | High             | 1999 |\n|               | SPEW                                            | 350           | 500              | Med              | 2000 |\n|               | GAINS                                           | 260           | 370              | Med              | 2000 |\n\naSubsets of global inventories are given under each country for comparison. All emission rate values are rounded",
+      "relevant_chunks": [
+        "Bond et al. - 2013 - Bounding the role of black carbon in the climate system A scientific assessment_chunk_461"
+      ],
+      "relevant_docs": [
+        "Bond et al. - 2013 - Bounding the role of black carbon in the climate system A scientific assessment.md"
+      ],
+      "relevance_scores": {
+        "Bond et al. - 2013 - Bounding the role of black carbon in the climate system A scientific assessment_chunk_461": 3
+      },
+      "category": "general",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Bond et al. - 2013 - Bounding the role of black carbon in the climate system A scientific assessment.md",
+        "chunk_index": 461,
+        "total_chunks": 2560,
+        "chunk_length": 764
+      }
+    },
+    {
+      "id": "q009",
+      "query": "\nCurrent emission estimates agree on the major sources and emitting regions, but significant uncertainties remain. Information gaps include the amounts of biofuel or biomass combusted and the type of technology or burning, especially in developing countries. Emission estimates from open biomass burning lack data on fuel consumed, and black-carbon emission factors from this source may be too low.\n\nBlack carbon undergoes regional and intercontinental transport during its short atmospheric lifetime",
+      "relevant_chunks": [
+        "Bond_et_al_2013_Chapters_1_and_2_chunk_023"
+      ],
+      "relevant_docs": [
+        "Bond_et_al_2013_Chapters_1_and_2.md"
+      ],
+      "relevance_scores": {
+        "Bond_et_al_2013_Chapters_1_and_2_chunk_023": 3
+      },
+      "category": "impurities",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Bond_et_al_2013_Chapters_1_and_2.md",
+        "chunk_index": 23,
+        "total_chunks": 110,
+        "chunk_length": 682
+      }
+    },
+    {
+      "id": "q010",
+      "query": "\n*Converted to Markdown: October 23, 2025*\n\n*Original Document:* Bond, T. C., et al. (2013) - Journal of Geophysical Research: Atmospheres, Vol. 118, 5380–5552\n\n*Chapters Included:* 3 (Measurements and Microphysical Properties) and 4 (Emission Magnitudes",
+      "relevant_chunks": [
+        "Bond_et_al_2013_Chapters_3_and_4_chunk_071"
+      ],
+      "relevant_docs": [
+        "Bond_et_al_2013_Chapters_3_and_4.md"
+      ],
+      "relevance_scores": {
+        "Bond_et_al_2013_Chapters_3_and_4_chunk_071": 3
+      },
+      "category": "methodology",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "Bond_et_al_2013_Chapters_3_and_4.md",
+        "chunk_index": 71,
+        "total_chunks": 73,
+        "chunk_length": 254
+      }
+    },
+    {
+      "id": "q011",
+      "query": "3. Aircraft measurements of BC vertical profiles show insufficient BC at altitude in some regions.\n\n### 6.10. Summary of Uncertainties in BC DRF\n\n**The discussion shows** that several factors affecting BC radiative forcing are not well constrained. First, the most quantitative and widespread data set for determining atmosph",
+      "relevant_chunks": [
+        "Bond_et_al_2013_Chapters_5_and_6_chunk_055"
+      ],
+      "relevant_docs": [
+        "Bond_et_al_2013_Chapters_5_and_6.md"
+      ],
+      "relevance_scores": {
+        "Bond_et_al_2013_Chapters_5_and_6_chunk_055": 3
+      },
+      "category": "methodology",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "Bond_et_al_2013_Chapters_5_and_6.md",
+        "chunk_index": 55,
+        "total_chunks": 63,
+        "chunk_length": 325
+      }
+    },
+    {
+      "id": "q012",
+      "query": "The main patterns of $\\alpha$ variation which emerge are:\n\n### 4.1 Spatial Variability and Temporal Evolution\n\n**Low spatial $\\alpha$ variability at the start of the ablation season** (Fig. 2a) evolved to strong variability, particularly during late May, June and early July 1993 and early September 1993 (Fig. 2f). The associated increase in $\\alpha$ range (Fig. 3a–f) resulted from the transition from a complete glacier-wide snow cover to a mixture of surface types, including snow at dif",
+      "relevant_chunks": [
+        "Brock_et_al_2000_Albedo_Variations_Arolla_chunk_019"
+      ],
+      "relevant_docs": [
+        "Brock_et_al_2000_Albedo_Variations_Arolla.md"
+      ],
+      "relevance_scores": {
+        "Brock_et_al_2000_Albedo_Variations_Arolla_chunk_019": 3
+      },
+      "category": "glaciology",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Brock_et_al_2000_Albedo_Variations_Arolla.md",
+        "chunk_index": 19,
+        "total_chunks": 102,
+        "chunk_length": 491
+      }
+    },
+    {
+      "id": "q013",
+      "query": "(2019). Biomass burning aerosol over the Amazon: Analysis of aircraft, surface and satellite observations using a global aerosol model. Atmospheric Chemistry and Physics, 19(14), 9125–9152. https://doi.org/10.5194/acp-19-9125-2019\n\nRoth, G. A., Abate, D., Abate, K. H., Abay, S. M., Abbafati, C., Abbasi, N., et al. (2018). Global, regional, and national age-sex-specific mortality for 282 causes of death in 19",
+      "relevant_chunks": [
+        "Butt et al. - 2022 - Achieving Brazil's Deforestation Target Will Reduce Fire and Deliver Air Quality and Public Health B_chunk_192"
+      ],
+      "relevant_docs": [
+        "Butt et al. - 2022 - Achieving Brazil's Deforestation Target Will Reduce Fire and Deliver Air Quality and Public Health B.md"
+      ],
+      "relevance_scores": {
+        "Butt et al. - 2022 - Achieving Brazil's Deforestation Target Will Reduce Fire and Deliver Air Quality and Public Health B_chunk_192": 3
+      },
+      "category": "impurities",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "Butt et al. - 2022 - Achieving Brazil's Deforestation Target Will Reduce Fire and Deliver Air Quality and Public Health B.md",
+        "chunk_index": 192,
+        "total_chunks": 225,
+        "chunk_length": 411
+      }
+    },
+    {
+      "id": "q014",
+      "query": "| 2          | HGdA central 2001, 25 Jul.–2 Aug.  | 0.955                         | 0.956                             | 0.788                         |\n| 2          | HGdA central 2001, 10–15 Aug.      | 0.931                         | 0.932                             | 0.480                         |\n",
+      "relevant_chunks": [
+        "Carenzo et al. - 2009 - Assessing the transferability and robustness of an enhanced temperature-index glacier-melt model_chunk_085"
+      ],
+      "relevant_docs": [
+        "Carenzo et al. - 2009 - Assessing the transferability and robustness of an enhanced temperature-index glacier-melt model.md"
+      ],
+      "relevance_scores": {
+        "Carenzo et al. - 2009 - Assessing the transferability and robustness of an enhanced temperature-index glacier-melt model_chunk_085": 3
+      },
+      "category": "general",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Carenzo et al. - 2009 - Assessing the transferability and robustness of an enhanced temperature-index glacier-melt model.md",
+        "chunk_index": 85,
+        "total_chunks": 192,
+        "chunk_length": 304
+      }
+    },
+    {
+      "id": "q015",
+      "query": "In most cases refreezing of melt water is the dominant process. In spring, when the energy budget of the snow surface becomes positive and melt water forms, the temperature of the snowpack is normally well below freezing point. As a consequence, melt water penetrating into the snow refreezes and a large amount of heat is released. This process occurs everywhere below the dry snow line.  \n\nFurther down the glacier more energy becomes available for melting and the snow is not as cold as higher up.",
+      "relevant_chunks": [
+        "Chapter3_micro_climate_valley_glacier_chunk_013"
+      ],
+      "relevant_docs": [
+        "Chapter3_micro_climate_valley_glacier.md"
+      ],
+      "relevance_scores": {
+        "Chapter3_micro_climate_valley_glacier_chunk_013": 3
+      },
+      "category": "glaciology",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Chapter3_micro_climate_valley_glacier.md",
+        "chunk_index": 13,
+        "total_chunks": 242,
+        "chunk_length": 741
+      }
+    },
+    {
+      "id": "q016",
+      "query": "Model performance statistics are slightly better for Canada than for the US, with lower errors and biases. The new system is still unable to capture the hourly variability of the observed values for PM2.5, but it captured the observed hourly variability for O3 concentration adequately. FireWork–CFFEPS also improves upon FireWork-Ops categorical scores for forecasting the occurrence of elevated air pollutant concentrations in terms of false alarm ratio (FAR) and critical success index (CSI).\n\nPub",
+      "relevant_chunks": [
+        "Chen et al. - 2019 - The FireWork v2.0 air quality forecast system with biomass burning emissions from the Canadian Fores_chunk_009"
+      ],
+      "relevant_docs": [
+        "Chen et al. - 2019 - The FireWork v2.0 air quality forecast system with biomass burning emissions from the Canadian Fores.md"
+      ],
+      "relevance_scores": {
+        "Chen et al. - 2019 - The FireWork v2.0 air quality forecast system with biomass burning emissions from the Canadian Fores_chunk_009": 3
+      },
+      "category": "general",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Chen et al. - 2019 - The FireWork v2.0 air quality forecast system with biomass burning emissions from the Canadian Fores.md",
+        "chunk_index": 9,
+        "total_chunks": 273,
+        "chunk_length": 779
+      }
+    },
+    {
+      "id": "q017",
+      "query": "\n# Author for correspondence:\n\nCaroline Clason, E-mail: caroline.clason@durham.ac.uk\n\n# Abstract\n\nMountain glaciers are crucial sources of fresh water, contributing directly and indirectly to water, energy and food supplies for hundreds of millions of people. Asses",
+      "relevant_chunks": [
+        "Clason et al. - 2022 - Contribution of glaciers to water, energy and food security in mountain regions current perspective_chunk_005"
+      ],
+      "relevant_docs": [
+        "Clason et al. - 2022 - Contribution of glaciers to water, energy and food security in mountain regions current perspective.md"
+      ],
+      "relevance_scores": {
+        "Clason et al. - 2022 - Contribution of glaciers to water, energy and food security in mountain regions current perspective_chunk_005": 3
+      },
+      "category": "glaciology",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Clason et al. - 2022 - Contribution of glaciers to water, energy and food security in mountain regions current perspective.md",
+        "chunk_index": 5,
+        "total_chunks": 80,
+        "chunk_length": 265
+      }
+    },
+    {
+      "id": "q018",
+      "query": "\n---\n\n## 2.3 Zones in a Glacier\n\nAhlmann (1935) proposed a \"geophysical\" classification of glaciers according to ice temperature and amount of surface melting. His categories were temperate, sub-polar, and high-polar. (A temperate glacier is at melting point throughout. On a high-polar glacier, the surface never melts.) More recent author",
+      "relevant_chunks": [
+        "Cuffey_Paterson_2010_Chapter2_Transformation_Snow_to_Ice_chunk_015"
+      ],
+      "relevant_docs": [
+        "Cuffey_Paterson_2010_Chapter2_Transformation_Snow_to_Ice.md"
+      ],
+      "relevance_scores": {
+        "Cuffey_Paterson_2010_Chapter2_Transformation_Snow_to_Ice_chunk_015": 3
+      },
+      "category": "glaciology",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Cuffey_Paterson_2010_Chapter2_Transformation_Snow_to_Ice.md",
+        "chunk_index": 15,
+        "total_chunks": 73,
+        "chunk_length": 340
+      }
+    },
+    {
+      "id": "q019",
+      "query": "This equation is known as the **Orowan relation**. Both ρd and vd can vary with stress according to power laws; defining r and q as constants, ρd ∝ τʳ and vd ∝ τᵍ, implying that ε̇c ∝ τʳ⁺ᵍ.\n\nIn theory, the velocity vd of an isolated dislocation depends linearly on τ, so q = 1 is often assumed., arising from dislocation glide depends on the product of dislocation density ρd (length of linear defect per volume) and dislocation velocity vd:\n\n$$\\dot{\\epsilon}_c = b^* \\rho_d",
+      "relevant_chunks": [
+        "Cuffey_Paterson_2010_Chapter3_Grain_Scale_Structures_chunk_018"
+      ],
+      "relevant_docs": [
+        "Cuffey_Paterson_2010_Chapter3_Grain_Scale_Structures.md"
+      ],
+      "relevance_scores": {
+        "Cuffey_Paterson_2010_Chapter3_Grain_Scale_Structures_chunk_018": 3
+      },
+      "category": "general",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Cuffey_Paterson_2010_Chapter3_Grain_Scale_Structures.md",
+        "chunk_index": 18,
+        "total_chunks": 79,
+        "chunk_length": 474
+      }
+    },
+    {
+      "id": "q020",
+      "query": "\n$$E_z^{\\downarrow} = E_S^{\\downarrow} \\cdot \\exp(-\\chi(z))$$\n\nThe depth of penetration depends on the extinction coefficient, χ, and the path length, a measure of how much ice the radiation travels through. Extinction includes both scattering and absorption, and increases in proportion to both depth and density and varies with incidence angle.\n\nAbsorption within ice depends strongly o",
+      "relevant_chunks": [
+        "Cuffey_Paterson_2010_Surface_Ablation_Energy_Budget_chunk_087"
+      ],
+      "relevant_docs": [
+        "Cuffey_Paterson_2010_Surface_Ablation_Energy_Budget.md"
+      ],
+      "relevance_scores": {
+        "Cuffey_Paterson_2010_Surface_Ablation_Energy_Budget_chunk_087": 3
+      },
+      "category": "glaciology",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Cuffey_Paterson_2010_Surface_Ablation_Energy_Budget.md",
+        "chunk_index": 87,
+        "total_chunks": 148,
+        "chunk_length": 388
+      }
+    },
+    {
+      "id": "q021",
+      "query": "For SMB reconstruction purpose, a future line of research could rest upon linking morpho-topographic features of the glacier such has glacier surface area, mean altitude or slope to the regression coefficients of both annual and seasonal SMB vs.\n\n31\n\n\n\n---\n\n\nThe Cryosphere Discuss., doi:10.5194/tc-2017-49, 2017\nManuscript under review for journal The Cryosphere\n\nDiscussion started: 18 April 2017\n\n© Author(s) 2017. CC-BY 3.0 License.\n\n628 albedo relationships, giving the opportunity to establish ",
+      "relevant_chunks": [
+        "Davaze et al. - 2017 - Monitoring of glacier albedo from optical remote-sensing dataapplication to seasonal and annual sur_chunk_179"
+      ],
+      "relevant_docs": [
+        "Davaze et al. - 2017 - Monitoring of glacier albedo from optical remote-sensing dataapplication to seasonal and annual sur.md"
+      ],
+      "relevance_scores": {
+        "Davaze et al. - 2017 - Monitoring of glacier albedo from optical remote-sensing dataapplication to seasonal and annual sur_chunk_179": 3
+      },
+      "category": "albedo",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "Davaze et al. - 2017 - Monitoring of glacier albedo from optical remote-sensing dataapplication to seasonal and annual sur.md",
+        "chunk_index": 179,
+        "total_chunks": 237,
+        "chunk_length": 530
+      }
+    },
+    {
+      "id": "q022",
+      "query": "\nReceived: 28 March 2017 – Discussion started: 18 April 2017\n\nRevised: 3 November 2017 – Accepted: 24 November 2017 – Published: 23 January 2018\n\n# Abstract\n\nLess than 0.25 % of the 250 000 glaciers inventoried in the Randolph Glacier Inventory (RGI V.5) are currently monitored with in situ measurements of surface mass bala",
+      "relevant_chunks": [
+        "Davaze et al. - 2018 - Monitoring glacier albedo as a proxy to derive summer and annual surface mass balances from optical_chunk_003"
+      ],
+      "relevant_docs": [
+        "Davaze et al. - 2018 - Monitoring glacier albedo as a proxy to derive summer and annual surface mass balances from optical.md"
+      ],
+      "relevance_scores": {
+        "Davaze et al. - 2018 - Monitoring glacier albedo as a proxy to derive summer and annual surface mass balances from optical_chunk_003": 3
+      },
+      "category": "glaciology",
+      "difficulty": "easy",
+      "metadata": {
+        "source": "Davaze et al. - 2018 - Monitoring glacier albedo as a proxy to derive summer and annual surface mass balances from optical.md",
+        "chunk_index": 3,
+        "total_chunks": 167,
+        "chunk_length": 325
+      }
+    },
+    {
+      "id": "q023",
+      "query": "\n574 As illustrated by Fig. 10, a way to confidently consider the albedo signal is to exclude values\n\n575 with too large share of corrected pixels. However, because of the inter-annual approach carried\n\n576 out in this study, such systematic artifact is not depreciating the results but would be a major\n\n577 issue on studies fo",
+      "relevant_chunks": [
+        "Davaze_et_al_2017_chunk_165"
+      ],
+      "relevant_docs": [
+        "Davaze_et_al_2017.md"
+      ],
+      "relevance_scores": {
+        "Davaze_et_al_2017_chunk_165": 3
+      },
+      "category": "albedo",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Davaze_et_al_2017.md",
+        "chunk_index": 165,
+        "total_chunks": 236,
+        "chunk_length": 328
+      }
+    },
+    {
+      "id": "q024",
+      "query": "\nin this study due to the absence of continuous snow pit or SWE mea\n\nsurements and the high uncertainty involved with the calculation pro\n\ncess (Dewalle and Rango, 2008; Helgason and Pomeroy, 2012a;\n\nJennings\n\net\n\nal.,\n\n2018a).\n",
+      "relevant_chunks": [
+        "Dharmadasa_2024_Snow_Energy_Balance_Sainte_Marthe_chunk_073"
+      ],
+      "relevant_docs": [
+        "Dharmadasa_2024_Snow_Energy_Balance_Sainte_Marthe.md"
+      ],
+      "relevance_scores": {
+        "Dharmadasa_2024_Snow_Energy_Balance_Sainte_Marthe_chunk_073": 3
+      },
+      "category": "glaciology",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Dharmadasa_2024_Snow_Energy_Balance_Sainte_Marthe.md",
+        "chunk_index": 73,
+        "total_chunks": 261,
+        "chunk_length": 228
+      }
+    },
+    {
+      "id": "q025",
+      "query": "(1981). Tellus 33, 68-77.\n\nParton, W. S., Laurenroth, W. K., and Smith, F. M. (1981). Agric. Meteorol. 24, 97-109.\n\nPatterson, E. M. (1981). JGR, J. Geophys. Res. 86, 3236-3246.\n\nPetzold, D. E. (1981). Arct. Alp. Res. 13, 287-293.\n",
+      "relevant_chunks": [
+        "Dickinson - LAND SURFACE PROCESSES AND ENERGY BALANCE CLIMATE-SURFACE ALBEDOS AND_chunk_258"
+      ],
+      "relevant_docs": [
+        "Dickinson - LAND SURFACE PROCESSES AND ENERGY BALANCE CLIMATE-SURFACE ALBEDOS AND.md"
+      ],
+      "relevance_scores": {
+        "Dickinson - LAND SURFACE PROCESSES AND ENERGY BALANCE CLIMATE-SURFACE ALBEDOS AND_chunk_258": 3
+      },
+      "category": "general",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "Dickinson - LAND SURFACE PROCESSES AND ENERGY BALANCE CLIMATE-SURFACE ALBEDOS AND.md",
+        "chunk_index": 258,
+        "total_chunks": 278,
+        "chunk_length": 231
+      }
+    },
+    {
+      "id": "q026",
+      "query": "23, 5227–5241. https://doi.org/10.5194/hess-23-5227-2019.\n\nHersbach, H., Bell, B., Berrisford, P., Hirahara, S., Horányi, A., Muñoz-Sabater, J., Nicolas, J., Peubey, C., Radu, R., Schepers, D., Simmons, A., Soci, C., Abdalla,0034-4257(02)00095-0.\n\nHall, D.K., Riggs, G.A., DiGirolamo, N.E., Román, M.O., 2019. Evaluation of MODIS and VIIRS cloud-gap-filled snow-cover products for production of an Earth s",
+      "relevant_chunks": [
+        "DiMauro_Fugazza_2022_Pan-Alpine_Glacier_Phenology_chunk_119"
+      ],
+      "relevant_docs": [
+        "DiMauro_Fugazza_2022_Pan-Alpine_Glacier_Phenology.md"
+      ],
+      "relevance_scores": {
+        "DiMauro_Fugazza_2022_Pan-Alpine_Glacier_Phenology_chunk_119": 3
+      },
+      "category": "glaciology",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "DiMauro_Fugazza_2022_Pan-Alpine_Glacier_Phenology.md",
+        "chunk_index": 119,
+        "total_chunks": 160,
+        "chunk_length": 405
+      }
+    },
+    {
+      "id": "q027",
+      "query": "Vincent for providing the topographic data of the glacier and N. Cullen for his kind review of the manuscript.\n\n# Edited by\n\nA. Klein\n\n# References\n\n- Aoki, T., Motoyoshi, H., Kodama, Y., Yasunari, T., and Sugiura, K.: Variations of snow physical parameters and their effects on albedo in Sa",
+      "relevant_chunks": [
+        "Dumont et al. - 2011 - Monitoring spatial and temporal variations of surface albedo on Saint Sorlin Glacier (French Alps) u_chunk_094"
+      ],
+      "relevant_docs": [
+        "Dumont et al. - 2011 - Monitoring spatial and temporal variations of surface albedo on Saint Sorlin Glacier (French Alps) u.md"
+      ],
+      "relevance_scores": {
+        "Dumont et al. - 2011 - Monitoring spatial and temporal variations of surface albedo on Saint Sorlin Glacier (French Alps) u_chunk_094": 3
+      },
+      "category": "albedo",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "Dumont et al. - 2011 - Monitoring spatial and temporal variations of surface albedo on Saint Sorlin Glacier (French Alps) u.md",
+        "chunk_index": 94,
+        "total_chunks": 110,
+        "chunk_length": 291
+      }
+    },
+    {
+      "id": "q028",
+      "query": "\nTo investigate the effect of change of the macroscale roughness and/or surface elevation, the DEM was modified and the difference in terms of retrieved albedo was computed. The results of this comparison are indicated in Table 3. For both scenarios, the difference in terms of retrieved albedo is smaller than the uncertainties introduced by the method. The differences are larger in June, when the albedo is larger (snow is present instead of ice), than in August. It appears that the retrieved alb",
+      "relevant_chunks": [
+        "Dumont_et_al_2011_chunk_077"
+      ],
+      "relevant_docs": [
+        "Dumont_et_al_2011.md"
+      ],
+      "relevance_scores": {
+        "Dumont_et_al_2011_chunk_077": 3
+      },
+      "category": "albedo",
+      "difficulty": "hard",
+      "metadata": {
+        "source": "Dumont_et_al_2011.md",
+        "chunk_index": 77,
+        "total_chunks": 109,
+        "chunk_length": 797
+      }
+    },
+    {
+      "id": "q029",
+      "query": "\nThe Icelandic volcanic eruptions of Eyjafjallajökull in April 2010 and Grimsvötn in May 2011 are potentially important sources of impurities in the most recent years (Supplementary Fig. 7). However, as the spring albedo anomaly started before 2010, other sources of impurities must be invoked. In the ablation area, the recent outcropping of old ice layers containing high amounts of dust partially explains the anomaly in the ablation area, but this does not apply to the a",
+      "relevant_chunks": [
+        "Dumont_et_al_2014_Light_Absorbing_Impurities_Greenland_chunk_021"
+      ],
+      "relevant_docs": [
+        "Dumont_et_al_2014_Light_Absorbing_Impurities_Greenland.md"
+      ],
+      "relevance_scores": {
+        "Dumont_et_al_2014_Light_Absorbing_Impurities_Greenland_chunk_021": 3
+      },
+      "category": "albedo",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Dumont_et_al_2014_Light_Absorbing_Impurities_Greenland.md",
+        "chunk_index": 21,
+        "total_chunks": 62,
+        "chunk_length": 475
+      }
+    },
+    {
+      "id": "q030",
+      "query": "227–246, DOI: 10.1007/978-981-15-1902-4_12.\n24. L. G. Benning, A. M. Anesio, S. Lutz and M. Tranter, Biological impact on Greenland's albedo, Nat. Geosci., 2014, 7, 691.\n25. N. Takeuchi, S. Kohshima and K. Seko, Structure, Formation, and Darkening Process of Albedo-reducing Material (Cryoconite) on a Himalayan Glacier: A Granular Algal Mat Growing on the Glacier, Arct. Antarct. Alp. Res., 2001, 33(2), 115–122.\n26. A. Hodson, K. Cameron, C. Bøggild, T. Irvine-Fynn, H. Langford, D. Pearce, et al.,",
+      "relevant_chunks": [
+        "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities_chunk_086"
+      ],
+      "relevant_docs": [
+        "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md"
+      ],
+      "relevance_scores": {
+        "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities_chunk_086": 3
+      },
+      "category": "albedo",
+      "difficulty": "medium",
+      "metadata": {
+        "source": "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md",
+        "chunk_index": 86,
+        "total_chunks": 132,
+        "chunk_length": 594
+      }
+    }
+  ]
+}
