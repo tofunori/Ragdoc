@@ -32,22 +32,22 @@ def download_nltk_data():
         try:
             print(f"Downloading {description} ({package_name})...", end=" ")
             nltk.download(package_name, quiet=True)
-            print("✓ Success")
+            print("[OK]")
         except Exception as e:
-            print(f"✗ Failed: {e}")
+            print(f"[ERROR] {e}")
             all_success = False
 
     print()
     print("=" * 70)
 
     if all_success:
-        print("✓ All NLTK data downloaded successfully!")
+        print("[OK] All NLTK data downloaded successfully!")
         print()
         print("Advanced tokenization is now ready to use.")
         print("=" * 70)
         return 0
     else:
-        print("✗ Some downloads failed. Please check your internet connection")
+        print("[ERROR] Some downloads failed. Please check your internet connection")
         print("  and try again.")
         print("=" * 70)
         return 1
