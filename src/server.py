@@ -396,14 +396,14 @@ def list_documents() -> str:
 
 
 @mcp.tool()
-def get_document_content(source: str, format: str = "markdown", max_length: int = None) -> str:
+def get_document_content(source: str, format: str = "markdown", max_length: int = 80000) -> str:
     """
     Get complete document content by reconstructing from chunks.
 
     Args:
         source: Document source filename (from list_documents)
         format: Output format - "markdown" (default), "text", or "chunks"
-        max_length: Maximum characters to return (None = unlimited)
+        max_length: Maximum characters to return (default: 80000 chars ≈ 20K tokens)
 
     Returns:
         Complete reconstructed document with metadata
@@ -474,7 +474,11 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
 
         # Apply max_length if specified
         if max_length and len(output) > max_length:
-            output = output[:max_length] + "\n\n... (truncated)"
+            original_length = len(output)
+            estimated_tokens = original_length // 4  # Rough estimate
+            output = output[:max_length]
+            output += f"\n\n... (truncated: showing {max_length:,} of {original_length:,} chars, ~{estimated_tokens:,} tokens total)"
+            output += f"\n\nℹ️  Use max_length parameter to adjust limit or retrieve in chunks via semantic_search_hybrid"
 
         return output
 
