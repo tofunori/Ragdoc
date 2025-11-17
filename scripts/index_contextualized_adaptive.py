@@ -18,6 +18,17 @@ import chromadb
 from pathlib import Path
 from typing import List, Tuple
 import sys
+import io
+import os
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement depuis .env
+load_dotenv()
+
+# Fix encoding pour Windows (éviter UnicodeEncodeError)
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 sys.path.insert(0, str(Path(__file__).parent))
 from indexing_config import (
@@ -39,7 +50,12 @@ class AdaptiveContextualizer:
     """Gère l'indexation adaptative selon taille documents"""
 
     def __init__(self):
-        self.voyage_client = voyageai.Client()
+        # Récupérer la clé API depuis l'environnement
+        api_key = os.getenv("VOYAGE_API_KEY")
+        if not api_key:
+            raise ValueError("VOYAGE_API_KEY non trouvée dans .env")
+
+        self.voyage_client = voyageai.Client(api_key=api_key)
         self.stats = {
             'small_docs': 0,      # <128K chars → entier
             'medium_docs': 0,     # 128K-480K → chunked contextualized
@@ -202,7 +218,12 @@ def index_with_adaptive_strategy():
 
     for doc_id, md_file in enumerate(md_files):
         try:
-            content = md_file.read_text(encoding='utf-8')
+            # Tenter UTF-8, puis latin-1 en fallback
+            try:
+                content = md_file.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                print(f"   [WARNING] UTF-8 failed for {md_file.name}, trying latin-1...")
+                content = md_file.read_text(encoding='latin-1')
 
             # Traitement adaptatif
             chunks, metadatas, ids, embeddings = contextualizer.process_document(
