@@ -194,8 +194,8 @@ class RagdocCLI:
             self.print_warning("Mode DELETE-MISSING - Les documents supprimés seront supprimés de la DB")
 
         try:
-            # Utiliser chemin absolu du script
-            script_path = (self.scripts_dir / "index_contextualized_adaptive.py").resolve()
+            # Utiliser chemin absolu du script incrémental
+            script_path = (self.scripts_dir / "index_contextualized_incremental.py").resolve()
             cmd = ["python", str(script_path)]
 
             if force:
