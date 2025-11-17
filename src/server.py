@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MCP Server for Glacier Research Search
-HYBRID VERSION: BM25 + Voyage-3-Large embeddings + Cohere v3.5 reranking
+CONTEXTUALIZED VERSION: BM25 + Voyage-Context-3 embeddings + Cohere v3.5 reranking
 """
 
 import os
@@ -27,18 +27,23 @@ load_dotenv()
 # Import indexing configuration
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from indexing_config import (
-    MARKDOWN_DIR, COLLECTION_HYBRID_NAME, CHROMA_DB_HYBRID_PATH,
+    MARKDOWN_DIR,
+    COLLECTION_CONTEXTUALIZED_NAME, CHROMA_DB_CONTEXTUALIZED_PATH,
     CHUNK_SIZE, CHUNK_OVERLAP,
     DEFAULT_MODEL, LARGE_DOC_MODEL, LARGE_DOC_THRESHOLD,
     CONTEXT_WINDOW_SIZE
 )
+
+# Use contextualized database as primary database
+COLLECTION_NAME = COLLECTION_CONTEXTUALIZED_NAME
+CHROMA_DB_PATH = CHROMA_DB_CONTEXTUALIZED_PATH
 
 # Configuration
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 # Initialize MCP server
-mcp = FastMCP("ragdoc-hybrid")
+mcp = FastMCP("ragdoc-contextualized")
 
 # Global clients (initialized on first use)
 voyage_client = None
@@ -55,33 +60,35 @@ def init_clients():
         voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
 
     if not chroma_client:
-        # Try HttpClient (server mode) first, fallback to PersistentClient
-        try:
-            test_client = chromadb.HttpClient(host="localhost", port=8000)
-            test_client.heartbeat()
-            chroma_client = test_client
-            logging.info("[OK] MCP: Connected to ChromaDB server (localhost:8000)")
-        except Exception as e:
-            logging.info("[INFO] MCP: ChromaDB server not available, using local mode")
-            chroma_client = chromadb.PersistentClient(path=str(CHROMA_DB_HYBRID_PATH))
+        # Use local PersistentClient for contextualized database
+        chroma_client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
+        logging.info(f"[OK] MCP: Connected to ChromaDB (contextualized mode)")
 
     if not cohere_client:
         cohere_client = cohere.ClientV2(api_key=COHERE_API_KEY)
 
-    # Initialize hybrid retriever
+    # Initialize hybrid retriever with contextualized embeddings
     if not hybrid_retriever:
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+        collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
-        # Embedding function for hybrid retriever
-        def voyage_embed(texts):
-            result = voyage_client.embed(texts=texts, model="voyage-3-large")
-            return result.embeddings
+        # Embedding function for hybrid retriever using voyage-context-3
+        def voyage_contextualized_embed(texts):
+            # For contextualized search, we need to wrap each text in a list
+            results = []
+            for text in texts:
+                result = voyage_client.contextualized_embed(
+                    inputs=[[text]],
+                    model="voyage-context-3",
+                    input_type="query"
+                )
+                results.append(result.results[0].embeddings[0])
+            return results
 
         hybrid_retriever = HybridRetriever(
             collection=collection,
-            embedding_function=voyage_embed
+            embedding_function=voyage_contextualized_embed
         )
-        logging.info("[OK] Hybrid retriever initialized (BM25 + Semantic)")
+        logging.info("[OK] Hybrid retriever initialized (BM25 + Voyage-Context-3)")
 
 
 def _compute_doc_hash(content: str) -> str:
@@ -201,8 +208,8 @@ def _perform_search_hybrid(
     where_document: dict = None
 ) -> str:
     """
-    HYBRID search implementation
-    Pipeline: BM25 + Semantic (RRF) → Cohere v3.5 reranking → Context window expansion
+    HYBRID search implementation with CONTEXTUALIZED embeddings
+    Pipeline: BM25 + Voyage-Context-3 (RRF) → Cohere v3.5 reranking → Context window expansion
 
     Args:
         query: Search query
@@ -213,7 +220,7 @@ def _perform_search_hybrid(
     """
     try:
         init_clients()
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+        collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         # 1. Hybrid retrieval (BM25 + Semantic with RRF)
         hybrid_results = hybrid_retriever.search(
@@ -362,7 +369,7 @@ def list_documents() -> str:
 
     try:
         init_clients()
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+        collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         # Get metadata for all documents
         all_docs = collection.get(include=["metadatas"])
@@ -403,7 +410,7 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
     """
     try:
         init_clients()
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+        collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         # Fetch all chunks for this document
         doc_data = _fetch_document_chunks(collection, source)
@@ -490,7 +497,7 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
     """
     try:
         init_clients()
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+        collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         # Get the target chunk
         target = collection.get(
@@ -575,7 +582,7 @@ def get_indexation_status() -> str:
     """
     try:
         init_clients()
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+        collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         all_docs = collection.get(include=["metadatas"])
 
@@ -594,7 +601,7 @@ def get_indexation_status() -> str:
         total_chunks = len(all_docs['ids'])
         total_docs = len(docs_by_source)
 
-        output = "INDEXATION STATUS - HYBRID SEARCH ENABLED\n"
+        output = "INDEXATION STATUS - CONTEXTUALIZED EMBEDDINGS\n"
         output += "=" * 70 + "\n\n"
 
         output += f"GLOBAL STATISTICS:\n"
@@ -621,7 +628,7 @@ def get_indexation_status() -> str:
             output += f"   {model:30} {count:3d} docs ({pct:5.1f}%)\n"
 
         output += f"\n" + "=" * 70 + "\n"
-        output += "RETRIEVAL MODE: HYBRID (BM25 + Semantic + Reranking)\n"
+        output += "RETRIEVAL MODE: CONTEXTUALIZED (BM25 + Voyage-Context-3 + Reranking)\n"
         output += "=" * 70
 
         return output
