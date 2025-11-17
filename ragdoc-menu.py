@@ -125,9 +125,9 @@ def action_status_menu():
 
 
 def action_index():
-    """Indexation avec contextualized embeddings"""
-    print_header("INDEXATION CHROMA DB")
-    if run_command(SCRIPTS_DIR / "index_contextualized_adaptive.py"):
+    """Indexation incrémentale avec contextualized embeddings"""
+    print_header("INDEXATION INCREMENTALE CHROMA DB")
+    if run_command(SCRIPTS_DIR / "index_contextualized_incremental.py"):
         print_success("Indexation complétée")
     else:
         print_error("Indexation échouée")
@@ -137,7 +137,7 @@ def action_index():
 def action_index_force():
     """Réindexation forcée avec contextualized embeddings"""
     print_header("REINDEXATION COMPLETE")
-    if run_command(SCRIPTS_DIR / "index_contextualized_adaptive.py"):
+    if run_command(SCRIPTS_DIR / "index_contextualized_incremental.py", "--force"):
         print_success("Réindexation complétée")
     else:
         print_error("Réindexation échouée")
@@ -145,13 +145,13 @@ def action_index_force():
 
 
 def action_index_delete():
-    """Nettoyage documents supprimés (non applicable en mode contextualized)"""
+    """Nettoyage documents supprimés"""
     print_header("NETTOYAGE DOCUMENTS SUPPRIMES")
-    print_warning("Mode contextualized: Réindexation complète à chaque fois")
-    if run_command(SCRIPTS_DIR / "index_contextualized_adaptive.py"):
-        print_success("Réindexation complétée")
+    print_warning("Cette option supprimera les chunks des documents absents du filesystem")
+    if run_command(SCRIPTS_DIR / "index_contextualized_incremental.py", "--delete-missing"):
+        print_success("Nettoyage complété")
     else:
-        print_error("Réindexation échouée")
+        print_error("Nettoyage échoué")
     input("\nAppuyez sur Entrée pour continuer...")
 
 
