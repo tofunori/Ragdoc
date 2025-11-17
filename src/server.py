@@ -298,7 +298,7 @@ def _perform_search_hybrid(
                     output += "\n"
 
                     # Show content preview
-                    preview_length = 300 if is_main else 150
+                    preview_length = 800 if is_main else 400
                     preview = chunk_content[:preview_length]
                     if len(chunk_content) > preview_length:
                         preview += "..."

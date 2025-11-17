@@ -83,7 +83,7 @@ CHONKIE_TOKENIZER = "gpt2"     # Compatible avec Voyage AI
 # ============================================================================
 
 # Nombre de chunks adjacents à retourner avant/après le résultat principal
-CONTEXT_WINDOW_SIZE = 2  # Retourne [chunk_n-2, chunk_n-1, chunk_n, chunk_n+1, chunk_n+2]
+CONTEXT_WINDOW_SIZE = 4  # Retourne [chunk_n-4, chunk_n-3, chunk_n-2, chunk_n-1, chunk_n, chunk_n+1, chunk_n+2, chunk_n+3, chunk_n+4]
 
 # ============================================================================
 # MODÈLES D'EMBEDDING VOYAGE AI
