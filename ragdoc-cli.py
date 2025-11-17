@@ -195,7 +195,7 @@ class RagdocCLI:
 
         try:
             # Utiliser chemin absolu du script
-            script_path = (self.scripts_dir / "index_incremental.py").resolve()
+            script_path = (self.scripts_dir / "index_contextualized_adaptive.py").resolve()
             cmd = ["python", str(script_path)]
 
             if force:
