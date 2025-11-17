@@ -488,7 +488,7 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
     Show a chunk with surrounding chunks for context.
 
     Args:
-        chunk_id: ID of the target chunk (from search results)
+        chunk_id: ID of the target chunk (from search results) or in format "source_name_XX"
         context_size: Number of chunks before and after (default: 2)
         highlight: Highlight the matched chunk (default: True)
 
@@ -499,11 +499,44 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
         init_clients()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
-        # Get the target chunk
+        # Try to get the target chunk by ID directly (new format: doc_X_chunk_Y)
         target = collection.get(
             ids=[chunk_id],
             include=["documents", "metadatas"]
         )
+
+        # If not found, try to parse old format (source_name_XX)
+        if not target['documents']:
+            # Try to extract source and chunk_index from old-style chunk_id
+            # Format: "filename_XX" or "filename.md_XX" where XX is chunk index
+            if '_' in chunk_id and chunk_id.count('_') >= 1:
+                # Split from the right to get the last part as chunk index
+                parts = chunk_id.rsplit('_', 1)
+                if len(parts) == 2:
+                    source = parts[0]
+                    # Add .md extension if not present (sources are stored with .md)
+                    if not source.endswith('.md'):
+                        source = source + '.md'
+
+                    try:
+                        chunk_index = int(parts[1])
+
+                        # Query by metadata
+                        all_chunks = collection.get(
+                            where={
+                                "$and": [
+                                    {"source": {"$eq": source}},
+                                    {"chunk_index": {"$eq": chunk_index}}
+                                ]
+                            },
+                            include=["documents", "metadatas"]
+                        )
+
+                        if all_chunks['documents']:
+                            target = all_chunks
+                            chunk_id = all_chunks['ids'][0]  # Update chunk_id to actual ID
+                    except (ValueError, KeyError):
+                        pass
 
         if not target['documents']:
             return f"ERROR: Chunk '{chunk_id}' not found in the database."
