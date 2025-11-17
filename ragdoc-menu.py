@@ -66,8 +66,9 @@ def print_warning(text: str):
 def run_command(script_path: Path, *args, **kwargs) -> bool:
     """Lancer un script Python et afficher la progression"""
     try:
-        # Utiliser conda run pour executer dans ragdoc-env
-        cmd = ["conda", "run", "-n", "ragdoc-env", "python", str(script_path)] + list(args)
+        # Utiliser directement le Python de ragdoc-env
+        python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
+        cmd = [python_exe, str(script_path)] + list(args)
         result = subprocess.run(cmd, cwd=str(CLI_DIR), **kwargs)
         return result.returncode == 0
     except Exception as e:
@@ -79,8 +80,9 @@ def action_status():
     """Afficher les statistiques"""
     print_header("STATISTIQUES D'INDEXATION")
 
-    # Utiliser conda run pour exécuter avec ragdoc-env
-    cmd = ["conda", "run", "-n", "ragdoc-env", "python", str(CLI_DIR / "ragdoc-cli.py"), "status"]
+    # Utiliser directement le Python de ragdoc-env
+    python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
+    cmd = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "status"]
     result = subprocess.run(cmd, cwd=str(CLI_DIR))
 
     input("\nAppuyez sur Entrée pour continuer...")
@@ -90,8 +92,9 @@ def action_status_by_date():
     """Afficher les statistiques triées par date d'indexation"""
     print_header("STATISTIQUES D'INDEXATION - TRI PAR DATE")
 
-    # Utiliser conda run pour exécuter avec ragdoc-env
-    cmd = ["conda", "run", "-n", "ragdoc-env", "python", str(CLI_DIR / "ragdoc-cli.py"), "status", "--sort-by-date"]
+    # Utiliser directement le Python de ragdoc-env
+    python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
+    cmd = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "status", "--sort-by-date"]
     result = subprocess.run(cmd, cwd=str(CLI_DIR))
 
     input("\nAppuyez sur Entrée pour continuer...")
@@ -266,7 +269,8 @@ def action_delete_doc():
     try:
         # Afficher la liste des documents via ragdoc status
         print_info("Chargement de la liste des documents...")
-        cmd_status = ["conda", "run", "-n", "ragdoc-env", "python", str(CLI_DIR / "ragdoc-cli.py"), "status"]
+        python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
+        cmd_status = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "status"]
         subprocess.run(cmd_status, cwd=str(CLI_DIR))
 
         # Demander quel document supprimer
@@ -296,7 +300,7 @@ def action_delete_doc():
             return
 
         # Appeler la CLI pour supprimer (avec --yes pour skip la confirmation redondante)
-        cmd_delete = ["conda", "run", "-n", "ragdoc-env", "python", str(CLI_DIR / "ragdoc-cli.py"), "delete-doc", doc_name, "--yes"]
+        cmd_delete = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "delete-doc", doc_name, "--yes"]
         result = subprocess.run(cmd_delete, cwd=str(CLI_DIR))
 
         if result.returncode == 0:
