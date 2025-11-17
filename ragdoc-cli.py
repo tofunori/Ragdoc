@@ -26,7 +26,7 @@ init(autoreset=True)
 
 # Configuration
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
-from indexing_config import CHROMA_DB_PATH, COLLECTION_HYBRID_NAME as COLLECTION_NAME, MARKDOWN_DIR
+from indexing_config import CHROMA_DB_CONTEXTUALIZED_PATH as CHROMA_DB_PATH, COLLECTION_CONTEXTUALIZED_NAME as COLLECTION_NAME, MARKDOWN_DIR
 
 # Import du gestionnaire de serveur
 try:
@@ -80,13 +80,8 @@ class RagdocCLI:
             sort_by_date: Si True, trier les articles par date d'indexation (plus récents en premier)
         """
         try:
-            # Auto-detection: essayer HttpClient d'abord, puis PersistentClient
-            try:
-                test_client = chromadb.HttpClient(host="localhost", port=8000)
-                test_client.heartbeat()
-                client = test_client
-            except Exception:
-                client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
+            # Use PersistentClient for contextualized database
+            client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
 
             collections = client.list_collections()
 
@@ -386,13 +381,8 @@ class RagdocCLI:
         self.print_header("SUPPRESSION DE DOCUMENT")
 
         try:
-            # Auto-detection: HttpClient d'abord, puis PersistentClient
-            try:
-                test_client = chromadb.HttpClient(host="localhost", port=8000)
-                test_client.heartbeat()
-                client = test_client
-            except Exception:
-                client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
+            # Use PersistentClient for contextualized database
+            client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
 
             collection = client.get_collection(name=COLLECTION_NAME)
 

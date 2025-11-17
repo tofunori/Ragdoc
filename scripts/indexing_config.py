@@ -11,10 +11,13 @@ from pathlib import Path
 # ============================================================================
 
 MARKDOWN_DIR = Path(__file__).parent.parent / "articles_markdown"
-CHROMA_DB_PATH = Path(__file__).parent.parent / "chroma_db_new"
 
-# Nouvelle base de données pour pipeline hybride
-CHROMA_DB_HYBRID_PATH = CHROMA_DB_PATH
+# Base de données principales
+CHROMA_DB_PATH = Path(__file__).parent.parent / "chroma_db_new"
+CHROMA_DB_HYBRID_PATH = CHROMA_DB_PATH  # Compatibilité legacy
+
+# Nouvelle base de données pour Contextualized Embeddings (voyage-context-3)
+CHROMA_DB_CONTEXTUALIZED_PATH = Path(__file__).parent.parent / "chroma_db_contextualized"
 
 # ============================================================================
 # COLLECTION CHROMA
@@ -25,6 +28,9 @@ COLLECTION_NAME = "zotero_research_context_v2"
 
 # Nouvelle collection hybride (Token + Semantic + Overlap)
 COLLECTION_HYBRID_NAME = "zotero_research_context_hybrid_v3"
+
+# Collection Contextualized Embeddings (voyage-context-3)
+COLLECTION_CONTEXTUALIZED_NAME = "ragdoc_contextualized_v1"
 
 # Métadonnées de la collection (HNSW optimisation)
 COLLECTION_METADATA = {
@@ -39,6 +45,16 @@ COLLECTION_HYBRID_METADATA = {
     "hnsw:construction_ef": 400,
     "hnsw:M": 64,
     "pipeline": "hybrid_token_semantic_overlap"
+}
+
+# Métadonnées pour collection contextualized (optimisées pour contexte)
+COLLECTION_CONTEXTUALIZED_METADATA = {
+    "hnsw:space": "cosine",
+    "hnsw:construction_ef": 400,
+    "hnsw:M": 64,
+    "pipeline": "contextualized_adaptive",
+    "embedding_model": "voyage-context-3",
+    "description": "Contextualized chunk embeddings with adaptive strategy"
 }
 
 # ============================================================================
