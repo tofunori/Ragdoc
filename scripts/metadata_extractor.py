@@ -17,17 +17,43 @@ class MetadataExtractor:
     def __init__(self):
         # Patterns pour extraction depuis le texte
         self.author_patterns = [
+            # YAML frontmatter
             r'(?:Author|Auteur)s?:\s*(.+?)(?:\n|$)',
             r'(?:By|Par)\s+(.+?)(?:\n|$)',
-            r'^#\s*(.+?)\s*\n',  # Premier titre peut contenir l'auteur
+
+            # Patterns académiques (articles scientifiques)
+            # Format: "Name1, Name2, and Name3" ou "Name1 & Name2"
+            r'^([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+(?:\s*,\s*[A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)*(?:\s+(?:and|&|et)\s+[A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)?)\s*$',
+
+            # Format: "Last, F., Last2, F., & Last3, F."
+            r'^([A-Z][a-z]+,\s+[A-Z]\.\s*(?:,\s*[A-Z][a-z]+,\s+[A-Z]\.)*(?:,?\s*(?:&|and|et)\s+[A-Z][a-z]+,\s+[A-Z]\.)?)',
+
+            # Format: "Author et al."
+            r'^([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)\s+et\s+al\.',
+
+            # Après un titre, ligne simple avec des noms
+            r'^\*\*Authors?:\*\*\s*(.+?)(?:\n|$)',
         ]
 
         self.date_patterns = [
+            # Formats explicites
             r'(?:Date|Published|Publication):\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})',
             r'(?:Date|Published|Publication):\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
             r'(?:Date|Published|Publication):\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})',
             r'(?:Date|Published|Publication):\s*(\d{4})',
-            r'\b((?:19|20)\d{2})\b',  # Année simple (1900-2099)
+
+            # Patterns académiques (journaux scientifiques)
+            # Format: "Journal Name, Vol. 123, 2023"
+            r',\s+(?:Vol\.|Volume)\s+\d+,?\s+(\d{4})',
+
+            # Format: "Journal Name (2023)"
+            r'\((\d{4})\)',
+
+            # Format: "Journal, 2023"
+            r',\s+(\d{4})\s*(?:\.|$)',
+
+            # Année simple (1900-2099) - en dernier car moins spécifique
+            r'\b((?:19|20)\d{2})\b',
         ]
 
     def extract_yaml_frontmatter(self, content: str) -> Optional[Dict]:
