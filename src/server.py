@@ -276,8 +276,19 @@ def _perform_search_hybrid(
                 meta_list = doc_entry.get('metadatas') if doc_entry else []
                 total_chunks = len(meta_list) if meta_list else 1
 
+            # Extract author and date
+            author = metadata.get('author', 'N/A')
+            date = metadata.get('date', 'N/A')
+            title = metadata.get('title', 'N/A')
+
             output += f"[{i}] Rerank Score: {score:.4f} | Hybrid: {hybrid_score:.4f}\n"
             output += f"    Source: {source}\n"
+            if title != 'N/A':
+                output += f"    Title: {title}\n"
+            if author != 'N/A':
+                output += f"    Author: {author}\n"
+            if date != 'N/A':
+                output += f"    Date: {date}\n"
             output += f"    Position: chunk {chunk_index}/{total_chunks}\n"
             output += f"    Rankings: BM25 #{bm25_rank}, Semantic #{semantic_rank}\n\n"
 
@@ -386,7 +397,16 @@ def list_documents() -> str:
 
         for i, (source, metadata) in enumerate(sorted(sources.items()), 1):
             output += f"[{i}] {source}\n"
-            output += f"    Title: {metadata.get('title', 'No title')}\n"
+
+            title = metadata.get('title', 'No title')
+            author = metadata.get('author')
+            date = metadata.get('date')
+
+            output += f"    Title: {title}\n"
+            if author:
+                output += f"    Author: {author}\n"
+            if date:
+                output += f"    Date: {date}\n"
             output += f"    Chunks: {metadata.get('total_chunks', 'N/A')}\n\n"
 
         return output
@@ -432,6 +452,8 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
         indexed_date = first_meta.get('indexed_date', 'N/A')
         model = first_meta.get('model', 'N/A')
         title = first_meta.get('title', source)
+        author = first_meta.get('author')
+        date = first_meta.get('date')
 
         # Build output based on format
         output = ""
@@ -441,6 +463,10 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
             output += f"DOCUMENT: {source}\n"
             output += "=" * 70 + "\n"
             output += f"Title: {title}\n"
+            if author:
+                output += f"Author: {author}\n"
+            if date:
+                output += f"Date: {date}\n"
             output += f"Total chunks: {total_chunks}\n"
             output += f"Indexed: {indexed_date}\n"
             output += f"Model: {model}\n"
@@ -461,6 +487,10 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
         else:  # markdown (default)
             # Markdown with metadata header
             output += f"# {title}\n\n"
+            if author:
+                output += f"**Author:** {author}  \n"
+            if date:
+                output += f"**Date:** {date}  \n"
             output += f"**Source:** {source}  \n"
             output += f"**Total chunks:** {total_chunks}  \n"
             output += f"**Indexed:** {indexed_date}  \n"

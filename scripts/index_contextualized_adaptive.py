@@ -38,6 +38,7 @@ from indexing_config import (
     COLLECTION_CONTEXTUALIZED_METADATA,
     CHUNK_SIZE
 )
+from metadata_extractor import extract_metadata
 
 # Constantes voyage-context-3
 MAX_TOKENS_PER_DOC = 32000      # 32K tokens
@@ -78,14 +79,23 @@ class AdaptiveContextualizer:
         self,
         content: str,
         doc_id: int,
-        source_name: str
+        source_name: str,
+        doc_metadata: dict = None
     ) -> Tuple[List[str], List[dict], List[str], List[list]]:
         """
         Traite un document et retourne chunks, métadonnées, IDs, embeddings
 
+        Args:
+            content: Contenu du document
+            doc_id: ID unique du document
+            source_name: Nom du fichier source
+            doc_metadata: Métadonnées extraites (author, date, title)
+
         Returns:
             chunks, metadatas, ids, embeddings
         """
+        if doc_metadata is None:
+            doc_metadata = {}
         doc_tokens = self.estimate_tokens(content)
         doc_chars = len(content)
 
@@ -147,7 +157,7 @@ class AdaptiveContextualizer:
         ids = []
 
         for chunk_idx, chunk in enumerate(chunks):
-            metadatas.append({
+            chunk_metadata = {
                 "source": source_name,
                 "chunk_index": chunk_idx,
                 "total_chunks": len(chunks),
@@ -155,7 +165,17 @@ class AdaptiveContextualizer:
                 "doc_size_chars": doc_chars,
                 "doc_size_tokens": doc_tokens,
                 "embedding_strategy": strategy
-            })
+            }
+
+            # Ajouter métadonnées extraites (auteur, date, titre)
+            if doc_metadata.get('author'):
+                chunk_metadata['author'] = doc_metadata['author']
+            if doc_metadata.get('date'):
+                chunk_metadata['date'] = doc_metadata['date']
+            if doc_metadata.get('title'):
+                chunk_metadata['title'] = doc_metadata['title']
+
+            metadatas.append(chunk_metadata)
             ids.append(f"doc_{doc_id}_chunk_{chunk_idx}")
 
         self.stats['total_chunks'] += len(chunks)
@@ -225,9 +245,15 @@ def index_with_adaptive_strategy():
                 print(f"   [WARNING] UTF-8 failed for {md_file.name}, trying latin-1...")
                 content = md_file.read_text(encoding='latin-1')
 
+            # Extraire métadonnées (auteur, date, titre)
+            doc_metadata = extract_metadata(content, md_file.name)
+            print(f"   [META] Author: {doc_metadata.get('author', 'N/A')}, "
+                  f"Date: {doc_metadata.get('date', 'N/A')}, "
+                  f"Title: {doc_metadata.get('title', 'N/A')[:50] if doc_metadata.get('title') else 'N/A'}...")
+
             # Traitement adaptatif
             chunks, metadatas, ids, embeddings = contextualizer.process_document(
-                content, doc_id, md_file.name
+                content, doc_id, md_file.name, doc_metadata
             )
 
             all_chunks.extend(chunks)
