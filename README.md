@@ -158,7 +158,7 @@ What are the remote sensing methods for albedo analysis?
 ### Available MCP Tools
 
 #### Search Tools
--   `semantic_search_hybrid(query, top_k=10, alpha=0.5)` - Hybrid search (BM25 + Semantic) with reranking
+-   `semantic_search_hybrid(query, top_k=10, alpha=0.5)` - Contextualized search (BM25 + contextualized embeddings) with reranking
 -   `search_by_source(query, sources, top_k=10, alpha=0.5)` - Search limited to specific documents
 
 #### Document Management Tools
@@ -173,7 +173,7 @@ What are the remote sensing methods for albedo analysis?
 
 #### Search and Discovery
 ```python
-# Hybrid search (BM25 + Semantic) - alpha=0.5 is balanced hybrid (default)
+# Contextualized search (BM25 + contextualized embeddings) - alpha=0.5 is balanced fusion (default)
 semantic_search_hybrid("black carbon impact on glacier albedo", top_k=10, alpha=0.5)
 
 # Adjust semantic/lexical weight (alpha=0.5 = equal weight)
@@ -357,20 +357,9 @@ python ragdoc-menu.py
 
 ### Benchmarks (v1.7.0)
 
--   **Search**: 2-3s for hybrid search + reranking (10 results)
+-   **Search**: 2-3s for contextualized + BM25 fusion + reranking (10 results)
 -   **Indexing**: ~2min/document with contextualized embeddings
--   **Retrieval**: +67% diversity improvement vs semantic-only
--   **Scalability**: 24,884+ chunks indexed and validated
-
-### Hybrid Search vs Semantic-Only
-
-| Metric | Semantic Only | Hybrid Search (v1.7.0) |
-|--------|---------------|------------------------|
-| Result diversity | Baseline | +67% improvement |
-| Exact term matching | Medium | Excellent |
-| Acronym handling | Variable | Excellent |
-| Number precision | Low | Excellent |
-| Concept understanding | Excellent | Excellent |
+-   **Retrieval**: ~25k chunks indexed and validated
 
 ## 🤝 Contributing
 
