@@ -218,6 +218,15 @@ def action_server_stop():
     Prompt.ask("Continuer...")
 
 
+def action_server_force_stop():
+    if not server_manager: return
+    print_header("ARRET FORCE SERVEUR")
+    success, msg = server_manager.force_kill()
+    if success: console.print(f"[green]{msg}[/green]")
+    else: console.print(f"[red]{msg}[/red]")
+    Prompt.ask("Continuer...")
+
+
 def action_server_status():
     if not server_manager: return
     print_header("STATUT SERVEUR")
@@ -288,6 +297,7 @@ def main():
             Choice("Statut Serveur", action_server_status),
             Choice("Démarrer Serveur", action_server_start),
             Choice("Arrêter Serveur", action_server_stop),
+            Choice("Forcer arrêt Serveur", action_server_force_stop),
             
             Separator("\n   🛠️ MAINTENANCE"),
             Choice("Reset Collections", action_reset),
