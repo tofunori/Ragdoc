@@ -6,11 +6,16 @@ Vérifie que le hybrid search fonctionne
 
 import sys
 import json
+import os
 from pathlib import Path
+
+# Force Hybrid mode for testing
+os.environ["RAGDOC_MODE"] = "hybrid"
 
 # Import du serveur
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 import server
+from src.config import COLLECTION_HYBRID_NAME
 
 def test_indexation_status():
     """Test 1: Verifier le statut de l'indexation"""
@@ -22,13 +27,14 @@ def test_indexation_status():
     server.init_clients()
 
     # Récupérer le statut via la fonction interne
-    collection = server.chroma_client.get_collection(name=server.COLLECTION_HYBRID_NAME)
+    # Note: server.COLLECTION_NAME will be set based on RAGDOC_MODE
+    collection = server.chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
     all_docs = collection.get(include=["metadatas"])
 
     total_chunks = len(all_docs['ids'])
 
     print(f"Total chunks indexes: {total_chunks}")
-    print(f"Collection: {server.COLLECTION_HYBRID_NAME}")
+    print(f"Collection: {COLLECTION_HYBRID_NAME}")
     print("Mode: HYBRID (BM25 + Semantic + Reranking)")
 
     assert total_chunks > 0, "ERREUR: Aucun document indexe!"

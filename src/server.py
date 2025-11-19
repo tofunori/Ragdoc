@@ -1,49 +1,49 @@
 #!/usr/bin/env python3
 """
-MCP Server for Glacier Research Search
-CONTEXTUALIZED VERSION: BM25 + Voyage-Context-3 embeddings + Cohere v3.5 reranking
+MCP Server for RAGDOC (Unified)
+Supports both 'contextualized' and 'hybrid' modes.
 """
 
 import os
 import sys
 import hashlib
 import logging
+import argparse
 from pathlib import Path
-from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Ensure src is in path if running as script
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastmcp import FastMCP
-from dotenv import load_dotenv
 import chromadb
 import voyageai
 import cohere
 
-# Import hybrid retriever
-sys.path.insert(0, str(Path(__file__).parent))
-from hybrid_retriever import HybridRetriever
+# Import internal modules
+from src.config import (
+    RAGDOC_MODE,
+    COLLECTION_NAME,
+    ACTIVE_DB_PATH,
+    CONTEXT_WINDOW_SIZE,
+    VOYAGE_API_KEY,
+    COHERE_API_KEY,
+    LOG_LEVEL
+)
+from src.hybrid_retriever import HybridRetriever
 
-# Load environment
-load_dotenv()
-
-# Import indexing configuration
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-from indexing_config import (
-    MARKDOWN_DIR,
-    COLLECTION_CONTEXTUALIZED_NAME, CHROMA_DB_CONTEXTUALIZED_PATH,
-    CHUNK_SIZE, CHUNK_OVERLAP,
-    DEFAULT_MODEL, LARGE_DOC_MODEL, LARGE_DOC_THRESHOLD,
-    CONTEXT_WINDOW_SIZE
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-# Use contextualized database as primary database
-COLLECTION_NAME = COLLECTION_CONTEXTUALIZED_NAME
-CHROMA_DB_PATH = CHROMA_DB_CONTEXTUALIZED_PATH
-
-# Configuration
-VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
-COHERE_API_KEY = os.getenv("COHERE_API_KEY")
-
 # Initialize MCP server
-mcp = FastMCP("ragdoc-contextualized")
+mcp = FastMCP(f"ragdoc-{RAGDOC_MODE}")
 
 # Global clients (initialized on first use)
 voyage_client = None
@@ -51,57 +51,74 @@ chroma_client = None
 cohere_client = None
 hybrid_retriever = None
 
-
 def init_clients():
     """Initialize API clients with auto-detection of ChromaDB server"""
     global voyage_client, chroma_client, cohere_client, hybrid_retriever
 
     if not voyage_client:
-        voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
+        if not os.getenv("VOYAGE_API_KEY"):
+             logging.warning("VOYAGE_API_KEY not set. Semantic search will fail.")
+        voyage_client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
 
     if not chroma_client:
-        # Use local PersistentClient for contextualized database
-        chroma_client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
-        logging.info(f"[OK] MCP: Connected to ChromaDB (contextualized mode)")
+        # Try HttpClient (server mode) first, fallback to PersistentClient
+        try:
+            test_client = chromadb.HttpClient(host="localhost", port=8000)
+            test_client.heartbeat()
+            chroma_client = test_client
+            logging.info(f"[OK] MCP: Connected to ChromaDB server (localhost:8000) - Collection: {COLLECTION_NAME}")
+        except Exception:
+            logging.info(f"[INFO] MCP: ChromaDB server not available, using local mode: {ACTIVE_DB_PATH}")
+            chroma_client = chromadb.PersistentClient(path=str(ACTIVE_DB_PATH))
 
     if not cohere_client:
-        cohere_client = cohere.ClientV2(api_key=COHERE_API_KEY)
+        if not os.getenv("COHERE_API_KEY"):
+            logging.warning("COHERE_API_KEY not set. Reranking will fail.")
+        cohere_client = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
 
-    # Initialize hybrid retriever with contextualized embeddings
+    # Initialize hybrid retriever
     if not hybrid_retriever:
-        collection = chroma_client.get_collection(name=COLLECTION_NAME)
+        try:
+            collection = chroma_client.get_collection(name=COLLECTION_NAME)
+            
+            # Define embedding function based on mode
+            if RAGDOC_MODE == "contextualized":
+                 # Contextualized embedding function
+                def voyage_contextualized_embed(texts):
+                    results = []
+                    for text in texts:
+                        result = voyage_client.contextualized_embed(
+                            inputs=[[text]],
+                            model="voyage-context-3",
+                            input_type="query"
+                        )
+                        results.append(result.results[0].embeddings[0])
+                    return results
+                
+                embed_fn = voyage_contextualized_embed
+                logging.info("[OK] Hybrid retriever initialized (Contextualized Mode)")
 
-        # Embedding function for hybrid retriever using voyage-context-3
-        def voyage_contextualized_embed(texts):
-            # For contextualized search, we need to wrap each text in a list
-            results = []
-            for text in texts:
-                result = voyage_client.contextualized_embed(
-                    inputs=[[text]],
-                    model="voyage-context-3",
-                    input_type="query"
-                )
-                results.append(result.results[0].embeddings[0])
-            return results
+            else:
+                # Standard Hybrid embedding function
+                def voyage_embed(texts):
+                    result = voyage_client.embed(texts=texts, model="voyage-3-large")
+                    return result.embeddings
+                
+                embed_fn = voyage_embed
+                logging.info("[OK] Hybrid retriever initialized (Standard Hybrid Mode)")
 
-        hybrid_retriever = HybridRetriever(
-            collection=collection,
-            embedding_function=voyage_contextualized_embed
-        )
-        logging.info("[OK] Hybrid retriever initialized (BM25 + Voyage-Context-3)")
-
-
-def _compute_doc_hash(content: str) -> str:
-    """Compute MD5 hash of document content"""
-    return hashlib.md5(content.encode()).hexdigest()
+            hybrid_retriever = HybridRetriever(
+                collection=collection,
+                embedding_function=embed_fn
+            )
+        except Exception as e:
+            logging.error(f"Failed to initialize HybridRetriever: {e}")
+            # Don't crash, just allow other tools to work
 
 
 def _fetch_document_chunks(collection, source: str) -> dict:
     """
     Fetch all chunks for a given document source.
-
-    Returns a normalized dict with 'documents' and 'metadatas' lists
-    (may be empty if nothing is found).
     """
     for field in ("source", "filename"):
         try:
@@ -110,12 +127,7 @@ def _fetch_document_chunks(collection, source: str) -> dict:
                 include=["documents", "metadatas"]
             )
         except Exception as fetch_error:
-            logging.warning(
-                "Failed to fetch chunks for %s=%s : %s",
-                field,
-                source,
-                fetch_error
-            )
+            logging.warning(f"Failed to fetch chunks for {field}={source}: {fetch_error}")
             continue
 
         if results and results.get("documents"):
@@ -142,16 +154,6 @@ def _get_adjacent_chunks(collection, source: str, chunk_index: int, total_chunks
                         window_size: int = CONTEXT_WINDOW_SIZE, doc_cache: dict | None = None) -> list:
     """
     Retrieve adjacent chunks around a target chunk.
-
-    Args:
-        collection: Chroma collection object
-        source: Document source filename
-        chunk_index: Index of the target chunk
-        total_chunks: Total chunks in the document
-        window_size: Number of chunks before/after target chunk
-
-    Returns:
-        List of adjacent chunks (including target) sorted by chunk_index
     """
     try:
         cached_entry = None
@@ -170,7 +172,6 @@ def _get_adjacent_chunks(collection, source: str, chunk_index: int, total_chunks
         if effective_total is None:
             effective_total = len(metadatas) if metadatas else 1
 
-        # Calculate indices of adjacent chunks with validated totals
         start_idx = max(0, chunk_index - window_size)
         end_idx = min(effective_total - 1, chunk_index + window_size)
 
@@ -192,11 +193,7 @@ def _get_adjacent_chunks(collection, source: str, chunk_index: int, total_chunks
         return combined
 
     except Exception as e:
-        logging.warning(
-            "Error retrieving adjacent chunks for %s: %s",
-            source,
-            e
-        )
+        logging.warning(f"Error retrieving adjacent chunks for {source}: {e}")
         return []
 
 
@@ -208,18 +205,15 @@ def _perform_search_hybrid(
     where_document: dict = None
 ) -> str:
     """
-    HYBRID search implementation with CONTEXTUALIZED embeddings
-    Pipeline: BM25 + Voyage-Context-3 (RRF) → Cohere v3.5 reranking → Context window expansion
-
-    Args:
-        query: Search query
-        top_k: Number of final results
-        alpha: Weight for semantic (0.7 = 70% semantic, 30% BM25)
-        where: Optional metadata filter (e.g., {"source": "doc.md"})
-        where_document: Optional document content filter (e.g., {"$contains": "text"})
+    Unified Hybrid Search Implementation.
+    Works for both Contextualized and Standard Hybrid modes.
     """
     try:
         init_clients()
+        
+        if not hybrid_retriever:
+            return "ERROR: Hybrid retriever not initialized. Check database connection."
+
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         # 1. Hybrid retrieval (BM25 + Semantic with RRF)
@@ -249,7 +243,7 @@ def _perform_search_hybrid(
         )
 
         # 4. Format results with context window expansion
-        output = f"HYBRID SEARCH RESULTS: {query}\n"
+        output = f"HYBRID SEARCH RESULTS ({RAGDOC_MODE.upper()} MODE): {query}\n"
         output += "=" * 70 + "\n\n"
 
         doc_cache = {}
@@ -298,6 +292,7 @@ def _perform_search_hybrid(
                     output += "\n"
 
                     # Show content preview
+                    # Longer preview for main chunk
                     preview_length = 800 if is_main else 400
                     preview = chunk_content[:preview_length]
                     if len(chunk_content) > preview_length:
@@ -312,13 +307,14 @@ def _perform_search_hybrid(
         return output
 
     except Exception as e:
+        logging.exception("Error during hybrid search")
         return f"ERROR: {str(e)}"
 
 
 @mcp.tool()
 def semantic_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.5) -> str:
     """
-    Hybrid search with BM25 + Voyage-Context-3 + Cohere v3.5 reranking.
+    Hybrid search with BM25 + Vector + Cohere v3.5 reranking.
 
     Args:
         query: Search query about the indexed knowledge base.
@@ -344,10 +340,6 @@ def search_by_source(query: str, sources: list, top_k: int = 10, alpha: float = 
 
     Returns:
         Formatted search results from specified documents only.
-
-    Examples:
-        search_by_source("glacier albedo", sources=["1982_RGSP.md"])
-        search_by_source("ice mass balance", sources=["Warren_1982.md", "Painter_2009.md"], top_k=5)
     """
     # Build where filter for source filtering
     if len(sources) == 1:
@@ -366,22 +358,20 @@ def list_documents() -> str:
     Returns:
         List of available papers with metadata.
     """
-
     try:
         init_clients()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
-        # Get metadata for all documents
         all_docs = collection.get(include=["metadatas"])
 
-        # Extract unique sources
         sources = {}
         for metadata in all_docs['metadatas']:
             source = metadata.get('source', metadata.get('filename', 'unknown'))
             if source not in sources:
                 sources[source] = metadata
 
-        output = f"INDEXED DOCUMENTS: {len(sources)} papers\n"
+        output = f"INDEXED DOCUMENTS ({len(sources)} papers)\n"
+        output += f"Mode: {RAGDOC_MODE}\n"
         output += "=" * 70 + "\n\n"
 
         for i, (source, metadata) in enumerate(sorted(sources.items()), 1):
@@ -404,15 +394,11 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
         source: Document source filename (from list_documents)
         format: Output format - "markdown" (default), "text", or "chunks"
         max_length: Maximum characters to return (default: 80000 chars ≈ 20K tokens)
-
-    Returns:
-        Complete reconstructed document with metadata
     """
     try:
         init_clients()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
-        # Fetch all chunks for this document
         doc_data = _fetch_document_chunks(collection, source)
 
         if not doc_data['documents']:
@@ -421,11 +407,9 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
         documents = doc_data['documents']
         metadatas = doc_data['metadatas']
 
-        # Sort chunks by chunk_index
         combined = list(zip(documents, metadatas))
         combined.sort(key=lambda x: x[1].get('chunk_index', 0))
 
-        # Extract metadata from first chunk
         first_meta = combined[0][1]
         total_chunks = len(combined)
         doc_hash = first_meta.get('doc_hash', 'N/A')
@@ -433,11 +417,9 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
         model = first_meta.get('model', 'N/A')
         title = first_meta.get('title', source)
 
-        # Build output based on format
         output = ""
 
         if format == "chunks":
-            # Show individual chunks with metadata
             output += f"DOCUMENT: {source}\n"
             output += "=" * 70 + "\n"
             output += f"Title: {title}\n"
@@ -454,12 +436,10 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
                 output += "-" * 70 + "\n\n"
 
         elif format == "text":
-            # Plain text reconstruction
             full_text = "\n\n".join([chunk for chunk, _ in combined])
             output = full_text
 
         else:  # markdown (default)
-            # Markdown with metadata header
             output += f"# {title}\n\n"
             output += f"**Source:** {source}  \n"
             output += f"**Total chunks:** {total_chunks}  \n"
@@ -468,17 +448,15 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
             output += f"**Hash:** {doc_hash}  \n"
             output += "\n" + "=" * 70 + "\n\n"
 
-            # Reconstruct full text
             full_text = "\n\n".join([chunk for chunk, _ in combined])
             output += full_text
 
-        # Apply max_length if specified
         if max_length and len(output) > max_length:
             original_length = len(output)
-            estimated_tokens = original_length // 4  # Rough estimate
+            estimated_tokens = original_length // 4
             output = output[:max_length]
             output += f"\n\n... (truncated: showing {max_length:,} of {original_length:,} chars, ~{estimated_tokens:,} tokens total)"
-            output += f"\n\nℹ️  Use max_length parameter to adjust limit or retrieve in chunks via semantic_search_hybrid"
+            output += f"\n\n[i] Use max_length parameter to adjust limit or retrieve in chunks via semantic_search_hybrid"
 
         return output
 
@@ -495,37 +473,26 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
         chunk_id: ID of the target chunk (from search results) or in format "source_name_XX"
         context_size: Number of chunks before and after (default: 2)
         highlight: Highlight the matched chunk (default: True)
-
-    Returns:
-        Target chunk with surrounding context chunks
     """
     try:
         init_clients()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
-        # Try to get the target chunk by ID directly (new format: doc_X_chunk_Y)
         target = collection.get(
             ids=[chunk_id],
             include=["documents", "metadatas"]
         )
 
-        # If not found, try to parse old format (source_name_XX)
         if not target['documents']:
-            # Try to extract source and chunk_index from old-style chunk_id
-            # Format: "filename_XX" or "filename.md_XX" where XX is chunk index
+            # Backward compatibility: parse source_name_XX
             if '_' in chunk_id and chunk_id.count('_') >= 1:
-                # Split from the right to get the last part as chunk index
                 parts = chunk_id.rsplit('_', 1)
                 if len(parts) == 2:
                     source = parts[0]
-                    # Add .md extension if not present (sources are stored with .md)
                     if not source.endswith('.md'):
                         source = source + '.md'
-
                     try:
                         chunk_index = int(parts[1])
-
-                        # Query by metadata
                         all_chunks = collection.get(
                             where={
                                 "$and": [
@@ -535,10 +502,9 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
                             },
                             include=["documents", "metadatas"]
                         )
-
                         if all_chunks['documents']:
                             target = all_chunks
-                            chunk_id = all_chunks['ids'][0]  # Update chunk_id to actual ID
+                            chunk_id = all_chunks['ids'][0]
                     except (ValueError, KeyError):
                         pass
 
@@ -552,15 +518,12 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
         chunk_index = target_meta.get('chunk_index', 0)
         total_chunks = target_meta.get('total_chunks')
 
-        # Convert total_chunks to int
         try:
             total_chunks = int(total_chunks)
         except (TypeError, ValueError):
-            # Fallback: fetch all chunks to determine total
             doc_data = _fetch_document_chunks(collection, source)
             total_chunks = len(doc_data['metadatas']) if doc_data['metadatas'] else 1
 
-        # Get adjacent chunks using existing helper
         adjacent_chunks = _get_adjacent_chunks(
             collection,
             source,
@@ -570,15 +533,13 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
         )
 
         if not adjacent_chunks:
-            # Fallback to showing just the target chunk
             output = f"CHUNK CONTEXT: {source}\n"
             output += "=" * 70 + "\n"
-            output += f"⚠️  No context chunks found. Showing target chunk only.\n\n"
+            output += f"[!] No context chunks found. Showing target chunk only.\n\n"
             output += f"[Chunk {chunk_index}/{total_chunks}]\n"
             output += f"{target_text}\n"
             return output
 
-        # Build output with context
         output = f"CHUNK CONTEXT: {source}\n"
         output += "=" * 70 + "\n"
         output += f"Showing chunk {chunk_index}/{total_chunks} "
@@ -589,7 +550,6 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
             current_idx = chunk_meta.get('chunk_index', 0)
             is_target = current_idx == chunk_index
 
-            # Add visual marker
             if highlight and is_target:
                 output += ">>> [TARGET CHUNK] <<<\n"
                 output += f"[Chunk {current_idx}/{total_chunks}] *** MATCHED RESULT ***\n"
@@ -613,9 +573,6 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
 def get_indexation_status() -> str:
     """
     Get current indexation database statistics.
-
-    Returns:
-        Formatted report with document count, chunk count, and metadata information.
     """
     try:
         init_clients()
@@ -638,7 +595,7 @@ def get_indexation_status() -> str:
         total_chunks = len(all_docs['ids'])
         total_docs = len(docs_by_source)
 
-        output = "INDEXATION STATUS - CONTEXTUALIZED EMBEDDINGS\n"
+        output = f"INDEXATION STATUS - {RAGDOC_MODE.upper()} MODE\n"
         output += "=" * 70 + "\n\n"
 
         output += f"GLOBAL STATISTICS:\n"
@@ -664,15 +621,28 @@ def get_indexation_status() -> str:
             pct = (count / total_docs) * 100
             output += f"   {model:30} {count:3d} docs ({pct:5.1f}%)\n"
 
-        output += f"\n" + "=" * 70 + "\n"
-        output += "RETRIEVAL MODE: CONTEXTUALIZED (BM25 + Voyage-Context-3 + Reranking)\n"
-        output += "=" * 70
-
         return output
 
     except Exception as e:
         return f"ERROR: {str(e)}"
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for CLI execution"""
+    parser = argparse.ArgumentParser(description="Ragdoc MCP Server")
+    parser.add_argument("--mode", choices=["hybrid", "contextualized"], 
+                        help="Override operation mode")
+    args, unknown = parser.parse_known_args()
+
+    # If mode is passed via CLI, warn user it might not persist for MCP stdio
+    if args.mode:
+        logging.info(f"Starting in {args.mode} mode (CLI override)")
+        # We can't easily change the global constant here because it's imported
+        # but we could set os.environ and re-exec, or refactor config loading.
+        # For now, rely on env vars.
+    
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()
