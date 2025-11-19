@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ragdoc"
-version = "0.1.0"
-description = "MCP server for RAG document search with Voyage-Context-3 + Cohere v3.5"
+version = "0.2.0"
+description = "Unified MCP server for RAG document search (Hybrid & Contextualized)"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -19,7 +19,8 @@ dependencies = [
     "cohere>=5.0.0",
     "python-dotenv>=1.0.0",
     "chonkie>=1.4.1",
-    "pyyaml>=6.0.0"
+    "pyyaml>=6.0.0",
+    "rank-bm25>=0.2.2"
 ]
 
 [project.optional-dependencies]

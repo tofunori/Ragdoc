@@ -10,6 +10,15 @@ from collections import defaultdict
 from rank_bm25 import BM25Okapi
 import chromadb
 
+try:
+    # New relative import
+    from .bm25_tokenizers.advanced_tokenizer import AdvancedTokenizer
+except ImportError:
+    # Fallback for running as script
+    try:
+        from bm25_tokenizers.advanced_tokenizer import AdvancedTokenizer
+    except ImportError:
+        AdvancedTokenizer = None
 
 class HybridRetriever:
     """
@@ -35,13 +44,12 @@ class HybridRetriever:
 
         # Initialize tokenizer
         self.tokenizer = None
-        if use_advanced_tokenizer:
+        if use_advanced_tokenizer and AdvancedTokenizer:
             try:
-                from bm25_tokenizers import AdvancedTokenizer
                 self.tokenizer = AdvancedTokenizer()
                 print("[OK] Advanced tokenization enabled (stemming + stopwords + scientific terms)")
-            except ImportError as e:
-                print(f"[WARNING] Advanced tokenizer unavailable ({e}), using simple tokenization")
+            except Exception as e:
+                print(f"[WARNING] Advanced tokenizer initialization failed ({e}), using simple tokenization")
                 self.tokenizer = None
         else:
             print("[INFO] Simple tokenization mode (backward compatible)")
@@ -54,6 +62,7 @@ class HybridRetriever:
     def _build_bm25_index(self):
         """Build BM25 index from ChromaDB collection"""
         # Fetch all documents from ChromaDB
+        # TODO: Optimize for large collections (lazy loading or caching)
         all_data = self.collection.get(include=["documents", "metadatas"])
 
         self.docs = all_data['documents']
@@ -70,21 +79,6 @@ class HybridRetriever:
     def _tokenize(self, text: str) -> List[str]:
         """
         Tokenize text using advanced or simple tokenizer.
-
-        If advanced tokenizer is enabled:
-        - Stemming (SnowballStemmer)
-        - Stopwords removal (with scientific exceptions)
-        - N-grams for scientific compound terms
-        - Pattern protection (acronyms, formulas, numbers)
-
-        Otherwise:
-        - Simple tokenization (lowercase + split) for backward compatibility
-
-        Args:
-            text: Text to tokenize
-
-        Returns:
-            List of tokens
         """
         if self.tokenizer:
             # Advanced tokenization
@@ -153,7 +147,12 @@ class HybridRetriever:
         bm25_scores = self.bm25.get_scores(tokenized_query)
 
         # Get top-N by score
-        top_indices = np.argsort(bm25_scores)[::-1][:top_n]
+        # Handle case where top_n > len(docs)
+        actual_top_n = min(top_n, len(bm25_scores))
+        if actual_top_n == 0:
+            return []
+            
+        top_indices = np.argsort(bm25_scores)[::-1][:actual_top_n]
 
         results = []
         for rank, idx in enumerate(top_indices):
@@ -172,15 +171,6 @@ class HybridRetriever:
     ) -> List[Tuple[str, float, int]]:
         """
         Semantic search via ChromaDB
-
-        Args:
-            query: Search query
-            top_n: Number of results
-            where: Optional metadata filter
-            where_document: Optional document content filter
-
-        Returns:
-            List of (doc_id, distance, rank)
         """
         if self.embedding_function is None:
             raise ValueError("embedding_function required for semantic search")
@@ -196,6 +186,10 @@ class HybridRetriever:
             where_document=where_document,
             include=["distances"]
         )
+        
+        # Check if results are empty
+        if not results['ids'] or not results['ids'][0]:
+            return []
 
         # Format results
         semantic_results = []
@@ -218,15 +212,6 @@ class HybridRetriever:
 
         Score(doc) = alpha * RRF_semantic + (1-alpha) * RRF_bm25
         RRF(doc) = sum(1 / (k + rank))
-
-        Args:
-            bm25_results: BM25 ranked results
-            semantic_results: Semantic ranked results
-            k: RRF constant (typically 60)
-            alpha: Weight for semantic vs BM25
-
-        Returns:
-            Sorted list of documents with combined scores
         """
 
         # Calculate RRF scores
@@ -269,7 +254,6 @@ class HybridRetriever:
                 metadata = self.metadatas[idx]
             except ValueError:
                 # Fallback: refetch from collection if doc_id not in index
-                # This can happen if collection was updated after retriever initialization
                 try:
                     result = self.collection.get(
                         ids=[doc_id],
@@ -279,10 +263,8 @@ class HybridRetriever:
                         text = result['documents'][0]
                         metadata = result['metadatas'][0]
                     else:
-                        # Skip this document if it can't be found
                         continue
                 except Exception:
-                    # Skip documents that can't be retrieved
                     continue
 
             final_results.append({
@@ -297,38 +279,3 @@ class HybridRetriever:
             })
 
         return final_results
-
-
-def test_hybrid_retriever():
-    """Test du hybrid retriever"""
-    import chromadb
-    from pathlib import Path
-
-    # Load ChromaDB
-    client = chromadb.PersistentClient(path=str(Path(__file__).parent.parent / "chroma_db_new"))
-    collection = client.get_collection(name="zotero_research_context_hybrid_v3")
-
-    # Dummy embedding function (remplacer par Voyage)
-    def dummy_embed(texts):
-        return [[0.1] * 1024 for _ in texts]
-
-    # Initialize retriever
-    retriever = HybridRetriever(collection, embedding_function=dummy_embed)
-
-    # Test query
-    query = "black carbon impact on glacier albedo"
-    results = retriever.search(query, top_k=5, alpha=0.7)
-
-    print(f"\nHybrid Search Results for: '{query}'")
-    print("=" * 80)
-
-    for i, result in enumerate(results, 1):
-        print(f"\n[{i}] Score: {result['score']:.4f} "
-              f"(BM25: {result['bm25_score']:.3f}, Semantic: {result['semantic_score']:.3f})")
-        print(f"    Source: {result['metadata'].get('source', 'unknown')}")
-        print(f"    BM25 rank: {result['bm25_rank']}, Semantic rank: {result['semantic_rank']}")
-        print(f"    Text: {result['text'][:200]}...")
-
-
-if __name__ == "__main__":
-    test_hybrid_retriever()

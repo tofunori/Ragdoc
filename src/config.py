@@ -32,9 +32,10 @@ MARKDOWN_DIR = PROJECT_ROOT / "articles_markdown"
 
 # Main database paths
 # Main database paths
-# NOTE: CHROMA_DB_PATH is now pointing to contextualized for everything
-CHROMA_DB_CONTEXTUALIZED_PATH = PROJECT_ROOT / "chroma_db_contextualized"
-CHROMA_DB_PATH = CHROMA_DB_CONTEXTUALIZED_PATH 
+# NOTE: Using chroma_db_new for unified database (server + MCP + scripts)
+CHROMA_DB_NEW_PATH = PROJECT_ROOT / "chroma_db_new"
+CHROMA_DB_CONTEXTUALIZED_PATH = CHROMA_DB_NEW_PATH  # Point to chroma_db_new
+CHROMA_DB_PATH = CHROMA_DB_NEW_PATH
 CHROMA_DB_HYBRID_PATH = CHROMA_DB_PATH  # Legacy compatibility
 
 # ============================================================================

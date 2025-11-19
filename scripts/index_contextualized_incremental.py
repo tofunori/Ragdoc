@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Indexation INCRÉMENTALE Contextualized Embeddings avec stratégie ADAPTATIVE
+Indexation INCRÉMENTALE Contextualized Embeddings (Unified Voyage-Context-3)
 Détecte et indexe uniquement les documents nouveaux ou modifiés
+Utilise voyage-context-3 pour TOUS les documents (limite 32k tokens de contexte)
 
 BASE DE DONNÉES: chroma_db_contextualized/
 COLLECTION: ragdoc_contextualized_v1
@@ -10,7 +11,7 @@ Fonctionnalités:
 - Détection MD5 des modifications
 - Skip documents inchangés (économie API 90-95%)
 - Suppression optionnelle des documents absents
-- Stratégie adaptative: contextualized vs standard batched
+- Stratégie unifiée: voyage-context-3 (plus de bascule vers large-3)
 
 Commandes:
   python index_contextualized_incremental.py           # Indexation incrémentale
@@ -38,21 +39,19 @@ if sys.stdout.encoding != 'utf-8':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-sys.path.insert(0, str(Path(__file__).parent))
-from indexing_config import (
+# Imports depuis le package src
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.config import (
     MARKDOWN_DIR,
     CHROMA_DB_CONTEXTUALIZED_PATH,
     COLLECTION_CONTEXTUALIZED_NAME,
     COLLECTION_CONTEXTUALIZED_METADATA,
-    CHUNK_SIZE
+    CHUNK_SIZE,
+    DEFAULT_MODEL
 )
 
 # Constantes voyage-context-3
-MAX_TOKENS_PER_DOC = 32000      # 32K tokens
-MAX_TOKENS_PER_CALL = 120000    # 120K tokens total
-MAX_CHUNKS_PER_CALL = 16000     # 16K chunks max
 CHARS_PER_TOKEN = 4             # Approximation
-
 
 # ============================================================================
 # UTILITY FUNCTIONS (from index_incremental.py)
@@ -111,11 +110,11 @@ def release_lock(lock_file: Path, lock_handle: LockHandle):
 
 
 # ============================================================================
-# ADAPTIVE CONTEXTUALIZER (from index_contextualized_adaptive.py)
+# UNIFIED CONTEXTUALIZER
 # ============================================================================
 
-class AdaptiveContextualizer:
-    """Gère l'indexation adaptative selon taille documents"""
+class UnifiedContextualizer:
+    """Gère l'indexation unifiée avec voyage-context-3"""
 
     def __init__(self):
         # Récupérer la clé API depuis l'environnement
@@ -125,8 +124,7 @@ class AdaptiveContextualizer:
 
         self.voyage_client = voyageai.Client(api_key=api_key)
         self.stats = {
-            'small_docs': 0,      # <20K tokens → contextualized
-            'large_docs': 0,      # >=20K tokens → standard batched
+            'docs_processed': 0,
             'total_chunks': 0,
             'new_docs': 0,
             'modified_docs': 0,
@@ -154,7 +152,7 @@ class AdaptiveContextualizer:
     ) -> Tuple[List[str], List[dict], List[str], List[list]]:
         """
         Traite un document et retourne chunks, métadonnées, IDs, embeddings
-
+        
         Returns:
             chunks, metadatas, ids, embeddings
         """
@@ -163,55 +161,26 @@ class AdaptiveContextualizer:
 
         print(f"   {source_name}: {doc_chars:,} chars (~{doc_tokens:,} tokens)")
 
-        # Seuil de sécurité : 20K tokens (~80K chars) pour éviter dépassements
-        SAFE_TOKEN_LIMIT = 20000
+        self.stats['docs_processed'] += 1
 
-        # === STRATÉGIE 1: Document petit → Contextualized ===
-        if doc_tokens < SAFE_TOKEN_LIMIT:
-            print(f"      [->] Strategie: CONTEXTUALIZED")
-            self.stats['small_docs'] += 1
+        # Utiliser la taille de chunk définie dans la config
+        current_chunk_size = 1500 # Default for context-3
+        
+        chunks = self.chunk_text(content, chunk_size=current_chunk_size)
 
-            # Créer chunks raisonnables (1500 chars pour meilleure granularité)
-            chunks = self.chunk_text(content, chunk_size=1500)
+        # Embeddings contextualisés (document entier comme contexte)
+        # Note: voyage-context-3 accepte jusqu'à 32k tokens de contexte
+        # Si le document est plus grand, l'API tronquera automatiquement le contexte
+        # pour les chunks de la fin, mais ça ne plantera pas.
+        embds_obj = self.voyage_client.contextualized_embed(
+            inputs=[chunks],  # Un seul document, plusieurs chunks
+            model=DEFAULT_MODEL,
+            input_type="document"
+        )
 
-            # Embeddings contextualisés (document entier comme contexte)
-            embds_obj = self.voyage_client.contextualized_embed(
-                inputs=[chunks],  # Un seul document, plusieurs chunks
-                model="voyage-context-3",
-                input_type="document"
-            )
-
-            embeddings = embds_obj.results[0].embeddings
-            strategy = "contextualized_full"
-            model_used = "voyage-context-3"
-
-        # === STRATÉGIE 2: Document grand → Standard avec batching ===
-        else:
-            print(f"      [->] Strategie: STANDARD (voyage-3-large) avec batching")
-            self.stats['large_docs'] += 1
-
-            # Chunks standard
-            chunks = self.chunk_text(content, chunk_size=2000)
-
-            # BATCHING: Envoyer par batches de 100 chunks (~50K tokens)
-            # Marge de sécurité pour éviter de dépasser la limite de 120K tokens
-            BATCH_SIZE = 100
-            embeddings = []
-
-            for i in range(0, len(chunks), BATCH_SIZE):
-                batch_chunks = chunks[i:i + BATCH_SIZE]
-                print(f"      [BATCH] Processing chunks {i}-{i+len(batch_chunks)} ({len(batch_chunks)} chunks)")
-
-                embds_result = self.voyage_client.embed(
-                    texts=batch_chunks,
-                    model="voyage-3-large",
-                    input_type="document"
-                )
-
-                embeddings.extend(embds_result.embeddings)
-
-            strategy = "standard_batched"
-            model_used = "voyage-3-large"
+        embeddings = embds_obj.results[0].embeddings
+        strategy = "contextualized_full"
+        model_used = DEFAULT_MODEL
 
         # Préparer métadonnées
         metadatas = []
@@ -235,22 +204,21 @@ class AdaptiveContextualizer:
 
         self.stats['total_chunks'] += len(chunks)
 
-        print(f"      [OK] {len(chunks)} chunks, {len(embeddings)} embeddings")
+        print(f"      [OK] {len(chunks)} chunks, {len(embeddings)} embeddings (Model: {model_used})")
 
         return chunks, metadatas, ids, embeddings
 
     def print_stats(self):
         """Affiche statistiques d'indexation"""
         print("\n" + "="*70)
-        print("STATISTIQUES D'INDEXATION INCREMENTALE")
+        print("STATISTIQUES D'INDEXATION INCREMENTALE (UNIFIEE)")
         print("="*70)
         print(f"Documents nouveaux:               {self.stats['new_docs']:4d}")
         print(f"Documents modifiés:               {self.stats['modified_docs']:4d}")
         print(f"Documents inchangés (skipped):    {self.stats['unchanged_docs']:4d}")
         print(f"Erreurs:                          {self.stats['errors']:4d}")
         print("-"*70)
-        print(f"Petits docs (<20K tokens):        {self.stats['small_docs']:4d} (contextualized)")
-        print(f"Grands docs (>=20K tokens):       {self.stats['large_docs']:4d} (standard batched)")
+        print(f"Total docs traités:               {self.stats['docs_processed']:4d}")
         print(f"Total chunks générés:             {self.stats['total_chunks']:4d}")
         print("="*70)
 
@@ -286,7 +254,7 @@ def index_contextualized_incremental(
 
     try:
         # [2] Initialize
-        print("[*] INDEXATION INCREMENTALE CONTEXTUALIZED")
+        print("[*] INDEXATION INCREMENTALE UNIFIEE (Context-3)")
         print("="*70)
         print(f"Base de donnees: {CHROMA_DB_CONTEXTUALIZED_PATH}")
         print(f"Collection: {COLLECTION_CONTEXTUALIZED_NAME}")
@@ -297,7 +265,7 @@ def index_contextualized_incremental(
         print("="*70)
 
         # [2a] Voyage AI
-        contextualizer = AdaptiveContextualizer()
+        contextualizer = UnifiedContextualizer()
 
         # [2b] ChromaDB
         CHROMA_DB_CONTEXTUALIZED_PATH.mkdir(parents=True, exist_ok=True)
@@ -374,7 +342,7 @@ def index_contextualized_incremental(
                             collection.delete(ids=old_chunk_ids)
                             print(f"[DEL] {md_file.name} (removing {len(old_chunk_ids)} old chunks)")
 
-                # Process document with adaptive strategy
+                # Process document with unified strategy
                 print(f"\n[{status}] {md_file.name}")
                 chunks, metadatas, ids, embeddings = contextualizer.process_document(
                     content, doc_id, md_file.name, current_hash
@@ -420,7 +388,7 @@ def index_contextualized_incremental(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Indexation incrémentale contextualized avec détection MD5"
+        description="Indexation incrémentale unifiée (Context-3)"
     )
     parser.add_argument(
         '--force',
