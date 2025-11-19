@@ -42,7 +42,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-# Initialize MCP server
+# Initialize MCP server (single contextualized mode)
 mcp = FastMCP(f"ragdoc-{RAGDOC_MODE}")
 
 # Global clients (initialized on first use)
@@ -76,36 +76,25 @@ def init_clients():
             logging.warning("COHERE_API_KEY not set. Reranking will fail.")
         cohere_client = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
 
-    # Initialize hybrid retriever
+    # Initialize retriever (contextualized embeddings + BM25 fusion)
     if not hybrid_retriever:
         try:
             collection = chroma_client.get_collection(name=COLLECTION_NAME)
-            
-            # Define embedding function based on mode
-            if RAGDOC_MODE == "contextualized":
-                 # Contextualized embedding function
-                def voyage_contextualized_embed(texts):
-                    results = []
-                    for text in texts:
-                        result = voyage_client.contextualized_embed(
-                            inputs=[[text]],
-                            model="voyage-context-3",
-                            input_type="query"
-                        )
-                        results.append(result.results[0].embeddings[0])
-                    return results
-                
-                embed_fn = voyage_contextualized_embed
-                logging.info("[OK] Hybrid retriever initialized (Contextualized Mode)")
 
-            else:
-                # Standard Hybrid embedding function
-                def voyage_embed(texts):
-                    result = voyage_client.embed(texts=texts, model="voyage-3-large")
-                    return result.embeddings
-                
-                embed_fn = voyage_embed
-                logging.info("[OK] Hybrid retriever initialized (Standard Hybrid Mode)")
+            # Contextualized embedding function (only mode supported)
+            def voyage_contextualized_embed(texts):
+                results = []
+                for text in texts:
+                    result = voyage_client.contextualized_embed(
+                        inputs=[[text]],
+                        model="voyage-context-3",
+                        input_type="query"
+                    )
+                    results.append(result.results[0].embeddings[0])
+                return results
+
+            embed_fn = voyage_contextualized_embed
+            logging.info("[OK] Retriever initialized (Contextualized Mode)")
 
             hybrid_retriever = HybridRetriever(
                 collection=collection,
@@ -205,8 +194,7 @@ def _perform_search_hybrid(
     where_document: dict = None
 ) -> str:
     """
-    Unified Hybrid Search Implementation.
-    Works for both Contextualized and Standard Hybrid modes.
+    Unified search (contextualized embeddings + BM25 + Cohere rerank).
     """
     try:
         init_clients()
@@ -216,7 +204,7 @@ def _perform_search_hybrid(
 
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
-        # 1. Hybrid retrieval (BM25 + Semantic with RRF)
+        # 1. Retrieval (BM25 + contextualized semantic with RRF)
         hybrid_results = hybrid_retriever.search(
             query=query,
             top_k=50,  # Get 50 candidates for reranking
@@ -243,7 +231,7 @@ def _perform_search_hybrid(
         )
 
         # 4. Format results with context window expansion
-        output = f"HYBRID SEARCH RESULTS ({RAGDOC_MODE.upper()} MODE): {query}\n"
+        output = f"SEARCH RESULTS ({RAGDOC_MODE.upper()} MODE): {query}\n"
         output += "=" * 70 + "\n\n"
 
         doc_cache = {}
@@ -270,7 +258,7 @@ def _perform_search_hybrid(
                 meta_list = doc_entry.get('metadatas') if doc_entry else []
                 total_chunks = len(meta_list) if meta_list else 1
 
-            output += f"[{i}] Rerank Score: {score:.4f} | Hybrid: {hybrid_score:.4f}\n"
+            output += f"[{i}] Rerank Score: {score:.4f} | Fusion: {hybrid_score:.4f}\n"
             output += f"    Source: {source}\n"
             output += f"    Position: chunk {chunk_index}/{total_chunks}\n"
             output += f"    Rankings: BM25 #{bm25_rank}, Semantic #{semantic_rank}\n\n"
