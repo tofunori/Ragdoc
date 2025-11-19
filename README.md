@@ -10,6 +10,8 @@
 
 A production-ready Model Context Protocol (MCP) server with a fully **Contextualized** pipeline for academic research, optimized for scientific literature retrieval.
 
+> Note: The legacy “hybrid mode” (Voyage-3-large embeddings) has been removed. All search paths now use contextualized embeddings + BM25 fusion; function names are preserved for compatibility.
+
 ## 🚀 Key Features
 
 -   **Contextualized Search (v1.7.0)**: Powered by **Voyage-Context-3** (32k context window) for superior understanding of document structure.
