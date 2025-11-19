@@ -1,29 +1,53 @@
 #!/usr/bin/env python3
 """
-RAGDOC Menu - Interface menu simple avec pick
-Navigation aux fleches + Enter pour selectionner
+RAGDOC Menu - Interface moderne avec Rich
 """
 # -*- coding: utf-8 -*-
 
 import sys
 import subprocess
+import time
 from pathlib import Path
+from typing import Dict, List, Callable
 
 try:
-    from pick import pick
-    from colorama import init, Fore, Style
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
+    from rich.layout import Layout
+    from rich.prompt import Prompt, Confirm
+    from rich import print as rprint
+    import questionary
+    from questionary import Choice, Separator
 except ImportError:
-    print("Dependances manquantes. Installez avec: pip install pick colorama")
+    # Tenter de relancer avec l'environnement ragdoc-env si les dépendances manquent
+    import os
+    import sys
+    from pathlib import Path
+    
+    RAGDOC_PYTHON = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
+    
+    if sys.executable != RAGDOC_PYTHON and Path(RAGDOC_PYTHON).exists():
+        # Relancer le script avec le bon Python via subprocess pour gérer les espaces
+        try:
+            script_path = str(Path(__file__).resolve())
+            # On reconstruit la commande: [python.exe, script.py, *args]
+            cmd = [RAGDOC_PYTHON, script_path] + sys.argv[1:]
+            
+            # On utilise subprocess.call au lieu de execv pour éviter les soucis de parsing d'arguments Windows
+            ret = subprocess.call(cmd)
+            sys.exit(ret)
+        except Exception as e:
+            print(f"Erreur lors du relancement: {e}")
+            # On continue pour afficher le message d'erreur standard
+
+    print("Dependances manquantes. Installez avec: pip install rich questionary")
+    print(f"Ou activez l'environnement: conda activate ragdoc-env")
     sys.exit(1)
 
-init(autoreset=True)
-
-# Couleurs
-COLOR_SUCCESS = Fore.GREEN
-COLOR_ERROR = Fore.RED
-COLOR_WARNING = Fore.YELLOW
-COLOR_INFO = Fore.CYAN
-RESET = Style.RESET_ALL
+# Initialiser Console
+console = Console()
 
 CLI_DIR = Path(__file__).parent
 SCRIPTS_DIR = CLI_DIR / "scripts"
@@ -32,35 +56,8 @@ SCRIPTS_DIR = CLI_DIR / "scripts"
 try:
     from chromadb_server_manager import server_manager
 except ImportError:
-    print(f"{COLOR_WARNING}Avertissement: chromadb_server_manager introuvable{RESET}")
+    console.print("[yellow]Avertissement: chromadb_server_manager introuvable[/yellow]")
     server_manager = None
-
-
-def print_header(text: str):
-    """Afficher un header"""
-    print(f"\n{COLOR_INFO}{'='*70}{RESET}")
-    print(f"{COLOR_INFO}{text.center(70)}{RESET}")
-    print(f"{COLOR_INFO}{'='*70}{RESET}\n")
-
-
-def print_success(text: str):
-    """Afficher message succès"""
-    print(f"{COLOR_SUCCESS}[OK] {text}{RESET}")
-
-
-def print_error(text: str):
-    """Afficher message erreur"""
-    print(f"{COLOR_ERROR}[ERREUR] {text}{RESET}")
-
-
-def print_info(text: str):
-    """Afficher message info"""
-    print(f"{COLOR_INFO}[INFO] {text}{RESET}")
-
-
-def print_warning(text: str):
-    """Afficher message warning"""
-    print(f"{COLOR_WARNING}[WARN] {text}{RESET}")
 
 
 def run_command(script_path: Path, *args, **kwargs) -> bool:
@@ -68,347 +65,273 @@ def run_command(script_path: Path, *args, **kwargs) -> bool:
     try:
         # Utiliser directement le Python de ragdoc-env
         python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
-        cmd = [python_exe, str(script_path)] + list(args)
-        result = subprocess.run(cmd, cwd=str(CLI_DIR), **kwargs)
-        return result.returncode == 0
+        cmd = [python_exe, "-u", str(script_path)] + list(args)
+        
+        console.print(f"[dim]Exécution: {script_path.name}[/dim]")
+        
+        # Utiliser Popen pour streaming temps réel
+        process = subprocess.Popen(
+            cmd, 
+            cwd=str(CLI_DIR), 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,  # Line buffered
+            encoding='utf-8',
+            errors='replace'
+        )
+        
+        # Lire et afficher la sortie en temps réel
+        for line in process.stdout:
+            print(line, end='', flush=True)
+            
+        process.wait()
+        return process.returncode == 0
     except Exception as e:
-        print_error(f"Erreur: {e}")
+        console.print(f"[bold red]Erreur: {e}[/bold red]")
         return False
+
+
+def print_header(text: str):
+    """Afficher un header"""
+    console.print(Panel(Text(text, justify="center", style="bold cyan"), border_style="cyan"))
 
 
 def action_status():
     """Afficher les statistiques"""
     print_header("STATISTIQUES D'INDEXATION")
-
-    # Utiliser directement le Python de ragdoc-env
     python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
     cmd = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "status"]
-    result = subprocess.run(cmd, cwd=str(CLI_DIR))
-
-    input("\nAppuyez sur Entrée pour continuer...")
+    subprocess.run(cmd, cwd=str(CLI_DIR))
+    Prompt.ask("\n[bold]Appuyez sur Entrée pour continuer...[/bold]")
 
 
 def action_status_by_date():
-    """Afficher les statistiques triées par date d'indexation"""
-    print_header("STATISTIQUES D'INDEXATION - TRI PAR DATE")
-
-    # Utiliser directement le Python de ragdoc-env
+    """Afficher les statistiques triées par date"""
+    print_header("STATISTIQUES - TRI PAR DATE")
     python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
     cmd = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "status", "--sort-by-date"]
-    result = subprocess.run(cmd, cwd=str(CLI_DIR))
-
-    input("\nAppuyez sur Entrée pour continuer...")
-
-
-def action_status_menu():
-    """Sous-menu pour afficher les statistiques avec différents tris"""
-    while True:
-        options = [
-            "Tri alphabétique",
-            "Tri par date",
-            "Retour au menu principal"
-        ]
-
-        selected, index = pick(
-            options,
-            f"{COLOR_INFO}Voir statistiques - Choisir le tri :{RESET}",
-            indicator=">",
-            default_index=0
-        )
-
-        if selected == "Tri alphabétique":
-            action_status()
-        elif selected == "Tri par date":
-            action_status_by_date()
-        elif selected == "Retour au menu principal":
-            break
+    subprocess.run(cmd, cwd=str(CLI_DIR))
+    Prompt.ask("\n[bold]Appuyez sur Entrée pour continuer...[/bold]")
 
 
 def action_index():
-    """Indexation incrémentale avec contextualized embeddings"""
-    print_header("INDEXATION INCREMENTALE CHROMA DB")
-    if run_command(SCRIPTS_DIR / "index_contextualized_incremental.py"):
-        print_success("Indexation complétée")
+    """Indexation incrémentale"""
+    print_header("INDEXATION INCREMENTALE")
+    if run_command(SCRIPTS_DIR / "index_incremental.py"):
+        console.print("[bold green]Indexation complétée[/bold green]")
     else:
-        print_error("Indexation échouée")
-    input("\nAppuyez sur Entrée pour continuer...")
+        console.print("[bold red]Indexation échouée[/bold red]")
+    Prompt.ask("\n[bold]Appuyez sur Entrée pour continuer...[/bold]")
 
 
 def action_index_force():
-    """Réindexation forcée avec contextualized embeddings"""
+    """Réindexation forcée"""
     print_header("REINDEXATION COMPLETE")
-    if run_command(SCRIPTS_DIR / "index_contextualized_incremental.py", "--force"):
-        print_success("Réindexation complétée")
-    else:
-        print_error("Réindexation échouée")
-    input("\nAppuyez sur Entrée pour continuer...")
+    if Confirm.ask("[yellow]Êtes-vous sûr de vouloir tout réindexer ?[/yellow]"):
+        if run_command(SCRIPTS_DIR / "index_incremental.py", "--force"):
+            console.print("[bold green]Réindexation complétée[/bold green]")
+        else:
+            console.print("[bold red]Réindexation échouée[/bold red]")
+    Prompt.ask("\n[bold]Appuyez sur Entrée pour continuer...[/bold]")
 
 
 def action_index_delete():
     """Nettoyage documents supprimés"""
     print_header("NETTOYAGE DOCUMENTS SUPPRIMES")
-    print_warning("Cette option supprimera les chunks des documents absents du filesystem")
-    if run_command(SCRIPTS_DIR / "index_contextualized_incremental.py", "--delete-missing"):
-        print_success("Nettoyage complété")
+    console.print("[yellow]Cette option supprimera les chunks des documents absents du filesystem[/yellow]")
+    if run_command(SCRIPTS_DIR / "index_incremental.py", "--delete-missing"):
+        console.print("[bold green]Nettoyage complété[/bold green]")
     else:
-        print_error("Nettoyage échoué")
-    input("\nAppuyez sur Entrée pour continuer...")
+        console.print("[bold red]Nettoyage échoué[/bold red]")
+    Prompt.ask("\n[bold]Appuyez sur Entrée pour continuer...[/bold]")
 
 
-def action_parse_pdf():
-    """Convertir PDF en Markdown"""
-    print_header("CONVERSION PDF -> MARKDOWN")
-
-    pdf_path = input(f"{COLOR_INFO}Chemin du PDF: {RESET}").strip()
-
-    if not pdf_path:
-        print_error("Conversion annulée")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
-    # Nettoyer les guillemets autour du chemin (input Windows)
-    pdf_path = pdf_path.strip('"').strip("'")
-
-    # Verifier que le fichier existe
-    from pathlib import Path
-    if not Path(pdf_path).exists():
-        print_error(f"Fichier non trouvé: {pdf_path}")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
-    if not Path(pdf_path).suffix.lower() == ".pdf":
-        print_error("Le fichier doit être un PDF (.pdf)")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
-    print_info(f"Conversion de: {Path(pdf_path).name}")
-    if run_command(SCRIPTS_DIR / "parse_pdf.py", pdf_path):
-        print_success("Conversion PDF complétée")
-        print_info(f"Fichier sauvegardé dans: articles_markdown/")
+def action_remove_lock():
+    """Supprimer le fichier de verrouillage"""
+    print_header("SUPPRESSION DU VERROU")
+    lock_file = CLI_DIR / ".indexing.lock"
+    if lock_file.exists():
+        try:
+            lock_file.unlink()
+            console.print(f"[green]Verrou supprimé: {lock_file.name}[/green]")
+        except Exception as e:
+            console.print(f"[red]Erreur: {e}[/red]")
     else:
-        print_error("Conversion échouée")
-
-    input("\nAppuyez sur Entrée pour continuer...")
-
-
-def action_monitor():
-    """Monitoring continu"""
-    print_header("MONITORING CONTINU - CHROMA DB")
-    print_info("Ctrl+C pour arrêter")
-
-    try:
-        run_command(Path(__file__).parent / "monitor_indexation.py")
-        print_success("Monitoring arrêté")
-    except KeyboardInterrupt:
-        print_warning("Monitoring interrompu")
-
-    input("\nAppuyez sur Entrée pour continuer...")
-
-
-def action_reset():
-    """Réinitialiser base de données"""
-    print_header("REINITIALISATION - SUPPRESSION COLLECTIONS")
-    response = input(f"{COLOR_WARNING}Êtes-vous sûr ? (oui/non): {RESET}").strip().lower()
-
-    if response not in ['oui', 'yes', 'y']:
-        print_warning("Opération annulée")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
-    if run_command(Path(__file__).parent / "reset_chroma.py"):
-        print_success("Reset complété")
-    else:
-        print_error("Reset échoué")
-
-    input("\nAppuyez sur Entrée pour continuer...")
-
-
-def action_delete():
-    """Supprimer physiquement base de données"""
-    print_header("SUPPRESSION PHYSIQUE - CHROMA DB")
-    response = input(
-        f"{COLOR_ERROR}ATTENTION: Cela supprimera COMPLETEMENT chroma_db_fresh/\n"
-        f"Êtes-vous absolument sûr ? (oui/non): {RESET}"
-    ).strip().lower()
-
-    if response not in ['oui', 'yes', 'y']:
-        print_warning("Opération annulée")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
-    if run_command(Path(__file__).parent / "delete_chroma.py"):
-        print_success("Suppression complétée")
-    else:
-        print_error("Suppression échouée")
-
-    input("\nAppuyez sur Entrée pour continuer...")
-
-
-def action_fix_hnsw():
-    """Corriger corruption HNSW"""
-    print_header("CORRECTION CORRUPTION HNSW")
-    response = input(f"{COLOR_WARNING}Êtes-vous sûr ? (oui/non): {RESET}").strip().lower()
-
-    if response not in ['oui', 'yes', 'y']:
-        print_warning("Opération annulée")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
-    if run_command(Path(__file__).parent / "fix_hnsw_chroma.py"):
-        print_success("Fix HNSW complété")
-    else:
-        print_error("Fix HNSW échoué")
-
-    input("\nAppuyez sur Entrée pour continuer...")
+        console.print("[blue]Aucun fichier de verrouillage trouvé.[/blue]")
+    Prompt.ask("\n[bold]Appuyez sur Entrée pour continuer...[/bold]")
 
 
 def action_delete_doc():
     """Supprimer un document spécifique"""
     print_header("SUPPRESSION DE DOCUMENT")
+    
+    # Afficher status d'abord
+    python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
+    subprocess.run([python_exe, str(CLI_DIR / "ragdoc-cli.py"), "status"], cwd=str(CLI_DIR))
+    
+    doc_name = Prompt.ask("\n[cyan]Nom du document à supprimer[/cyan]")
+    if not doc_name:
+        return
 
-    try:
-        # Afficher la liste des documents via ragdoc status
-        print_info("Chargement de la liste des documents...")
-        python_exe = r"C:\Users\thier\miniforge3\envs\ragdoc-env\python.exe"
-        cmd_status = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "status"]
-        subprocess.run(cmd_status, cwd=str(CLI_DIR))
+    if Confirm.ask(f"[red]Confirmer la suppression de '{doc_name}' ?[/red]"):
+        cmd = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "delete-doc", doc_name, "--yes"]
+        subprocess.run(cmd, cwd=str(CLI_DIR))
+    
+    Prompt.ask("\n[bold]Appuyez sur Entrée pour continuer...[/bold]")
 
-        # Demander quel document supprimer
-        print()
-        doc_name = input(f"{COLOR_INFO}Nom du document à supprimer: {RESET}").strip()
 
-        if not doc_name:
-            print_error("Suppression annulée")
-            input("\nAppuyez sur Entrée pour continuer...")
-            return
+def action_parse_pdf():
+    """Convertir PDF"""
+    print_header("CONVERSION PDF -> MARKDOWN")
+    pdf_path = Prompt.ask("[cyan]Chemin du PDF[/cyan]")
+    if not pdf_path: return
+    
+    pdf_path = pdf_path.strip('"').strip("'")
+    if not Path(pdf_path).exists():
+        console.print(f"[red]Fichier non trouvé: {pdf_path}[/red]")
+        Prompt.ask("Continuer...")
+        return
 
-        # Nettoyer le nom de document (enlever [N], (X chunks), etc.)
-        import re
-        # Enlever prefix [N]
-        doc_name = re.sub(r'^\[\d+\]\s*', '', doc_name)
-        # Enlever suffix (X chunks)
-        doc_name = re.sub(r'\s*\(\d+\s+chunks?\).*$', '', doc_name)
-        doc_name = doc_name.strip()
-
-        # Demander confirmation avant d'appeler la CLI
-        print()
-        response = input(f"{COLOR_WARNING}Confirmer la suppression de '{doc_name}'? (oui/non): {RESET}").strip().lower()
-
-        if response not in ['oui', 'yes', 'y']:
-            print_warning("Suppression annulée")
-            input("\nAppuyez sur Entrée pour continuer...")
-            return
-
-        # Appeler la CLI pour supprimer (avec --yes pour skip la confirmation redondante)
-        cmd_delete = [python_exe, str(CLI_DIR / "ragdoc-cli.py"), "delete-doc", doc_name, "--yes"]
-        result = subprocess.run(cmd_delete, cwd=str(CLI_DIR))
-
-        if result.returncode == 0:
-            print_success("Document supprimé avec succès")
-        else:
-            print_error("Échec de la suppression")
-
-    except Exception as e:
-        print_error(f"Erreur: {e}")
-
-    input("\nAppuyez sur Entrée pour continuer...")
+    if run_command(SCRIPTS_DIR / "parse_pdf.py", pdf_path):
+        console.print("[green]Conversion réussie[/green]")
+    else:
+        console.print("[red]Echec conversion[/red]")
+    Prompt.ask("\n[bold]Appuyez sur Entrée pour continuer...[/bold]")
 
 
 def action_server_start():
-    """Démarrer le serveur ChromaDB"""
-    print_header("DEMARRAGE SERVEUR CHROMADB")
-
-    if not server_manager:
-        print_error("Gestionnaire de serveur non disponible")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
-    success, message = server_manager.start()
-    if success:
-        print_success(message)
-    else:
-        print_error(message)
-
-    input("\nAppuyez sur Entrée pour continuer...")
+    if not server_manager: return
+    print_header("DEMARRAGE SERVEUR")
+    success, msg = server_manager.start()
+    if success: console.print(f"[green]{msg}[/green]")
+    else: console.print(f"[red]{msg}[/red]")
+    Prompt.ask("Continuer...")
 
 
 def action_server_stop():
-    """Arrêter le serveur ChromaDB"""
-    print_header("ARRET SERVEUR CHROMADB")
-
-    if not server_manager:
-        print_error("Gestionnaire de serveur non disponible")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
-    success, message = server_manager.stop()
-    if success:
-        print_success(message)
-    else:
-        print_error(message)
-
-    input("\nAppuyez sur Entrée pour continuer...")
+    if not server_manager: return
+    print_header("ARRET SERVEUR")
+    success, msg = server_manager.stop()
+    if success: console.print(f"[green]{msg}[/green]")
+    else: console.print(f"[red]{msg}[/red]")
+    Prompt.ask("Continuer...")
 
 
 def action_server_status():
-    """Afficher le statut du serveur ChromaDB"""
-    print_header("STATUT SERVEUR CHROMADB")
-
-    if not server_manager:
-        print_error("Gestionnaire de serveur non disponible")
-        input("\nAppuyez sur Entrée pour continuer...")
-        return
-
+    if not server_manager: return
+    print_header("STATUT SERVEUR")
     print(server_manager.get_status())
-    input("\nAppuyez sur Entrée pour continuer...")
+    Prompt.ask("Continuer...")
 
 
-# Mapping actions
-ACTIONS = {
-    "Voir statistiques": action_status_menu,
-    "Indexer": action_index,
-    "Réindexer tout (--force)": action_index_force,
-    "Nettoyer documents supprimés": action_index_delete,
-    "Supprimer un document": action_delete_doc,
-    "Convertir PDF": action_parse_pdf,
-    "🟢 Démarrer serveur ChromaDB": action_server_start,
-    "🔴 Arrêter serveur ChromaDB": action_server_stop,
-    "📊 Statut serveur ChromaDB": action_server_status,
-    "Monitoring continu": action_monitor,
-    "Reset base de données": action_reset,
-    "Supprimer base (delete)": action_delete,
-    "Corriger HNSW": action_fix_hnsw,
-}
+def action_monitor():
+    print_header("MONITORING CONTINU")
+    console.print("[dim]Ctrl+C pour arrêter[/dim]")
+    try:
+        run_command(Path(__file__).parent / "monitor_indexation.py")
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Arrêté[/yellow]")
+    Prompt.ask("Continuer...")
+
+
+def action_reset():
+    print_header("RESET BASE DE DONNEES")
+    if Confirm.ask("[bold red]Êtes-vous sûr de vouloir TOUT réinitialiser ?[/bold red]"):
+        run_command(Path(__file__).parent / "reset_chroma.py")
+    Prompt.ask("Continuer...")
+
+
+def action_delete_db():
+    print_header("SUPPRESSION PHYSIQUE DB")
+    if Confirm.ask("[bold red]ATTENTION: Suppression physique des fichiers. Sûr ?[/bold red]"):
+        run_command(Path(__file__).parent / "delete_chroma.py")
+    Prompt.ask("Continuer...")
+
+
+def action_fix_hnsw():
+    print_header("CORRECTION HNSW")
+    if Confirm.ask("Lancer la réparation ?"):
+        run_command(Path(__file__).parent / "fix_hnsw_chroma.py")
+    Prompt.ask("Continuer...")
 
 
 def main():
-    """Menu principal"""
-    print_header("RAGDOC - Indexation Manager")
-
     while True:
-        options = list(ACTIONS.keys()) + ["Quitter"]
+        console.clear()
+        
+        # Titre
+        console.print(Panel.fit(
+            "[bold cyan]RAGDOC MANAGER[/bold cyan]\n[dim]Gestionnaire d'indexation et de base de données[/dim]",
+            border_style="cyan",
+            padding=(1, 4)
+        ))
+        
+        # Définition du menu avec Questionary
+        choices = [
+            Separator("\n   📊 STATISTIQUES & MONITORING"),
+            Choice("Voir statistiques", action_status),
+            Choice("Voir statistiques (par date)", action_status_by_date),
+            Choice("Monitoring continu", action_monitor),
+            
+            Separator("\n   🔄 INDEXATION"),
+            Choice("Indexer (Incrémental)", action_index),
+            Choice("Réindexer TOUT (--force)", action_index_force),
+            Choice("Nettoyer supprimés", action_index_delete),
+            Choice("Supprimer verrou (.lock)", action_remove_lock),
+            
+            Separator("\n   📄 DOCUMENTS"),
+            Choice("Convertir PDF -> Markdown", action_parse_pdf),
+            Choice("Supprimer un document", action_delete_doc),
+            
+            Separator("\n   🖥️ SERVEUR CHROMADB"),
+            Choice("Statut Serveur", action_server_status),
+            Choice("Démarrer Serveur", action_server_start),
+            Choice("Arrêter Serveur", action_server_stop),
+            
+            Separator("\n   🛠️ MAINTENANCE"),
+            Choice("Reset Collections", action_reset),
+            Choice("Supprimer DB Physique", action_delete_db),
+            Choice("Corriger HNSW", action_fix_hnsw),
+            
+            Separator("\n   🚪 QUITTER"),
+            Choice("Quitter", "quit")
+        ]
+        
+        # Style personnalisé pour Questionary
+        custom_style = questionary.Style([
+            ('qmark', 'fg:#00FFFF bold'),       # Token.QuestionMark
+            ('question', 'bold'),               # Token.Question
+            ('answer', 'fg:#00FFFF bold'),      # Token.Answer
+            ('pointer', 'fg:#00FFFF bold'),     # Token.Pointer
+            ('highlighted', 'fg:#00FFFF bold'), # Token.Selected
+            ('selected', 'fg:#00FFFF'),         # Token.Selected
+            ('separator', 'fg:#888888'),        # Token.Separator
+            ('instruction', ''),                # Token.Instruction
+            ('text', ''),                       # Token.Text
+            ('disabled', 'fg:#858585 italic')   # Token.Disabled
+        ])
 
-        selected, index = pick(
-            options,
-            f"{COLOR_INFO}Que voulez-vous faire ?{RESET}",
-            indicator=">",
-            default_index=0
-        )
-
-        if selected == "Quitter":
-            print_info("Au revoir!")
+        selection = questionary.select(
+            "Que voulez-vous faire ?",
+            choices=choices,
+            style=custom_style,
+            pointer=">",
+            use_indicator=True,
+            qmark=""
+        ).ask()
+        
+        if selection == "quit" or selection is None:
+            console.print("[cyan]Au revoir![/cyan]")
             break
-
-        action = ACTIONS[selected]
-        action()
-
+            
+        # Exécuter l'action
+        console.clear()
+        selection()
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print(f"\n{COLOR_WARNING}Interruption utilisateur{RESET}")
+        console.print("\n[yellow]Interruption[/yellow]")
         sys.exit(0)
-    except Exception as e:
-        print(f"\n{COLOR_ERROR}Erreur inattendue: {e}{RESET}")
-        sys.exit(1)

@@ -24,9 +24,9 @@ except ImportError:
 # Initialiser colorama
 init(autoreset=True)
 
-# Configuration
-sys.path.insert(0, str(Path(__file__).parent / "scripts"))
-from indexing_config import CHROMA_DB_CONTEXTUALIZED_PATH as CHROMA_DB_PATH, COLLECTION_CONTEXTUALIZED_NAME as COLLECTION_NAME, MARKDOWN_DIR
+# Configuration - USING NEW CONFIG
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+from config import ACTIVE_DB_PATH as CHROMA_DB_PATH, COLLECTION_NAME, MARKDOWN_DIR
 
 # Import du gestionnaire de serveur
 try:
@@ -195,8 +195,8 @@ class RagdocCLI:
 
         try:
             # Utiliser chemin absolu du script incrémental
-            script_path = (self.scripts_dir / "index_contextualized_incremental.py").resolve()
-            cmd = ["python", str(script_path)]
+            script_path = (self.scripts_dir / "index_incremental.py").resolve()
+            cmd = [sys.executable, "-u", str(script_path)]
 
             if force:
                 cmd.append("--force")

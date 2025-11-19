@@ -7,6 +7,7 @@ Fonctionnalités:
 - Détecte et réindexe les documents modifiés (hash MD5)
 - Skip les documents inchangés (économie API)
 - Évite toute duplication
+- Utilise EXCLUSIVEMENT voyage-context-3 pour une qualité optimale
 
 Usage:
     python index_incremental.py                  # Indexation normale
@@ -18,9 +19,22 @@ import os
 import sys
 import hashlib
 import argparse
+import warnings
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, TextIO, Tuple
+
+# Fix encoding pour Windows
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
+# Suppress warnings
+warnings.filterwarnings("ignore")
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
 
 # Imports conditionnels pour le verrou de fichier
 if sys.platform != "win32":
@@ -32,7 +46,6 @@ from dotenv import load_dotenv
 import chromadb
 import voyageai
 from chonkie import TokenChunker, SemanticChunker, OverlapRefinery
-import voyageai
 
 # Charger configuration
 load_dotenv()
@@ -40,11 +53,8 @@ load_dotenv()
 # Importer la configuration
 sys.path.insert(0, str(Path(__file__).parent))
 from indexing_config import (
-    MARKDOWN_DIR, CHROMA_DB_PATH, COLLECTION_HYBRID_NAME, COLLECTION_HYBRID_METADATA,
-    CHUNK_SIZE, CHUNK_OVERLAP, LARGE_DOC_CHUNK_SIZE, LARGE_DOC_CHUNK_OVERLAP,
-    CHONKIE_CHUNK_SIZE, CHONKIE_CHUNK_OVERLAP, CHONKIE_TOKENIZER,
-    DEFAULT_MODEL, LARGE_DOC_MODEL, LARGE_DOC_THRESHOLD,
-    USE_CONTENT_HASH, TRACK_INDEXED_DATE, AUTO_DELETE_MISSING
+    MARKDOWN_DIR, CHROMA_DB_PATH, COLLECTION_NAME, COLLECTION_CONTEXTUALIZED_METADATA,
+    CHONKIE_TOKENIZER, USE_CONTENT_HASH, TRACK_INDEXED_DATE
 )
 
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
@@ -55,122 +65,44 @@ if not VOYAGE_API_KEY:
 
 
 class HybridModelProcessor:
-    """Classe de gestion des embeddings hybrides adaptée de test_hybrid_pipeline.py"""
+    """Classe de gestion des embeddings - SIMPLIFIÉE pour Context-3 uniquement"""
 
     def __init__(self, api_key: str):
         self.client = voyageai.Client(api_key=api_key)
-        self.CONTEXT3_LIMIT = 25  # Marge sécurité (docs Voyage indiquent ~32 chunks max)
-        self.LARGE_MODEL_LIMIT = 100
+        self.model_name = "voyage-context-3"
 
     def choose_strategy(self, num_chunks: int) -> dict:
-        """Choix stratégique du modèle selon le nombre de chunks"""
-        if num_chunks <= self.CONTEXT3_LIMIT:
-            return {
-                "model": "voyage-context-3",
-                "method": "contextualized",
-                "batch_size": num_chunks,
-                "reason": "Petit document - Context-3 optimal"
-            }
-        elif num_chunks <= self.LARGE_MODEL_LIMIT:
-            return {
-                "model": "voyage-3-large",
-                "method": "standard",
-                "batch_size": min(50, num_chunks),
-                "reason": "Moyen document - Voyage Large standard"
-            }
-        else:
-            return {
-                "model": "voyage-3-large",
-                "method": "batched",
-                "batch_size": 50,
-                "reason": "Gros document - Large en batches"
-            }
+        """Stratégie unique : Context-3 pour tout le monde"""
+        return {
+            "model": self.model_name,
+            "method": "contextualized",
+            "reason": "Qualité optimale (Context-3)"
+        }
 
     def process_contextualized(self, chunk_texts: List[str]) -> List[List[float]]:
         """Traitement contextualized avec Voyage Context-3"""
         try:
             result = self.client.contextualized_embed(
                 inputs=[chunk_texts],
-                model="voyage-context-3",
+                model=self.model_name,
                 input_type="document"
             )
             return result.results[0].embeddings
         except Exception as e:
-            print(f"         Erreur contextualized: {e}")
-            return self.process_standard(chunk_texts, 25)
-
-    def process_standard(self, chunk_texts: List[str], batch_size: int = 50) -> List[List[float]]:
-        """Traitement standard avec Voyage Large"""
-        all_embeddings = []
-        for i in range(0, len(chunk_texts), batch_size):
-            batch = chunk_texts[i:i + batch_size]
-            try:
-                result = self.client.embed(
-                    texts=batch,
-                    model="voyage-3-large"
-                )
-                all_embeddings.extend(result.embeddings)
-                if len(batch) < batch_size:
-                    print(f"         OK {len(result.embeddings)} embeddings (dernier batch)")
-                else:
-                    print(f"         OK {len(result.embeddings)} embeddings")
-            except Exception as e:
-                print(f"         Erreur batch standard: {e}")
-                return []
-        return all_embeddings
-
-    def process_batched(self, chunk_texts: List[str], batch_size: int = 50) -> List[List[float]]:
-        """Traitement batched pour très gros documents"""
-        print(f"         ATTENTION: Gros document - traitement en batches de {batch_size}")
-        return self.process_standard(chunk_texts, batch_size)
+            print(f"         ERREUR CRITIQUE API Voyage: {e}")
+            return []
 
     def process_with_strategy(self, chunk_texts: List[str]) -> Tuple[str, List[List[float]], dict]:
-        """Point d'entrée principal avec choix automatique de stratégie"""
+        """Point d'entrée principal"""
         strategy = self.choose_strategy(len(chunk_texts))
-        print(f"         Stratégie: {strategy['model']} ({strategy['method']}) - {strategy['reason']}")
-
-        if strategy["method"] == "contextualized":
-            embeddings = self.process_contextualized(chunk_texts)
-        elif strategy["method"] == "standard":
-            embeddings = self.process_standard(chunk_texts, strategy["batch_size"])
-        else:
-            embeddings = self.process_batched(chunk_texts, strategy["batch_size"])
-
+        # Note: Le batching est géré en amont dans process_embeddings_with_limit_check
+        embeddings = self.process_contextualized(chunk_texts)
         return strategy["model"], embeddings, strategy
 
 
 def compute_doc_hash(content: str) -> str:
     """Calcule hash MD5 du contenu pour détection de modifications."""
     return hashlib.md5(content.encode('utf-8')).hexdigest()
-
-
-def chunk_markdown(content: str, chunk_size: int = CHUNK_SIZE,
-                   overlap: int = CHUNK_OVERLAP) -> List[str]:
-    """Découper le contenu Markdown en chunks avec overlap."""
-    lines = content.split('\n')
-    chunks = []
-    current_chunk = []
-    current_size = 0
-
-    for line in lines:
-        line_size = len(line) + 1
-        if current_size + line_size > chunk_size and current_chunk:
-            # Sauvegarder le chunk
-            chunk_text = '\n'.join(current_chunk)
-            chunks.append(chunk_text)
-
-            # Garder les dernières lignes pour l'overlap
-            overlap_count = max(1, len(current_chunk) // 4)
-            current_chunk = current_chunk[-overlap_count:] if overlap_count > 0 else []
-            current_size = sum(len(l) + 1 for l in current_chunk)
-
-        current_chunk.append(line)
-        current_size += line_size
-
-    if current_chunk:
-        chunks.append('\n'.join(current_chunk))
-
-    return [c for c in chunks if c.strip()]
 
 
 LockHandle = Optional[TextIO]
@@ -188,10 +120,8 @@ def acquire_lock(lock_file: Path) -> LockHandle:
                 lock_handle = open(lock_file, 'x')
                 lock_handle.write(str(os.getpid()))
                 lock_handle.flush()
-                # Garder le handle ouvert
                 return lock_handle
             except FileExistsError:
-                # Fichier existe déjà = autre processus en cours
                 return None
         else:
             # Unix/Linux
@@ -221,114 +151,85 @@ def release_lock(lock_file: Path, lock_handle: LockHandle):
 
 def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk_objects):
     """
-    Traitement des embeddings avec vérification des limites
-    Gère les gros documents en divisant les appels API
+    Traitement des embeddings avec découpage intelligent pour les très gros documents.
+    Garantit que l'on reste sous la limite de 32k tokens de voyage-context-3.
     """
-
+    
     # Estimer les tokens totaux
     total_tokens = sum(chunk.token_count for chunk in chunk_objects)
-    print(f"      Total tokens: {total_tokens:,}")
-
-    # Limite sécurité pour Voyage Context-3
-    VOYAGE_CONTEXT_LIMIT = 28000
-    MAX_CHUNKS_PER_CALL = 25
-
-    if model == "voyage-context-3" and (total_tokens > VOYAGE_CONTEXT_LIMIT or len(chunk_texts) > MAX_CHUNKS_PER_CALL):
-        print(f"      Trop de tokens pour Context-3 ({total_tokens:,} > {VOYAGE_CONTEXT_LIMIT:,})")
-        print(f"      Division en batches plus petits...")
-        return process_in_batches(voyage_client, chunk_texts, model, MAX_CHUNKS_PER_CALL)
-    elif total_tokens > VOYAGE_CONTEXT_LIMIT:
-        print(f"      Gros document ({total_tokens:,} tokens)")
-        print(f"      Utilisation de voyage-3-large a la place...")
-        return process_with_large_model(voyage_client, chunk_texts)
-    else:
-        # Traitement normal
-        return process_normally(voyage_client, chunk_texts, model)
-
-
-def process_in_batches(voyage_client, chunk_texts, model, max_chunks_per_batch):
-    """Diviser en batches plus petits"""
-
-    all_embeddings = []
-    total_batches = (len(chunk_texts) + max_chunks_per_batch - 1) // max_chunks_per_batch
-
-    for i in range(0, len(chunk_texts), max_chunks_per_batch):
-        batch_num = i // max_chunks_per_batch + 1
-        batch = chunk_texts[i:i + max_chunks_per_batch]
-
-        print(f"      Batch {batch_num}/{total_batches}: {len(batch)} chunks")
-
+    
+    # Limite de sécurité (32k théorique, on prend une marge)
+    SAFE_TOKEN_LIMIT = 30000
+    
+    if total_tokens < SAFE_TOKEN_LIMIT:
+        # Cas standard : tout passe d'un coup
+        print(f"      Traitement standard ({total_tokens:,} tokens)")
         try:
             result = voyage_client.contextualized_embed(
-                inputs=[batch],
+                inputs=[chunk_texts],
                 model=model,
                 input_type="document"
             )
-            batch_embeddings = result.results[0].embeddings
-            all_embeddings.extend(batch_embeddings)
-            print(f"         OK {len(batch_embeddings)} embeddings generes")
-
+            return result.results[0].embeddings
         except Exception as e:
-            print(f"         Erreur batch {batch_num}: {e}")
-            # Fallback pour ce batch
-            fallback_embeddings = process_with_large_model(voyage_client, batch)
-            all_embeddings.extend(fallback_embeddings)
-
-    return all_embeddings
-
-
-def process_with_large_model(voyage_client, chunk_texts):
-    """Utiliser voyage-3-large comme fallback"""
-
-    print(f"      Fallback: voyage-3-large (non-contextualized)")
-
-    try:
-        result = voyage_client.embed(
-            texts=chunk_texts,
-            model="voyage-3-large"
-        )
-        print(f"         OK {len(result.embeddings)} embeddings (voyage-3-large)")
-        return result.embeddings
-
-    except Exception as e:
-        print(f"         Erreur voyage-3-large: {e}")
-        return []
-
-
-def process_normally(voyage_client, chunk_texts, model):
-    """Traitement normal pour petits documents"""
-
-    try:
-        result = voyage_client.contextualized_embed(
-            inputs=[chunk_texts],
-            model=model,
-            input_type="document"
-        )
-        print(f"      OK {len(result.results[0].embeddings)} embeddings generes ({model})")
-        return result.results[0].embeddings
-
-    except Exception as e:
-        print(f"      Erreur traitement normal: {e}")
-        # Fallback
-        return process_with_large_model(voyage_client, chunk_texts)
+            print(f"      ERREUR API: {e}")
+            return []
+    else:
+        print(f"      ⚠️ GROS DOCUMENT ({len(chunk_texts)} chunks) -> Découpage en sections")
+        all_embeddings = []
+        
+        # Taille de lot réduite pour éviter les timeouts (10 chunks ~ 10k tokens)
+        BATCH_SIZE = 10
+        
+        current_idx = 0
+        while current_idx < len(chunk_texts):
+            end_idx = min(current_idx + BATCH_SIZE, len(chunk_texts))
+            
+            # On prend une section + contexte
+            batch_texts = chunk_texts[current_idx:end_idx]
+            
+            print(f"         Section {current_idx}-{end_idx} ({len(batch_texts)} chunks)...")
+            
+            try:
+                # Appel API avec timeout augmenté
+                result = voyage_client.contextualized_embed(
+                    inputs=[batch_texts],
+                    model=model,
+                    input_type="document",
+                    timeout=1200  # 20 minutes timeout
+                )
+                
+                # Récupérer les embeddings
+                batch_embeddings = result.results[0].embeddings
+                
+                # Si on a du chevauchement, il faut gérer les doublons ou juste avancer
+                # Ici stratégie simple : on concatène tout (les embeddings seront contextuels à leur section)
+                all_embeddings.extend(batch_embeddings)
+                
+            except Exception as e:
+                print(f"         ERREUR sur section: {e}")
+                # On continue pour essayer de sauver le reste
+            
+            # Avancer
+            current_idx = end_idx
+            
+        return all_embeddings
 
 
 def index_incremental(force_reindex: bool = False,
                       delete_missing: bool = False) -> None:
-    """Indexation incrémentale avec détection des modifications."""
+    """Indexation incrémentale simplifiée."""
 
     # Vérifier qu'aucun autre processus d'indexation n'est en cours
     lock_file = CHROMA_DB_PATH.parent / ".indexing.lock"
     lock_handle = acquire_lock(lock_file)
     if not lock_handle:
         print("\n[ERREUR] Un processus d'indexation est deja en cours!")
-        print(f"         Verrou trouve: {lock_file}")
-        print("         Attendez la fin de l'indexation en cours ou supprimez le verrou manuellement.")
         sys.exit(1)
 
     try:
         print("\n" + "=" * 70)
-        print("INDEXATION INCRÉMENTALE - DÉTECTION DES MODIFICATIONS")
+        print("INDEXATION RAGDOC - MODE CONTEXT-3 UNIFIE")
         print("=" * 70)
 
         # Initialiser Voyage
@@ -336,24 +237,22 @@ def index_incremental(force_reindex: bool = False,
         voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
         print("   OK Voyage AI connecte")
 
-        # Connecter Chroma avec auto-detection serveur
+        # Connecter Chroma
         print("\n[2/5] Connexion à Chroma...")
         try:
-            # Essayer HttpClient (serveur mode) d'abord
             test_client = chromadb.HttpClient(host="localhost", port=8000)
             test_client.heartbeat()
             client = test_client
             print("   [OK] Connecte au serveur ChromaDB (localhost:8000)")
         except Exception:
-            # Fallback sur PersistentClient (mode local)
             client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
             print("   [INFO] Mode local (PersistentClient)")
 
         collection = client.get_or_create_collection(
-            name=COLLECTION_HYBRID_NAME,
-            metadata=COLLECTION_HYBRID_METADATA
+            name=COLLECTION_NAME,
+            metadata=COLLECTION_CONTEXTUALIZED_METADATA
         )
-        print(f"   OK Collection '{COLLECTION_HYBRID_NAME}' chargee")
+        print(f"   OK Collection '{COLLECTION_NAME}' chargee")
 
         # Scanner les documents existants
         print("\n[3/5] Analyse des documents existants...")
@@ -386,16 +285,15 @@ def index_incremental(force_reindex: bool = False,
                     chunk_ids = indexed_map[source]['chunk_ids']
                     collection.delete(ids=chunk_ids)
                     print(f"      - Supprime: {source}")
-                del indexed_map  # Recalculer après suppressions
+                del indexed_map
+                # Recharger map
                 existing_docs = collection.get(include=["metadatas"])
                 indexed_map = {}
                 for i, metadata in enumerate(existing_docs['metadatas']):
                     source = metadata.get('source')
-                    doc_hash = metadata.get('doc_hash')
-                    chunk_id = existing_docs['ids'][i]
                     if source not in indexed_map:
-                        indexed_map[source] = {'hash': doc_hash, 'chunk_ids': []}
-                    indexed_map[source]['chunk_ids'].append(chunk_id)
+                        indexed_map[source] = {'hash': metadata.get('doc_hash'), 'chunk_ids': []}
+                    indexed_map[source]['chunk_ids'].append(existing_docs['ids'][i])
 
         # Indexation incrémentale
         print("\n[5/5] Indexation incrémentale...\n")
@@ -408,12 +306,17 @@ def index_incremental(force_reindex: bool = False,
             'total_chunks': 0
         }
 
+        # Configuration UNIFIÉE et OPTIMISÉE pour Context-3
+        # 1024 tokens = précision chirurgicale
+        # Le modèle gère le contexte global, donc pas besoin de gros chunks
+        CHUNK_SIZE_TOKENS = 1024
+        CHUNK_OVERLAP_TOKENS = 180
+
         for i, md_file in enumerate(markdown_files, 1):
             try:
                 content = md_file.read_text(encoding='utf-8', errors='ignore')
                 current_hash = compute_doc_hash(content)
-                doc_length = len(content)
-
+                
                 # Déterminer le statut du document
                 status = "NEW"
                 if md_file.name in indexed_map:
@@ -423,79 +326,60 @@ def index_incremental(force_reindex: bool = False,
                         continue
                     else:
                         status = "MODIFIED"
-                        # Supprimer les anciens chunks
                         old_chunk_ids = indexed_map[md_file.name]['chunk_ids']
                         if old_chunk_ids:
                             collection.delete(ids=old_chunk_ids)
 
-                # Pipeline hybride Chonkie (Token + Semantic + Overlap)
-                print(f"      Pipeline hybride Chonkie...")
-
-                # Configuration adaptative selon taille du document
-                estimated_tokens = len(content.split()) * 1.3
-                if estimated_tokens < 20000:
-                    chunk_size, overlap, _ = 1024, 180, 25
-                elif estimated_tokens < 80000:
-                    chunk_size, overlap, _ = 1536, 200, 20
-                elif estimated_tokens < 200000:
-                    chunk_size, overlap, _ = 2048, 250, 15
-                else:
-                    chunk_size, overlap, _ = 2500, 300, 10
+                print(f"      Pipeline Chonkie (1024 tokens)...")
 
                 # Étape 1: Token Chunker (structure globale)
-                print(f"         Token chunking (structure globale)...")
                 token_chunker = TokenChunker(
                     tokenizer=CHONKIE_TOKENIZER,
-                    chunk_size=chunk_size * 2,  # Plus gros pour structure markdown
-                    chunk_overlap=overlap
+                    chunk_size=CHUNK_SIZE_TOKENS * 2,
+                    chunk_overlap=CHUNK_OVERLAP_TOKENS
                 )
                 token_chunks = token_chunker.chunk(content)
-                print(f"         OK {len(token_chunks)} chunks structure générés")
 
                 # Étape 2: Semantic Chunker (cohérence thématique)
-                print(f"         Semantic chunking (cohérence thématique)...")
                 semantic_chunker = SemanticChunker(
-                    embedding_model="sentence-transformers/all-MiniLM-L6-v2",
+                    embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
                     threshold=0.75,
-                    chunk_size=chunk_size,
+                    chunk_size=CHUNK_SIZE_TOKENS,
                     min_sentences_per_chunk=2
                 )
-
-                # Traiter chaque token chunk avec semantic chunking
+                
                 all_semantic_chunks = []
-                for i, token_chunk in enumerate(token_chunks):
-                    semantic_chunks = semantic_chunker.chunk(token_chunk.text)
-                    all_semantic_chunks.extend(semantic_chunks)
-                    if len(token_chunks) > 10 and i % 5 == 0:
-                        print(f"         Progression: {i+1}/{len(token_chunks)} token chunks traités")
+                for tc in token_chunks:
+                    all_semantic_chunks.extend(semantic_chunker.chunk(tc.text))
 
-                print(f"         OK {len(all_semantic_chunks)} chunks sémantiques générés")
-
-                # Étape 3: Overlap Refinery (contexte adjacent)
-                print(f"         Overlap refinery (contexte adjacent)...")
+                # Étape 3: Overlap Refinery
                 overlap_refinery = OverlapRefinery(
-                    context_size=overlap,
+                    context_size=CHUNK_OVERLAP_TOKENS,
                     method="suffix",
                     merge=True
                 )
                 chunks = overlap_refinery.refine(all_semantic_chunks)
-                print(f"         OK {len(chunks)} chunks finaux avec overlap")
-
-                # Extraire les textes pour embeddings
+                
+                # Extraire textes
                 chunk_texts = [chunk.text for chunk in chunks]
-
-                # Étape 4: Embeddings hybrides avec stratégie adaptative
-                print(f"         Embeddings hybrides...")
-                hybrid_processor = HybridModelProcessor(VOYAGE_API_KEY)
-                model_used, embeddings, strategy = hybrid_processor.process_with_strategy(chunk_texts)
-
-                if not embeddings:
-                    print(f"         ERREUR: Aucun embedding généré, skip document")
+                
+                if not chunk_texts:
+                    print("      AVERTISSEMENT: Aucun chunk généré")
                     continue
 
-                print(f"         OK {len(embeddings)} embeddings générés ({strategy['method']})")
+                # Étape 4: Embeddings (Context-3 avec gestion gros docs)
+                embeddings = process_embeddings_with_limit_check(
+                    voyage_client, 
+                    chunk_texts, 
+                    "voyage-context-3",
+                    chunks
+                )
 
-                # Ajouter à Chroma en batch (comme avant)
+                if not embeddings or len(embeddings) != len(chunk_texts):
+                    print(f"         ERREUR: Mismatch embeddings ({len(embeddings)}) vs chunks ({len(chunk_texts)})")
+                    continue
+
+                # Ajouter à Chroma
                 chunk_ids = []
                 chunk_documents = []
                 chunk_embeddings = []
@@ -510,10 +394,9 @@ def index_incremental(force_reindex: bool = False,
                         "title": md_file.stem,
                         "chunk_index": j,
                         "total_chunks": len(chunks),
-                        "model": model_used,
-                        "chunking_strategy": strategy["method"],
-                        "chunking_reason": strategy["reason"],
-                        "pipeline": "hybrid_token_semantic_overlap"
+                        "model": "voyage-context-3",
+                        "chunking_strategy": "contextualized_fixed_1024",
+                        "pipeline": "unified_v2"
                     }
 
                     if USE_CONTENT_HASH:
@@ -527,7 +410,6 @@ def index_incremental(force_reindex: bool = False,
                     chunk_embeddings.append(embeddings[j])
                     chunk_metadatas.append(metadata)
 
-                # Upsert en batch (plus efficace et réduit les risques de corruption HNSW)
                 collection.upsert(
                     ids=chunk_ids,
                     documents=chunk_documents,
@@ -538,11 +420,8 @@ def index_incremental(force_reindex: bool = False,
                 stats[status.lower()] += 1
                 stats['total_chunks'] += len(chunks)
 
-                # Affichage du résultat
                 icon = "MOD" if status == "MODIFIED" else "NEW"
-                status_str = status.ljust(8)
-                model_display = model_used.replace("voyage-context-3", "context-3").replace("voyage-3-large", "large-3")
-                print(f"   [{i:3d}/{len(markdown_files)}] {icon} {status_str} {md_file.name[:45]:45} ({len(chunks):3d} chunks, {model_display})")
+                print(f"   [{i:3d}/{len(markdown_files)}] {icon} {status.ljust(8)} {md_file.name[:40]:40} ({len(chunks):3d} chunks)")
 
             except Exception as e:
                 stats['errors'] += 1
@@ -558,40 +437,20 @@ def index_incremental(force_reindex: bool = False,
         print(f"   Chunks ajoutés/modifiés: {stats['total_chunks']:3d}")
         print("=" * 70 + "\n")
 
-        if stats['new'] + stats['modified'] > 0:
-            print(f"OK Indexation reussie ! {stats['new'] + stats['modified']} document(s) traite(s).\n")
-        elif stats['unchanged'] > 0:
-            print(f"OK Tous les documents sont inchanges ({stats['unchanged']} skip).\n")
     finally:
-        # Libérer le verrou
         release_lock(lock_file, lock_handle)
 
 
 def main():
-    """Point d'entrée principal."""
-    parser = argparse.ArgumentParser(
-        description="Indexation incrémentale Chroma avec détection des modifications"
-    )
-    parser.add_argument(
-        '--force',
-        action='store_true',
-        help="Forcer la réindexation de tous les documents (ignore hash MD5)"
-    )
-    parser.add_argument(
-        '--delete-missing',
-        action='store_true',
-        help="Supprimer les chunks des documents absents du répertoire"
-    )
-
+    parser = argparse.ArgumentParser(description="Indexation RAGDOC Unifiée (Context-3)")
+    parser.add_argument('--force', action='store_true', help="Forcer réindexation")
+    parser.add_argument('--delete-missing', action='store_true', help="Nettoyer docs supprimés")
     args = parser.parse_args()
 
     try:
-        index_incremental(
-            force_reindex=args.force,
-            delete_missing=args.delete_missing
-        )
+        index_incremental(force_reindex=args.force, delete_missing=args.delete_missing)
     except KeyboardInterrupt:
-        print("\n\nATTENTION Indexation interrompue par l'utilisateur.")
+        print("\n\nInterruption utilisateur.")
         sys.exit(1)
     except Exception as e:
         print(f"\nERREUR fatale: {str(e)}")
