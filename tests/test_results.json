@@ -1,0 +1,556 @@
+{
+  "black_carbon": [
+    {
+      "query": "How does black carbon deposition affect glacier surface albedo?",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 4,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "Williamson_Menounos_2021_Glacier_Albedo.md",
+          "top_source_count": 2,
+          "all_sources": {
+            "Williamson_Menounos_2021_Glacier_Albedo.md": 2,
+            "main.md": 1,
+            "Gabbi_et_al_2015_Saharan_Dust_Black_Carbon_Alpine_Glacier.md": 1,
+            "Kaspari et al. - 2015 - Accelerated glacier melt on Snow Dome, Mount Olympus, Washington, USA, due to deposition of black ca.md": 1
+          }
+        },
+        "time": 0.6314132213592529
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Gabbi_et_al_2015_Saharan_Dust_Black_Carbon_Alpine_Glacier.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Gabbi_et_al_2015_Saharan_Dust_Black_Carbon_Alpine_Glacier.md": 4,
+            "Kaspari et al. - 2015 - Accelerated glacier melt on Snow Dome, Mount Olympus, Washington, USA, due to deposition of black ca.md": 1
+          }
+        },
+        "time": 0.3578646183013916
+      }
+    },
+    {
+      "query": "What are the sources of black carbon on glaciers?",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 4,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md",
+          "top_source_count": 2,
+          "all_sources": {
+            "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md": 2,
+            "Lapere et al. - 2023 - Meteorological export and deposition fluxes of black carbon on glaciers of the central Chilean Andes.md": 1,
+            "Bond_et_al_2013_Chapters_1_and_2.md": 1,
+            "Tedesco et al. - 2016 - The darkening of the Greenland ice sheet trends, drivers, and projections (1981&ndash;2100).md": 1
+          }
+        },
+        "time": 0.14995098114013672
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Ming_et_al_2009_Black_Carbon_Glaciers_West_China.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Ming_et_al_2009_Black_Carbon_Glaciers_West_China.md": 4,
+            "Kaspari et al. - 2015 - Accelerated glacier melt on Snow Dome, Mount Olympus, Washington, USA, due to deposition of black ca.md": 1
+          }
+        },
+        "time": 0.1496119499206543
+      }
+    },
+    {
+      "query": "BC concentration measurements techniques in snow",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 3,
+          "same_doc_clustering_pct": 60.0,
+          "top_source": "Uecker et al. - 2020 - The Post-Wildfire Impact of Burn Severity and Age on Black Carbon Snow Deposition and Implications f.md",
+          "top_source_count": 3,
+          "all_sources": {
+            "Stibal_et_al_2017_Algae_Greenland_Ice_Darkening.md": 1,
+            "Uecker et al. - 2020 - The Post-Wildfire Impact of Burn Severity and Age on Black Carbon Snow Deposition and Implications f.md": 3,
+            "Bond et al. - 2013 - Bounding the role of black carbon in the climate system A scientific assessment.md": 1
+          }
+        },
+        "time": 0.14200687408447266
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Warren_2013_Black_Carbon_Snow_Remote_Sensing.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Ming_et_al_2009_Black_Carbon_Glaciers_West_China.md": 1,
+            "Warren_2013_Black_Carbon_Snow_Remote_Sensing.md": 4
+          }
+        },
+        "time": 0.13762140274047852
+      }
+    },
+    {
+      "query": "Saharan dust vs black carbon impact on alpine glaciers",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Gabbi_et_al_2015_Saharan_Dust_Black_Carbon_Alpine_Glacier.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Gabbi_et_al_2015_Saharan_Dust_Black_Carbon_Alpine_Glacier.md": 4,
+            "Naegeli_Huss_2017_Glacier_Mass_Balance_Bare_Ice_Albedo.md": 1
+          }
+        },
+        "time": 0.14203262329101562
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 1,
+          "same_doc_clustering_pct": 100.0,
+          "top_source": "Gabbi_et_al_2015_Saharan_Dust_Black_Carbon_Alpine_Glacier.md",
+          "top_source_count": 5,
+          "all_sources": {
+            "Gabbi_et_al_2015_Saharan_Dust_Black_Carbon_Alpine_Glacier.md": 5
+          }
+        },
+        "time": 0.14765095710754395
+      }
+    }
+  ],
+  "modis_remote_sensing": [
+    {
+      "query": "MODIS albedo product validation accuracy",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 4,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "Williamson_et_al_2016_Satellite_Albedo_Alpine_Glaciated.md",
+          "top_source_count": 2,
+          "all_sources": {
+            "Williamson_et_al_2016_Satellite_Albedo_Alpine_Glaciated.md": 2,
+            "stroeve_2005_modis_accuracy.md": 1,
+            "stroeve_2006_modis_evaluation.md": 1,
+            "Qu_et_al_2015.md": 1
+          }
+        },
+        "time": 0.15196990966796875
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Williamson_et_al_2016_Satellite_Albedo_Alpine_Glaciated.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Williamson_et_al_2016_Satellite_Albedo_Alpine_Glaciated.md": 4,
+            "stroeve_2005_modis_accuracy.md": 1
+          }
+        },
+        "time": 0.17246341705322266
+      }
+    },
+    {
+      "query": "Landsat vs MODIS for glacier albedo monitoring",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Ren_et_al_2021.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Ren_et_al_2021.md": 4,
+            "Ren_et_al_2021_Glacier_Albedo_Anisotropy.md": 1
+          }
+        },
+        "time": 0.14313483238220215
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 1,
+          "same_doc_clustering_pct": 100.0,
+          "top_source": "Ren_et_al_2021_Glacier_Albedo_Anisotropy.md",
+          "top_source_count": 5,
+          "all_sources": {
+            "Ren_et_al_2021_Glacier_Albedo_Anisotropy.md": 5
+          }
+        },
+        "time": 0.15195727348327637
+      }
+    },
+    {
+      "query": "Sentinel-2 satellite albedo measurements",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 5,
+          "same_doc_clustering_pct": 20.0,
+          "top_source": "Naegeli_et_al_2017.md",
+          "top_source_count": 1,
+          "all_sources": {
+            "Naegeli_et_al_2017.md": 1,
+            "Feng_et_al_2024.md": 1,
+            "Feng et al. - 2024 - Remote sensing of ice albedo using harmonized Landsat and Sentinel 2 datasets validation.md": 1,
+            "Naegeli et al. - 2017 - Cross-Comparison of Albedo Products for Glacier Surfaces Derived from Airborne and Satellite (Sentin.md": 1,
+            "Sánchez-Zapero et al. - 2023 - Global estimates of surface albedo from Sentinel-3 OLCI and SLSTR data for Copernicus Climate Change.md": 1
+          }
+        },
+        "time": 0.14718890190124512
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Naegeli et al. - 2017 - Cross-Comparison of Albedo Products for Glacier Surfaces Derived from Airborne and Satellite (Sentin.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Naegeli et al. - 2017 - Cross-Comparison of Albedo Products for Glacier Surfaces Derived from Airborne and Satellite (Sentin.md": 4,
+            "Naegeli_et_al_2017.md": 1
+          }
+        },
+        "time": 0.15131545066833496
+      }
+    },
+    {
+      "query": "Remote sensing of snow grain size",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 5,
+          "same_doc_clustering_pct": 20.0,
+          "top_source": "Bair, E. H., Stillinger, T., & Dozier, J. (2021). Snow Property Inversion from Remote Sensing (SPIReS) .md",
+          "top_source_count": 1,
+          "all_sources": {
+            "Bair, E. H., Stillinger, T., & Dozier, J. (2021). Snow Property Inversion from Remote Sensing (SPIReS) .md": 1,
+            "He et al_2021.md": 1,
+            "Kokhanovsky_2021.md": 1,
+            "Flanner_et_al_2021.md": 1,
+            "Warren_2013_Black_Carbon_Snow_Remote_Sensing.md": 1
+          }
+        },
+        "time": 0.16282296180725098
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 60.0,
+          "top_source": "Warren_2019_Optical_Properties_Ice_Snow.md",
+          "top_source_count": 3,
+          "all_sources": {
+            "Warren_2019_Optical_Properties_Ice_Snow.md": 3,
+            "Warren_2013_Black_Carbon_Snow_Remote_Sensing.md": 2
+          }
+        },
+        "time": 0.16478824615478516
+      }
+    }
+  ],
+  "energy_balance": [
+    {
+      "query": "Surface energy balance components on glaciers",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 4,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "Oerlemans_et_al_2009_Alpine_Glaciers_Dust_Accumulation.md",
+          "top_source_count": 2,
+          "all_sources": {
+            "kinnard2022.md": 1,
+            "Oerlemans_et_al_2009_Alpine_Glaciers_Dust_Accumulation.md": 2,
+            "Johnson_Rupper_2020_AlbedoFeedback.md": 1,
+            "Chapter3_micro_climate_valley_glacier.md": 1
+          }
+        },
+        "time": 0.1421191692352295
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 1,
+          "same_doc_clustering_pct": 100.0,
+          "top_source": "Energy Balance of a Glacier Surface  Analysis of Automatic Weather Station Data from the Morteratschgletscher  Switzerland.md",
+          "top_source_count": 5,
+          "all_sources": {
+            "Energy Balance of a Glacier Surface  Analysis of Automatic Weather Station Data from the Morteratschgletscher  Switzerland.md": 5
+          }
+        },
+        "time": 0.1475222110748291
+      }
+    },
+    {
+      "query": "Turbulent heat flux parameterization",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 4,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "Cuffey_Paterson_2010_Surface_Ablation_Energy_Budget.md",
+          "top_source_count": 2,
+          "all_sources": {
+            "Hock_2005_Glacier_Melt_Review.md": 1,
+            "kinnard2022.md": 1,
+            "Cuffey_Paterson_2010_Surface_Ablation_Energy_Budget.md": 2,
+            "Kinnarsd_2021_Modelling glacier mass balance and climate sensitivity.md": 1
+          }
+        },
+        "time": 0.14282894134521484
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Fitzpatrick_et_al_2017_Surface_Energy_Balance_Glacier.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Fitzpatrick_et_al_2017_Surface_Energy_Balance_Glacier.md": 4,
+            "Cuffey_Paterson_2010_Surface_Ablation_Energy_Budget.md": 1
+          }
+        },
+        "time": 0.1444694995880127
+      }
+    },
+    {
+      "query": "Temperature index vs energy balance models",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 3,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "kinnard2022.md",
+          "top_source_count": 2,
+          "all_sources": {
+            "kinnard2022.md": 2,
+            "Shannon et al. - 2023 - A snow and glacier hydrological model for large catchments – case study for the Naryn River, central.md": 1,
+            "Hock_2005_Glacier_Melt_Review.md": 2
+          }
+        },
+        "time": 0.154191255569458
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 3,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "Journal of Geophysical Research  Atmospheres - 2008 - Sicart - Glacier melt  air temperature  and energy balance in (1).md",
+          "top_source_count": 2,
+          "all_sources": {
+            "Journal of Geophysical Research  Atmospheres - 2008 - Sicart - Glacier melt  air temperature  and energy balance in (1).md": 2,
+            "Carenzo et al. - 2009 - Assessing the transferability and robustness of an enhanced temperature-index glacier-melt model.md": 2,
+            "Kinnarsd_2021_Modelling glacier mass balance and climate sensitivity.md": 1
+          }
+        },
+        "time": 0.1461925506591797
+      }
+    },
+    {
+      "query": "Shortwave radiation and albedo feedback",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 5,
+          "same_doc_clustering_pct": 20.0,
+          "top_source": "s41598-019-53284-1.md",
+          "top_source_count": 1,
+          "all_sources": {
+            "s41598-019-53284-1.md": 1,
+            "Johnson_Rupper_2020_AlbedoFeedback.md": 1,
+            "Gardner et Sharp - 2010 - A review of snow and ice albedo and the development of a new physically based broadband albedo param.md": 1,
+            "Gardner_and_Sharp_2010.md": 1,
+            "Sánchez-Zapero et al. - 2023 - Global estimates of surface albedo from Sentinel-3 OLCI and SLSTR data for Copernicus Climate Change.md": 1
+          }
+        },
+        "time": 0.14596796035766602
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 3,
+          "same_doc_clustering_pct": 60.0,
+          "top_source": "Aoki_Snow_Albedo_Model_2011.md",
+          "top_source_count": 3,
+          "all_sources": {
+            "Aoki_Snow_Albedo_Model_2011.md": 3,
+            "Cuffey_Paterson_2010_Surface_Ablation_Energy_Budget.md": 1,
+            "Gardner et Sharp - 2010 - A review of snow and ice albedo and the development of a new physically based broadband albedo param.md": 1
+          }
+        },
+        "time": 0.1406862735748291
+      }
+    }
+  ],
+  "snow_algae": [
+    {
+      "query": "Snow algae impact on Greenland ice sheet darkening",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Stibal_et_al_2017_Algae_Greenland_Ice_Darkening.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Stibal_et_al_2017_Algae_Greenland_Ice_Darkening.md": 4,
+            "Whicker_et_al_2022_SNICAR-ADv4.md": 1
+          }
+        },
+        "time": 0.14896106719970703
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Stibal_et_al_2017_Algae_Greenland_Ice_Darkening.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Stibal_et_al_2017_Algae_Greenland_Ice_Darkening.md": 4,
+            "ismej2012107.md": 1
+          }
+        },
+        "time": 0.13695406913757324
+      }
+    },
+    {
+      "query": "Biological darkening vs mineral dust",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 5,
+          "same_doc_clustering_pct": 20.0,
+          "top_source": "Tedesco et al. - 2016 - The darkening of the Greenland ice sheet trends, drivers, and projections (1981&ndash;2100).md",
+          "top_source_count": 1,
+          "all_sources": {
+            "Tedesco et al. - 2016 - The darkening of the Greenland ice sheet trends, drivers, and projections (1981&ndash;2100).md": 1,
+            "Stibal_et_al_2017_Algae_Greenland_Ice_Darkening.md": 1,
+            "Gaillard et al. - 2025 - Improving large-scale snow albedo modeling using a climatology of light-absorbing particle depositio.md": 1,
+            "Wientjes_Oerlemans_2010_Greenland_Dark_Region.md": 1,
+            "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md": 1
+          }
+        },
+        "time": 0.14676284790039062
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 60.0,
+          "top_source": "Dumont_et_al_2014_Light_Absorbing_Impurities_Greenland.md",
+          "top_source_count": 3,
+          "all_sources": {
+            "Dumont_et_al_2014_Light_Absorbing_Impurities_Greenland.md": 3,
+            "Stibal_et_al_2017_Algae_Greenland_Ice_Darkening.md": 2
+          }
+        },
+        "time": 0.13447809219360352
+      }
+    },
+    {
+      "query": "Microbial communities on glacier surfaces",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 3,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md",
+          "top_source_count": 2,
+          "all_sources": {
+            "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md": 2,
+            "Takeuchi_2013_Snow_Algal_Communities_Gulkana_Glacier.md": 1,
+            "Naegeli_et_al_2019.md": 2
+          }
+        },
+        "time": 0.13945651054382324
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 1,
+          "same_doc_clustering_pct": 100.0,
+          "top_source": "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md",
+          "top_source_count": 5,
+          "all_sources": {
+            "Esser_et_al_2024_Athabasca_Glacier_Microbial_Communities.md": 5
+          }
+        },
+        "time": 0.13739633560180664
+      }
+    }
+  ],
+  "wildfire_smoke": [
+    {
+      "query": "Wildfire smoke deposition on glaciers",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 3,
+          "same_doc_clustering_pct": 40.0,
+          "top_source": "AubryWake_2022_Fire_and_Ice_Wildfire_Albedo.md",
+          "top_source_count": 2,
+          "all_sources": {
+            "AubryWake_2022_Fire_and_Ice_Wildfire_Albedo.md": 2,
+            "Whicker_et_al_2022_SNICAR-ADv4.md": 1,
+            "Kaspari et al. - 2015 - Accelerated glacier melt on Snow Dome, Mount Olympus, Washington, USA, due to deposition of black ca.md": 2
+          }
+        },
+        "time": 0.1409447193145752
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 60.0,
+          "top_source": "AubryWake_2022_Fire_and_Ice_Wildfire_Albedo.md",
+          "top_source_count": 3,
+          "all_sources": {
+            "Kaspari et al. - 2015 - Accelerated glacier melt on Snow Dome, Mount Olympus, Washington, USA, due to deposition of black ca.md": 2,
+            "AubryWake_2022_Fire_and_Ice_Wildfire_Albedo.md": 3
+          }
+        },
+        "time": 0.17206907272338867
+      }
+    },
+    {
+      "query": "BC from biomass burning on North American glaciers",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 60.0,
+          "top_source": "Williamson_Menounos_2021_Glacier_Albedo.md",
+          "top_source_count": 3,
+          "all_sources": {
+            "main.md": 2,
+            "Williamson_Menounos_2021_Glacier_Albedo.md": 3
+          }
+        },
+        "time": 0.1395881175994873
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 2,
+          "same_doc_clustering_pct": 80.0,
+          "top_source": "Williamson_Menounos_2021_Glacier_Albedo.md",
+          "top_source_count": 4,
+          "all_sources": {
+            "Williamson_Menounos_2021_Glacier_Albedo.md": 4,
+            "main.md": 1
+          }
+        },
+        "time": 0.14115595817565918
+      }
+    },
+    {
+      "query": "Post-wildfire impact on snow albedo",
+      "hybrid": {
+        "coherence": {
+          "document_diversity": 1,
+          "same_doc_clustering_pct": 100.0,
+          "top_source": "Uecker et al. - 2020 - The Post-Wildfire Impact of Burn Severity and Age on Black Carbon Snow Deposition and Implications f.md",
+          "top_source_count": 5,
+          "all_sources": {
+            "Uecker et al. - 2020 - The Post-Wildfire Impact of Burn Severity and Age on Black Carbon Snow Deposition and Implications f.md": 5
+          }
+        },
+        "time": 0.1399681568145752
+      },
+      "contextualized": {
+        "coherence": {
+          "document_diversity": 1,
+          "same_doc_clustering_pct": 100.0,
+          "top_source": "Uecker et al. - 2020 - The Post-Wildfire Impact of Burn Severity and Age on Black Carbon Snow Deposition and Implications f.md",
+          "top_source_count": 5,
+          "all_sources": {
+            "Uecker et al. - 2020 - The Post-Wildfire Impact of Burn Severity and Age on Black Carbon Snow Deposition and Implications f.md": 5
+          }
+        },
+        "time": 0.16581296920776367
+      }
+    }
+  ]
+}
