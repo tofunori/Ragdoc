@@ -7,8 +7,7 @@ import sys
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -114,15 +113,15 @@ def test_new_tools(first_doc):
         # Get a chunk ID from the database
         print("\n[4.1] Getting a chunk ID from database...")
         import chromadb
-        from indexing_config import COLLECTION_HYBRID_NAME, CHROMA_DB_HYBRID_PATH
+        from src.config import COLLECTION_NAME, CHROMA_DB_PATH
 
         try:
             chroma_client = chromadb.HttpClient(host="localhost", port=8000)
             chroma_client.heartbeat()
         except:
-            chroma_client = chromadb.PersistentClient(path=str(CHROMA_DB_HYBRID_PATH))
+            chroma_client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
 
-        collection = chroma_client.get_collection(name=COLLECTION_HYBRID_NAME)
+        collection = chroma_client.get_collection(name=COLLECTION_NAME)
         all_chunks = collection.get(limit=10, include=["metadatas"])
 
         # Find a chunk with index >= 2

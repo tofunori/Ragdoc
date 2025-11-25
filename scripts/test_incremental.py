@@ -16,8 +16,8 @@ from datetime import datetime
 import chromadb
 
 # Importer la configuration
-sys.path.insert(0, str(Path(__file__).parent))
-from indexing_config import CHROMA_DB_PATH, COLLECTION_NAME
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.config import CHROMA_DB_PATH, COLLECTION_NAME
 
 
 def test_incremental_indexing() -> None:

@@ -6,9 +6,9 @@ Script de test pour diagnostiquer les problèmes de la base de données Chroma
 import sys
 from pathlib import Path
 
-# Ajouter le chemin des scripts
-sys.path.insert(0, str(Path(__file__).parent / "scripts"))
-from indexing_config import CHROMA_DB_PATH, COLLECTION_NAME
+# Ajouter le chemin du projet
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.config import CHROMA_DB_PATH, COLLECTION_NAME
 
 import chromadb
 from dotenv import load_dotenv
