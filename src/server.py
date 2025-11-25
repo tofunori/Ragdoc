@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-MCP Server for RAGDOC (Unified)
-Supports both 'contextualized' and 'hybrid' modes.
+MCP Server for RAGDOC
+Contextualized embeddings + BM25 hybrid search with Cohere reranking.
 """
 
 import os

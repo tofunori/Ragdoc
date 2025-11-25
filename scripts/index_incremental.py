@@ -195,8 +195,7 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
                 result = voyage_client.contextualized_embed(
                     inputs=[batch_texts],
                     model=model,
-                    input_type="document",
-                    timeout=1200  # 20 minutes timeout
+                    input_type="document"
                 )
                 
                 # Récupérer les embeddings
