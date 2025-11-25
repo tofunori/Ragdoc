@@ -36,17 +36,10 @@ MARKDOWN_DIR = PROJECT_ROOT / "articles_markdown"
 CHROMA_DB_NEW_PATH = PROJECT_ROOT / "chroma_db_new"
 CHROMA_DB_CONTEXTUALIZED_PATH = CHROMA_DB_NEW_PATH  # Point to chroma_db_new
 CHROMA_DB_PATH = CHROMA_DB_NEW_PATH
-CHROMA_DB_HYBRID_PATH = CHROMA_DB_PATH  # Legacy compatibility
 
 # ============================================================================
 # CHROMA COLLECTIONS
 # ============================================================================
-
-# Legacy collection (Simple TokenChunker)
-COLLECTION_NAME_LEGACY = "zotero_research_context_v2"
-
-# Hybrid collection (Token + Semantic + Overlap)
-COLLECTION_HYBRID_NAME = "zotero_research_context_hybrid_v3"
 
 # Contextualized Embeddings collection (voyage-context-3)
 COLLECTION_CONTEXTUALIZED_NAME = "ragdoc_contextualized_v1"
@@ -62,14 +55,6 @@ COLLECTION_METADATA = {
     "hnsw:space": "cosine",
     "hnsw:construction_ef": 400,
     "hnsw:M": 64
-}
-
-# Metadata for hybrid collection
-COLLECTION_HYBRID_METADATA = {
-    "hnsw:space": "cosine",
-    "hnsw:construction_ef": 400,
-    "hnsw:M": 64,
-    "pipeline": "hybrid_token_semantic_overlap"
 }
 
 # Metadata for contextualized collection

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ragdoc"
 version = "1.7.0"
-description = "Unified MCP server for RAG document search (Hybrid & Contextualized)"
+description = "MCP server for RAG document search with contextualized embeddings"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
