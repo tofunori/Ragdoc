@@ -7,14 +7,14 @@ Tests the underlying functionality by calling ChromaDB directly
 import sys
 from pathlib import Path
 
-# Add scripts to path for config
-sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+# Add project to path for config
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
 load_dotenv()
 
 import chromadb
-from indexing_config import COLLECTION_HYBRID_NAME, CHROMA_DB_HYBRID_PATH
+from src.config import COLLECTION_NAME, CHROMA_DB_PATH
 
 
 def get_chroma_client():
@@ -26,7 +26,7 @@ def get_chroma_client():
         return client
     except:
         print("[INFO] ChromaDB server not available, using local mode")
-        return chromadb.PersistentClient(path=str(CHROMA_DB_HYBRID_PATH))
+        return chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
 
 
 def test_get_document_content():
@@ -36,7 +36,7 @@ def test_get_document_content():
     print("=" * 80)
 
     client = get_chroma_client()
-    collection = client.get_collection(name=COLLECTION_HYBRID_NAME)
+    collection = client.get_collection(name=COLLECTION_NAME)
 
     # Get list of unique sources
     print("\n[1.1] Getting list of documents...")
@@ -99,7 +99,7 @@ def test_get_chunk_with_context():
     print("=" * 80)
 
     client = get_chroma_client()
-    collection = client.get_collection(name=COLLECTION_HYBRID_NAME)
+    collection = client.get_collection(name=COLLECTION_NAME)
 
     # Get a chunk with chunk_index >= 2
     print("\n[2.1] Finding a chunk with enough context...")

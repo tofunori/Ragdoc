@@ -51,8 +51,8 @@ from chonkie import TokenChunker, SemanticChunker, OverlapRefinery
 load_dotenv()
 
 # Importer la configuration
-sys.path.insert(0, str(Path(__file__).parent))
-from indexing_config import (
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.config import (
     MARKDOWN_DIR, CHROMA_DB_PATH, COLLECTION_NAME, COLLECTION_CONTEXTUALIZED_METADATA,
     CHONKIE_TOKENIZER, USE_CONTENT_HASH, TRACK_INDEXED_DATE
 )

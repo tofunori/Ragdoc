@@ -7,10 +7,10 @@ import os
 import sys
 from pathlib import Path
 
-# Ajouter le chemin des scripts
-sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+# Ajouter le chemin du projet
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from indexing_config import (
+from src.config import (
     MARKDOWN_DIR, CHROMA_DB_PATH, COLLECTION_NAME, COLLECTION_METADATA,
     CHONKIE_CHUNK_SIZE, CHONKIE_CHUNK_OVERLAP, CHONKIE_TOKENIZER
 )
