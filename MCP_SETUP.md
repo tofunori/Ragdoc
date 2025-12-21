@@ -89,13 +89,8 @@ cd "D:\Claude Code\ragdoc-mcp"
 C:\Users\<username>\miniforge3\envs\ragdoc-env\python.exe src/server.py
 ```
 
-You should see:
-```
-╭─────────────────────────────────────────────────╮
-│ Server name: ragdoc-hybrid                      │
-│ Transport:   STDIO                              │
-╰─────────────────────────────────────────────────╯
-```
+**Note:** On recent versions we run with `show_banner=False` to keep stdout strictly JSON-RPC (some MCP clients disconnect if any banner/text is printed on stdout).
+So you may see **no banner output** — that's expected.
 
 ## Performance
 

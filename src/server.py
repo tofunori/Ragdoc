@@ -9,8 +9,25 @@ import sys
 import hashlib
 import logging
 import argparse
+import re
+import unicodedata
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Windows: normalize newlines for stdio transports (avoids CRLF issues in some MCP clients)
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(newline="\n", encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    try:
+        sys.stderr.reconfigure(newline="\n", encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    try:
+        sys.stdin.reconfigure(newline="\n")
+    except Exception:
+        pass
 
 # Load environment variables
 load_dotenv()
@@ -20,9 +37,6 @@ if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastmcp import FastMCP
-import chromadb
-import voyageai
-import cohere
 
 # Import internal modules
 from src.config import (
@@ -39,7 +53,8 @@ from src.hybrid_retriever import HybridRetriever
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr,  # never write logs to stdout (stdout is reserved for MCP JSON-RPC)
 )
 
 # Initialize MCP server (single contextualized mode)
@@ -50,17 +65,154 @@ voyage_client = None
 chroma_client = None
 cohere_client = None
 hybrid_retriever = None
+_chromadb = None
+_voyageai = None
+_cohere = None
 
-def init_clients():
-    """Initialize API clients with auto-detection of ChromaDB server"""
-    global voyage_client, chroma_client, cohere_client, hybrid_retriever
 
-    if not voyage_client:
-        if not os.getenv("VOYAGE_API_KEY"):
-             logging.warning("VOYAGE_API_KEY not set. Semantic search will fail.")
-        voyage_client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
+def _get_chromadb():
+    global _chromadb
+    if _chromadb is None:
+        import chromadb as _chromadb_mod
+        _chromadb = _chromadb_mod
+    return _chromadb
+
+
+def _get_voyageai():
+    global _voyageai
+    if _voyageai is None:
+        import voyageai as _voyageai_mod
+        _voyageai = _voyageai_mod
+    return _voyageai
+
+
+def _get_cohere():
+    global _cohere
+    if _cohere is None:
+        import cohere as _cohere_mod
+        _cohere = _cohere_mod
+    return _cohere
+
+def _normalize_query_text(text: str) -> str:
+    """Best-effort query normalization (diacritics, whitespace)."""
+    if not text:
+        return ""
+    # Normalize unicode accents (albédo -> albedo)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _generate_query_variants(query: str, n_queries: int = 3) -> list[str]:
+    """
+    Heuristic query rewriting/expansion.
+    Produces up to n_queries queries INCLUDING the original query.
+
+    Goal: help short/noisy queries (acronyms, FR/EN variants, key synonyms).
+    """
+    q0 = query.strip() if query else ""
+    if not q0:
+        return []
+
+    n_queries = int(n_queries) if n_queries is not None else 3
+    n_queries = max(1, min(n_queries, 5))  # keep it cheap & predictable
+
+    # Prefer short queries; for long chunk-like queries, keep only the original.
+    if len(q0) > 500:
+        return [q0]
+
+    q_norm = _normalize_query_text(q0)
+    q_lower = q_norm.lower()
+
+    # Domain-oriented acronym/synonym expansions (FR/EN) – small but high-signal.
+    replacements: list[tuple[str, str]] = [
+        # French -> English (common in papers)
+        ("albédo", "albedo"),
+        ("télédétection", "remote sensing"),
+        ("carbone noir", "black carbon"),
+        ("neige", "snow"),
+        ("glaciers", "glacier"),
+        # Acronyms
+        (" bc ", " black carbon "),
+        (" ssa ", " specific surface area "),
+        (" modis ", " moderate resolution imaging spectroradiometer modis "),
+        (" lst ", " land surface temperature "),
+        (" firn ", " firn snow "),
+    ]
+
+    expanded = f" {q_lower} "
+    for src, dst in replacements:
+        expanded = expanded.replace(src, dst)
+    expanded = re.sub(r"\s+", " ", expanded).strip()
+
+    # Add a “keyword-only” variant (helps BM25 when query is verbose)
+    stop = {
+        # EN
+        "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "from", "by", "as", "is", "are",
+        "this", "that", "these", "those", "what", "how", "why", "which", "who",
+        # FR
+        "le", "la", "les", "un", "une", "des", "du", "de", "d", "et", "ou", "dans", "sur", "pour", "avec",
+        "par", "en", "au", "aux", "ce", "cet", "cette", "ces", "quoi", "comment", "pourquoi", "quel", "quelle",
+    }
+    tokens = re.findall(r"[a-z0-9_]+", expanded)
+    keywords = [t for t in tokens if t not in stop and len(t) >= 3]
+    keyword_variant = " ".join(dict.fromkeys(keywords))  # de-dupe, keep order
+
+    # Build final list (unique, preserve order)
+    candidates = [q0, q_norm]
+    if expanded and expanded not in candidates:
+        candidates.append(expanded)
+    if keyword_variant and keyword_variant not in candidates:
+        candidates.append(keyword_variant)
+
+    out: list[str] = []
+    seen = set()
+    for q in candidates:
+        q = q.strip()
+        if not q:
+            continue
+        if q in seen:
+            continue
+        seen.add(q)
+        out.append(q)
+        if len(out) >= n_queries:
+            break
+
+    return out or [q0]
+
+
+def _multiquery_rrf_fuse(results_by_query: list[list[dict]], rrf_k: int = 60) -> list[dict]:
+    """
+    Fuse multiple ranked result lists using Reciprocal Rank Fusion over doc ids.
+    Keeps the first payload (text/metadata) seen for each id.
+    """
+    scores: dict[str, float] = {}
+    payload: dict[str, dict] = {}
+    for res_list in results_by_query:
+        for rank, r in enumerate(res_list):
+            doc_id = r.get("id")
+            if not doc_id:
+                continue
+            scores[doc_id] = scores.get(doc_id, 0.0) + (1.0 / (rrf_k + rank + 1))
+            if doc_id not in payload:
+                payload[doc_id] = r
+
+    merged = []
+    for doc_id, s in sorted(scores.items(), key=lambda kv: kv[1], reverse=True):
+        item = dict(payload[doc_id])
+        item["score"] = float(s)  # overwrite score with multi-query fused score
+        merged.append(item)
+    return merged
+
+
+def init_chroma_client():
+    """Initialize Chroma client (server mode if available, otherwise local persistent)."""
+    global chroma_client
 
     if not chroma_client:
+        chromadb = _get_chromadb()
         # Try HttpClient (server mode) first, fallback to PersistentClient
         try:
             test_client = chromadb.HttpClient(host="localhost", port=8000)
@@ -71,38 +223,71 @@ def init_clients():
             logging.info(f"[INFO] MCP: ChromaDB server not available, using local mode: {ACTIVE_DB_PATH}")
             chroma_client = chromadb.PersistentClient(path=str(ACTIVE_DB_PATH))
 
+    return chroma_client
+
+def init_voyage_client():
+    """Initialize Voyage client (used for semantic embedding)."""
+    global voyage_client
+    if not voyage_client:
+        voyageai = _get_voyageai()
+        if not os.getenv("VOYAGE_API_KEY"):
+            logging.warning("VOYAGE_API_KEY not set. Semantic search will fail.")
+        voyage_client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
+    return voyage_client
+
+
+def init_cohere_client():
+    """Initialize Cohere client (used for reranking)."""
+    global cohere_client
     if not cohere_client:
+        cohere = _get_cohere()
         if not os.getenv("COHERE_API_KEY"):
             logging.warning("COHERE_API_KEY not set. Reranking will fail.")
         cohere_client = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
+    return cohere_client
 
-    # Initialize retriever (contextualized embeddings + BM25 fusion)
-    if not hybrid_retriever:
-        try:
-            collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
-            # Contextualized embedding function (only mode supported)
-            def voyage_contextualized_embed(texts):
-                results = []
-                for text in texts:
-                    result = voyage_client.contextualized_embed(
-                        inputs=[[text]],
-                        model="voyage-context-3",
-                        input_type="query"
-                    )
-                    results.append(result.results[0].embeddings[0])
-                return results
+def init_retriever():
+    """
+    Initialize HybridRetriever.
+    IMPORTANT: HybridRetriever BM25 index is lazy (and may build in background),
+    so this should be fast and not cause MCP timeouts.
+    """
+    global hybrid_retriever
 
-            embed_fn = voyage_contextualized_embed
-            logging.info("[OK] Retriever initialized (Contextualized Mode)")
+    if hybrid_retriever:
+        return hybrid_retriever
 
-            hybrid_retriever = HybridRetriever(
-                collection=collection,
-                embedding_function=embed_fn
-            )
-        except Exception as e:
-            logging.error(f"Failed to initialize HybridRetriever: {e}")
-            # Don't crash, just allow other tools to work
+    try:
+        init_chroma_client()
+        init_voyage_client()
+        init_cohere_client()
+
+        collection = chroma_client.get_collection(name=COLLECTION_NAME)
+
+        # Contextualized embedding function (only mode supported)
+        def voyage_contextualized_embed(texts):
+            results = []
+            for text in texts:
+                result = voyage_client.contextualized_embed(
+                    inputs=[[text]],
+                    model="voyage-context-3",
+                    input_type="query"
+                )
+                results.append(result.results[0].embeddings[0])
+            return results
+
+        embed_fn = voyage_contextualized_embed
+        logging.info("[OK] Retriever initialized (Contextualized Mode)")
+
+        hybrid_retriever = HybridRetriever(
+            collection=collection,
+            embedding_function=embed_fn
+        )
+    except Exception as e:
+        logging.error(f"Failed to initialize HybridRetriever: {e}")
+
+    return hybrid_retriever
 
 
 def _fetch_document_chunks(collection, source: str) -> dict:
@@ -191,13 +376,18 @@ def _perform_search_hybrid(
     top_k: int = 10,
     alpha: float = 0.5,
     where: dict = None,
-    where_document: dict = None
+    where_document: dict = None,
+    multi_query: bool = False,
+    n_queries: int = 3,
+    format: str = "verbose",
+    preview_chars: int | None = None,
+    context_window: int | None = None,
 ) -> str:
     """
     Unified search (contextualized embeddings + BM25 + Cohere rerank).
     """
     try:
-        init_clients()
+        init_retriever()
         
         if not hybrid_retriever:
             return "ERROR: Hybrid retriever not initialized. Check database connection."
@@ -205,15 +395,32 @@ def _perform_search_hybrid(
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         # 1. Retrieval (BM25 + contextualized semantic with RRF)
-        hybrid_results = hybrid_retriever.search(
-            query=query,
-            top_k=50,  # Get 50 candidates for reranking
-            alpha=alpha,
-            bm25_top_n=100,
-            semantic_top_n=100,
-            where=where,
-            where_document=where_document
-        )
+        # Optional: multi-query rewrite/expansion (heuristic), fused with RRF.
+        if multi_query:
+            queries = _generate_query_variants(query, n_queries=n_queries)
+        else:
+            queries = [query]
+
+        per_query_results: list[list[dict]] = []
+        for q in queries:
+            res = hybrid_retriever.search(
+                query=q,
+                top_k=50,  # candidates per query
+                alpha=alpha,
+                bm25_top_n=100,
+                semantic_top_n=100,
+                where=where,
+                where_document=where_document,
+            )
+            if res:
+                per_query_results.append(res)
+
+        if not per_query_results:
+            return "No results found for your search."
+
+        hybrid_results = per_query_results[0] if len(per_query_results) == 1 else _multiquery_rrf_fuse(per_query_results)
+        # Cap rerank candidates (Cohere side) to keep latency/cost bounded
+        hybrid_results = hybrid_results[:100]
 
         if not hybrid_results:
             return "No results found for your search."
@@ -222,28 +429,46 @@ def _perform_search_hybrid(
         documents_for_rerank = [r['text'] for r in hybrid_results]
         metadatas = [r['metadata'] for r in hybrid_results]
 
-        # 3. Rerank with Cohere v3.5
+        # 3. Rerank with Cohere v4.0 Pro
         rerank_results = cohere_client.rerank(
-            model="rerank-v3.5",
+            model="rerank-v4.0-pro",
             query=query,
             documents=documents_for_rerank,
             top_n=top_k
         )
 
-        # 4. Format results with context window expansion
-        output = f"SEARCH RESULTS ({RAGDOC_MODE.upper()} MODE): {query}\n"
-        output += "=" * 70 + "\n\n"
+        # 4. Normalize output controls (presentation-only; retrieval/rerank unchanged)
+        output_format = (format or "compact").strip().lower()
+        if output_format not in {"compact", "verbose"}:
+            output_format = "compact"
 
-        doc_cache = {}
+        if context_window is None:
+            context_window = 0 if output_format == "compact" else CONTEXT_WINDOW_SIZE
+        else:
+            try:
+                context_window = int(context_window)
+            except (TypeError, ValueError):
+                context_window = 0
+            context_window = max(0, context_window)
 
-        for i, result in enumerate(rerank_results.results, 1):
+        if preview_chars is None:
+            preview_chars = 120 if output_format == "compact" else 800
+        else:
+            try:
+                preview_chars = int(preview_chars)
+            except (TypeError, ValueError):
+                preview_chars = 200
+            preview_chars = max(0, preview_chars)
+
+        preview_context_chars = max(0, preview_chars // 2)
+
+        # 5. Materialize ranked hits once, then format them (ensures same hits across formats)
+        ranked_hits: list[dict] = []
+        for result in rerank_results.results:
             idx = result.index
-            score = result.relevance_score
             metadata = metadatas[idx]
-            hybrid_score = hybrid_results[idx]['score']
-            bm25_rank = hybrid_results[idx].get('bm25_rank')
-            semantic_rank = hybrid_results[idx].get('semantic_rank')
 
+            doc_id = hybrid_results[idx].get('id')
             source = metadata.get('source', metadata.get('filename', 'unknown'))
             chunk_index = metadata.get('chunk_index', 0)
 
@@ -253,23 +478,84 @@ def _perform_search_hybrid(
             except (TypeError, ValueError):
                 total_chunks = None
 
+            ranked_hits.append({
+                "id": doc_id,
+                "rerank_score": float(result.relevance_score),
+                "fusion_score": float(hybrid_results[idx].get('score', 0.0)),
+                "bm25_rank": hybrid_results[idx].get('bm25_rank'),
+                "semantic_rank": hybrid_results[idx].get('semantic_rank'),
+                "source": source,
+                "chunk_index": chunk_index,
+                "total_chunks": total_chunks,
+                "text": documents_for_rerank[idx] if idx < len(documents_for_rerank) else "",
+                "metadata": metadata,
+            })
+
+        output = f"SEARCH RESULTS ({RAGDOC_MODE.upper()} MODE): {query}\n"
+        if multi_query and len(queries) > 1:
+            output += f"[i] Multi-query enabled ({len(queries)} variants)\n"
+        output += "=" * 70 + "\n\n"
+
+        if output_format == "compact":
+            for i, hit in enumerate(ranked_hits, 1):
+                line = f"[{i}] rerank={hit['rerank_score']:.4f} fusion={hit['fusion_score']:.4f}"
+                line += f" source={hit['source']}"
+                if hit.get('total_chunks') is not None:
+                    line += f" chunk={hit['chunk_index']}/{hit['total_chunks']}"
+                else:
+                    line += f" chunk={hit['chunk_index']}"
+                if hit.get('id'):
+                    line += f" id={hit['id']}"
+
+                bm25_rank = hit.get('bm25_rank')
+                semantic_rank = hit.get('semantic_rank')
+                if bm25_rank is not None or semantic_rank is not None:
+                    line += f" bm25_rank={bm25_rank} semantic_rank={semantic_rank}"
+
+                output += line + "\n"
+
+                text = hit.get('text') or ""
+                text = re.sub(r"\s+", " ", text).strip()
+                if preview_chars > 0:
+                    preview = text[:preview_chars]
+                    if len(text) > preview_chars:
+                        preview += "..."
+                    output += f"    {preview}\n\n"
+                else:
+                    output += "\n"
+
+            return output
+
+        # verbose output (backward-compatible) with optional context control
+        doc_cache = {}
+        for i, hit in enumerate(ranked_hits, 1):
+            source = hit['source']
+            chunk_index = hit['chunk_index']
+
+            total_chunks = hit.get('total_chunks')
             if total_chunks is None:
                 doc_entry = _get_document_cache_entry(collection, source, doc_cache)
                 meta_list = doc_entry.get('metadatas') if doc_entry else []
                 total_chunks = len(meta_list) if meta_list else 1
 
-            output += f"[{i}] Rerank Score: {score:.4f} | Fusion: {hybrid_score:.4f}\n"
+            output += f"[{i}] Rerank Score: {hit['rerank_score']:.4f} | Fusion: {hit['fusion_score']:.4f}\n"
             output += f"    Source: {source}\n"
             output += f"    Position: chunk {chunk_index}/{total_chunks}\n"
-            output += f"    Rankings: BM25 #{bm25_rank}, Semantic #{semantic_rank}\n\n"
+            output += f"    Rankings: BM25 #{hit.get('bm25_rank')}, Semantic #{hit.get('semantic_rank')}\n"
+            if hit.get('id'):
+                output += f"    Chunk ID: {hit['id']}\n"
+            output += "\n"
 
-            # Retrieve adjacent chunks for context
             adjacent_chunks = _get_adjacent_chunks(
-                collection, source, chunk_index, total_chunks, doc_cache=doc_cache
+                collection,
+                source,
+                chunk_index,
+                total_chunks,
+                window_size=context_window,
+                doc_cache=doc_cache,
             )
 
             if adjacent_chunks:
-                # Display context window with visual indicator for main chunk
                 for chunk_content, chunk_meta in adjacent_chunks:
                     is_main = chunk_meta['chunk_index'] == chunk_index
                     marker = "[*]" if is_main else "[ ]"
@@ -279,16 +565,16 @@ def _perform_search_hybrid(
                         output += " <-- MAIN RESULT"
                     output += "\n"
 
-                    # Show content preview
-                    # Longer preview for main chunk
-                    preview_length = 800 if is_main else 400
+                    preview_length = preview_chars if is_main else preview_context_chars
                     preview = chunk_content[:preview_length]
                     if len(chunk_content) > preview_length:
                         preview += "..."
                     output += f"    {preview}\n\n"
             else:
-                # Fallback if adjacent chunks not found
-                output += f"    Content: {documents_for_rerank[idx][:200]}...\n\n"
+                fallback = (hit.get('text') or "")[:200]
+                if len(hit.get('text') or "") > 200:
+                    fallback += "..."
+                output += f"    Content: {fallback}\n\n"
 
             output += "-" * 70 + "\n\n"
 
@@ -300,7 +586,16 @@ def _perform_search_hybrid(
 
 
 @mcp.tool()
-def semantic_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.5) -> str:
+def semantic_search_hybrid(
+    query: str,
+    top_k: int = 10,
+    alpha: float = 0.5,
+    multi_query: bool = False,
+    n_queries: int = 3,
+    format: str = "compact",
+    preview_chars: int | None = None,
+    context_window: int | None = None,
+) -> str:
     """
     Hybrid search with BM25 + Vector + Cohere v3.5 reranking.
 
@@ -308,15 +603,39 @@ def semantic_search_hybrid(query: str, top_k: int = 10, alpha: float = 0.5) -> s
         query: Search query about the indexed knowledge base.
         top_k: Number of results to return (default: 10)
         alpha: Semantic weight (0.5 = balanced hybrid). Use 0.3 for BM25-heavy, 0.7 for semantic-heavy.
+        multi_query: If True, generate multiple query variants (rewrite/expansion) and fuse results (default: False).
+        n_queries: Total number of query variants to use INCLUDING the original (1-5, default: 3).
+        format: Output format ("compact" or "verbose").
+        preview_chars: Character count for the main snippet/preview (defaults: 200 compact, 800 verbose).
+        context_window: Adjacent chunks to include on each side in verbose mode (defaults: 0 compact, CONTEXT_WINDOW_SIZE verbose).
 
     Returns:
         Formatted search results with hybrid ranking scores and source information.
     """
-    return _perform_search_hybrid(query, top_k, alpha)
+    return _perform_search_hybrid(
+        query=query,
+        top_k=top_k,
+        alpha=alpha,
+        multi_query=multi_query,
+        n_queries=n_queries,
+        format=format,
+        preview_chars=preview_chars,
+        context_window=context_window,
+    )
 
 
 @mcp.tool()
-def search_by_source(query: str, sources: list, top_k: int = 10, alpha: float = 0.5) -> str:
+def search_by_source(
+    query: str,
+    sources: list,
+    top_k: int = 10,
+    alpha: float = 0.5,
+    multi_query: bool = False,
+    n_queries: int = 3,
+    format: str = "compact",
+    preview_chars: int | None = None,
+    context_window: int | None = None,
+) -> str:
     """
     Hybrid search limited to specific documents.
 
@@ -335,7 +654,17 @@ def search_by_source(query: str, sources: list, top_k: int = 10, alpha: float = 
     else:
         where = {"source": {"$in": sources}}
 
-    return _perform_search_hybrid(query, top_k, alpha, where=where)
+    return _perform_search_hybrid(
+        query=query,
+        top_k=top_k,
+        alpha=alpha,
+        where=where,
+        multi_query=multi_query,
+        n_queries=n_queries,
+        format=format,
+        preview_chars=preview_chars,
+        context_window=context_window,
+    )
 
 
 @mcp.tool()
@@ -347,7 +676,7 @@ def list_documents() -> str:
         List of available papers with metadata.
     """
     try:
-        init_clients()
+        init_chroma_client()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         all_docs = collection.get(include=["metadatas"])
@@ -384,7 +713,7 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
         max_length: Maximum characters to return (default: 80000 chars ≈ 20K tokens)
     """
     try:
-        init_clients()
+        init_chroma_client()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         doc_data = _fetch_document_chunks(collection, source)
@@ -463,7 +792,7 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
         highlight: Highlight the matched chunk (default: True)
     """
     try:
-        init_clients()
+        init_chroma_client()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         target = collection.get(
@@ -563,7 +892,7 @@ def get_indexation_status() -> str:
     Get current indexation database statistics.
     """
     try:
-        init_clients()
+        init_chroma_client()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         all_docs = collection.get(include=["metadatas"])
@@ -629,7 +958,9 @@ def main():
         # but we could set os.environ and re-exec, or refactor config loading.
         # For now, rely on env vars.
     
-    mcp.run()
+    # IMPORTANT: keep stdout clean (JSON-RPC only) for stdio MCP clients.
+    # FastMCP banner (if printed) can break some clients, so disable it.
+    mcp.run(show_banner=False)
 
 
 if __name__ == "__main__":
