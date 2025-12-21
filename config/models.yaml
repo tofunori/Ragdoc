@@ -25,7 +25,7 @@ embedding:
 
 reranking:
   # Cohere reranking model
-  model: "rerank-v3.5"
+  model: "rerank-v4.0-pro"
   top_n: 10  # number of results after reranking
   max_chunks_per_query: 100  # maximum chunks to rerank
 
