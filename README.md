@@ -140,7 +140,7 @@ For multi-session usage, run ragdoc as a shared HTTP server instead of spawning 
 **1. Start the HTTP server:**
 ```bash
 python src/server_http.py
-# Server runs on http://127.0.0.1:8321/sse
+# Server runs on http://127.0.0.1:8321/mcp
 ```
 
 **2. Configure Claude Code** (`~/.claude.json`):
@@ -149,7 +149,7 @@ python src/server_http.py
   "mcpServers": {
     "ragdoc": {
       "type": "sse",
-      "url": "http://127.0.0.1:8321/sse"
+      "url": "http://127.0.0.1:8321/mcp"
     }
   }
 }
