@@ -133,6 +133,51 @@ COHERE_API_KEY=your_cohere_api_key
 }
 ```
 
+### HTTP/SSE Server Mode (Recommended)
+
+For multi-session usage, run ragdoc as a shared HTTP server instead of spawning per-session processes. This dramatically reduces memory usage (~1.3GB shared vs duplicated per session).
+
+**1. Start the HTTP server:**
+```bash
+python src/server_http.py
+# Server runs on http://127.0.0.1:8321/sse
+```
+
+**2. Configure Claude Code** (`~/.claude.json`):
+```json
+{
+  "mcpServers": {
+    "ragdoc": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8321/sse"
+    }
+  }
+}
+```
+
+**3. (Optional) Run as systemd service** (Linux):
+```bash
+# Create ~/.config/systemd/user/ragdoc-mcp.service
+[Unit]
+Description=Ragdoc MCP HTTP Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/Ragdoc
+Environment="VOYAGE_API_KEY=your_key"
+Environment="COHERE_API_KEY=your_key"
+ExecStart=/path/to/python src/server_http.py
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+
+# Enable and start
+systemctl --user daemon-reload
+systemctl --user enable --now ragdoc-mcp
+```
+
 ### YAML Configuration
 
 Configuration files are located in `config/`:
