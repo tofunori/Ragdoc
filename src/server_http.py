@@ -475,5 +475,5 @@ if __name__ == "__main__":
     print("Press Ctrl+C to stop")
     print("=" * 60)
 
-    # Run as SSE server (compatible with most MCP clients)
-    mcp.run(transport="sse", host="127.0.0.1", port=8321)
+    # Run as Streamable HTTP server (compatible with Codex and Claude Code)
+    mcp.run(transport="http", host="127.0.0.1", port=8321)
