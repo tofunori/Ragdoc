@@ -75,3 +75,4 @@ ragdoc-tui.bat
 config/local.yaml
 config/*_local.yaml
 config/*.local.yaml
+.venv/

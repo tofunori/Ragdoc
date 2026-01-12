@@ -17,17 +17,12 @@ server:
 
 # Collections
 collections:
-  # Legacy collection (simple TokenChunker)
-  legacy:
-    name: "zotero_research_context_v2"
-    active: false
-
-  # Hybrid pipeline collection (current)
-  hybrid:
-    name: "zotero_research_context_hybrid_v3"
+  # Contextualized embeddings collection (active)
+  contextualized:
+    name: "ragdoc_contextualized_v1"
     active: true
     metadata:
-      pipeline: "hybrid_token_semantic_overlap"
+      pipeline: "contextualized_embeddings"
 
 # HNSW Index Configuration
 # See: https://docs.trychroma.com/guides#changing-the-distance-function

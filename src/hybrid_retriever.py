@@ -4,6 +4,7 @@ Hybrid Retriever: BM25 + Semantic Search + Reciprocal Rank Fusion
 Pour ChromaDB (qui n'a pas de hybrid search natif)
 """
 
+import os
 import logging
 import numpy as np
 from typing import List, Dict, Tuple, TYPE_CHECKING
@@ -15,6 +16,21 @@ if TYPE_CHECKING:
     import chromadb
 
 logger = logging.getLogger(__name__)
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    value = value.strip().lower()
+    return value in {"1", "true", "yes", "y", "on"}
+
+
+# Memory/perf knobs (opt-in via env; keep defaults backward-compatible)
+_LIGHT_MODE = _env_bool("RAGDOC_LIGHT_MODE", False)
+_BM25_ENABLED_DEFAULT = not _LIGHT_MODE and _env_bool("RAGDOC_BM25_ENABLED", True)
+_BM25_AUTO_BUILD_DEFAULT = (not _LIGHT_MODE) and _env_bool("RAGDOC_BM25_AUTO_BUILD", True)
+# Keeping full document text in RAM is expensive on large corpora. Off by default in light mode only.
+_BM25_KEEP_DOCS_DEFAULT = (not _LIGHT_MODE) and _env_bool("RAGDOC_BM25_KEEP_DOCS", True)
 
 try:
     # New relative import
@@ -35,8 +51,16 @@ class HybridRetriever:
         results = retriever.search("black carbon albedo", top_k=10)
     """
 
-    def __init__(self, collection: "chromadb.Collection", embedding_function=None,
-                 use_advanced_tokenizer: bool = True):
+    def __init__(
+        self,
+        collection: "chromadb.Collection",
+        embedding_function=None,
+        use_advanced_tokenizer: bool = True,
+        *,
+        bm25_enabled: bool | None = None,
+        bm25_auto_build: bool | None = None,
+        bm25_keep_docs: bool | None = None,
+    ):
         """
         Args:
             collection: ChromaDB collection
@@ -47,6 +71,17 @@ class HybridRetriever:
         """
         self.collection = collection
         self.embedding_function = embedding_function
+        self.bm25_enabled = _BM25_ENABLED_DEFAULT if bm25_enabled is None else bool(bm25_enabled)
+        self.bm25_auto_build = _BM25_AUTO_BUILD_DEFAULT if bm25_auto_build is None else bool(bm25_auto_build)
+        self.bm25_keep_docs = _BM25_KEEP_DOCS_DEFAULT if bm25_keep_docs is None else bool(bm25_keep_docs)
+
+        if not self.bm25_enabled:
+            logger.info("BM25 disabled (semantic-only). Set RAGDOC_BM25_ENABLED=true to re-enable.")
+        else:
+            if not self.bm25_auto_build:
+                logger.info("BM25 auto-build disabled. BM25 builds only when alpha=0.0.")
+            if not self.bm25_keep_docs:
+                logger.info("BM25 keep-docs disabled (reduced RAM).")
 
         # Initialize tokenizer
         self.tokenizer = None
@@ -76,17 +111,23 @@ class HybridRetriever:
         # TODO: Optimize for large collections (lazy loading or caching)
         all_data = self.collection.get(include=["documents", "metadatas"])
 
-        self.docs = all_data['documents']
+        docs = all_data['documents']
         self.ids = all_data['ids']
         self.metadatas = all_data['metadatas']
         self._id_to_idx = {doc_id: i for i, doc_id in enumerate(self.ids)}
 
         # Tokenize corpus for BM25
         # Simple whitespace tokenization (can be improved with stemming/lemmatization)
-        tokenized_corpus = [self._tokenize(doc) for doc in self.docs]
+        tokenized_corpus = [self._tokenize(doc) for doc in docs]
 
         # Initialize BM25
         self.bm25 = BM25Okapi(tokenized_corpus)
+
+        # Keep full chunk text only when explicitly requested (can be huge).
+        if self.bm25_keep_docs:
+            self.docs = docs
+        else:
+            self.docs = []
 
     def _build_bm25_index_worker(self) -> None:
         """Worker that builds the BM25 index and clears the building flag."""
@@ -108,6 +149,8 @@ class HybridRetriever:
         Returns:
             True if BM25 is ready now, False if build is in progress or failed.
         """
+        if not self.bm25_enabled:
+            return False
         if self.bm25 is not None:
             return True
 
@@ -168,6 +211,8 @@ class HybridRetriever:
 
         # 1. BM25 search (optional / lazy)
         bm25_results: List[Tuple[str, float, int]] = []
+        if not self.bm25_enabled:
+            alpha = 1.0
         if alpha < 1.0:
             if self.bm25 is None:
                 # If user asked for pure BM25, we must build synchronously.
@@ -175,7 +220,8 @@ class HybridRetriever:
                 if alpha == 0.0:
                     self.ensure_bm25_index(background=False)
                 else:
-                    self.ensure_bm25_index(background=True)
+                    if self.bm25_auto_build:
+                        self.ensure_bm25_index(background=True)
             if self.bm25 is not None:
                 bm25_results = self._bm25_search(
                     query,
@@ -217,6 +263,11 @@ class HybridRetriever:
             List of (doc_id, bm25_score, rank)
         """
         if self.bm25 is None:
+            return []
+
+        # If the caller requested content filtering, but we dropped doc text to save memory,
+        # fail closed to avoid returning out-of-scope BM25 hits.
+        if where_document is not None and not self.docs:
             return []
 
         tokenized_query = self._tokenize(query)

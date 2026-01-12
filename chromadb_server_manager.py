@@ -41,7 +41,13 @@ class ChromaDBServerManager:
             if chroma_exe.exists():
                 return [str(chroma_exe)]
 
-        # Linux/Mac or fallback
+        # Linux/Mac: chroma is in same directory as python (conda) or bin subfolder (venv)
+        # Try same directory first (conda)
+        same_dir_chroma = python_exe.parent / "chroma"
+        if same_dir_chroma.exists():
+            return [str(same_dir_chroma)]
+
+        # Try bin subfolder (venv)
         bin_chroma = python_exe.parent / "bin" / "chroma"
         if bin_chroma.exists():
             return [str(bin_chroma)]
