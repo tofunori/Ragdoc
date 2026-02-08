@@ -31,9 +31,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MARKDOWN_DIR = PROJECT_ROOT / "articles_markdown"
 
 # Main database paths
-# Main database paths
 # NOTE: Using chroma_db_new for unified database (server + MCP + scripts)
-CHROMA_DB_NEW_PATH = PROJECT_ROOT / "chroma_db_new"
+# Allow override via environment variable for MCP flexibility
+_env_chroma_path = os.getenv("CHROMA_DB_PATH")
+if _env_chroma_path:
+    CHROMA_DB_NEW_PATH = Path(_env_chroma_path)
+else:
+    CHROMA_DB_NEW_PATH = PROJECT_ROOT / "chroma_db_new"
 CHROMA_DB_CONTEXTUALIZED_PATH = CHROMA_DB_NEW_PATH  # Point to chroma_db_new
 CHROMA_DB_PATH = CHROMA_DB_NEW_PATH
 
@@ -47,7 +51,8 @@ COLLECTION_CONTEXTUALIZED_NAME = "ragdoc_contextualized_v1"
 # Force Contextualized Collection regardless of mode
 # RAGDOC_MODE kept only for legacy scripts compatibility
 RAGDOC_MODE = "contextualized"
-COLLECTION_NAME = COLLECTION_CONTEXTUALIZED_NAME
+# Allow override via environment variable for MCP flexibility
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", COLLECTION_CONTEXTUALIZED_NAME)
 ACTIVE_DB_PATH = CHROMA_DB_CONTEXTUALIZED_PATH
 
 # Collection Metadata (HNSW optimization)

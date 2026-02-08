@@ -75,3 +75,10 @@ ragdoc-tui.bat
 config/local.yaml
 config/*_local.yaml
 config/*.local.yaml
+
+# Virtual environments
+ragdoc-env/
+ragdoc-env-new/
+
+# MCP runtime
+run-mcp.sh

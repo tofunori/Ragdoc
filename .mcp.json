@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "ragdoc": {
+      "type": "stdio",
+      "command": "/home/tofunori/Ragdoc/ragdoc-env/bin/python",
+      "args": ["/home/tofunori/Ragdoc/src/server.py"],
+      "cwd": "/home/tofunori/Ragdoc",
+      "env": {
+        "CHROMA_DB_PATH": "/run/media/tofunori/Data/Claude Code/ragdoc-mcp/chroma_db_new",
+        "COLLECTION_NAME": "zotero_research_context_hybrid_v3"
+      }
+    }
+  }
+}
