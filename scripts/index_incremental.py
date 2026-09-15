@@ -21,6 +21,7 @@ import hashlib
 import argparse
 import warnings
 import logging
+import math
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, TextIO, Tuple
@@ -54,15 +55,12 @@ load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.config import (
     MARKDOWN_DIR, CHROMA_DB_PATH, COLLECTION_NAME, COLLECTION_CONTEXTUALIZED_METADATA,
-    CHONKIE_TOKENIZER, USE_CONTENT_HASH, TRACK_INDEXED_DATE
+    CHONKIE_TOKENIZER, USE_CONTENT_HASH, TRACK_INDEXED_DATE, LIBRARY_PATH
 )
+from src.library import Library, read_sidecar, document_metadata, locate_chunks
+from src.index_safety import replace_document, bump_revision, IndexRepairRequired
 
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
-
-if not VOYAGE_API_KEY:
-    print("ERREUR: VOYAGE_API_KEY non configuree dans .env")
-    sys.exit(1)
-
 
 class HybridModelProcessor:
     """Classe de gestion des embeddings - SIMPLIFIÉE pour Context-3 uniquement"""
@@ -143,7 +141,7 @@ def release_lock(lock_file: Path, lock_handle: LockHandle):
         pass
 
     try:
-        if lock_file.exists():
+        if sys.platform == "win32" and lock_file.exists():
             lock_file.unlink()
     except Exception:
         pass
@@ -172,8 +170,7 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
             )
             return result.results[0].embeddings
         except Exception as e:
-            print(f"      ERREUR API: {e}")
-            return []
+            raise RuntimeError("Voyage embedding request failed") from e
     else:
         print(f"      ⚠️ GROS DOCUMENT ({len(chunk_texts)} chunks) -> Découpage en sections")
         all_embeddings = []
@@ -206,8 +203,7 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
                 all_embeddings.extend(batch_embeddings)
                 
             except Exception as e:
-                print(f"         ERREUR sur section: {e}")
-                # On continue pour essayer de sauver le reste
+                raise RuntimeError(f"Voyage embedding batch {current_idx}-{end_idx} failed") from e
             
             # Avancer
             current_idx = end_idx
@@ -216,9 +212,12 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
 
 
 def index_incremental(force_reindex: bool = False,
-                      delete_missing: bool = False) -> None:
+                      delete_missing: bool = False) -> dict:
     """Indexation incrémentale simplifiée."""
 
+    if not VOYAGE_API_KEY:
+        raise RuntimeError("VOYAGE_API_KEY is required for indexing")
+    library = Library(LIBRARY_PATH)
     # Vérifier qu'aucun autre processus d'indexation n'est en cours
     lock_file = CHROMA_DB_PATH.parent / ".indexing.lock"
     lock_handle = acquire_lock(lock_file)
@@ -251,6 +250,12 @@ def index_incremental(force_reindex: bool = False,
             name=COLLECTION_NAME,
             metadata=COLLECTION_CONTEXTUALIZED_METADATA
         )
+        repairing = ((collection.metadata or {}).get("ragdoc_write_state", "ready") != "ready"
+                     or (collection.metadata or {}).get("ragdoc_repairing", False))
+        if repairing and not force_reindex:
+            raise RuntimeError("Interrupted index write detected. Inspect ingestion status and repair with --force.")
+        if repairing:
+            collection.modify(metadata={**(collection.metadata or {}), "ragdoc_repairing": True})
         print(f"   OK Collection '{COLLECTION_NAME}' chargee")
 
         # Scanner les documents existants
@@ -264,7 +269,7 @@ def index_incremental(force_reindex: bool = False,
             chunk_id = existing_docs['ids'][i]
 
             if source not in indexed_map:
-                indexed_map[source] = {'hash': doc_hash, 'chunk_ids': []}
+                indexed_map[source] = {'hash': doc_hash, 'chunk_ids': [], 'metadata': metadata}
             indexed_map[source]['chunk_ids'].append(chunk_id)
 
         print(f"   OK {len(indexed_map)} documents indexes trouves")
@@ -273,6 +278,10 @@ def index_incremental(force_reindex: bool = False,
         print("\n[4/5] Scan du repertoire markdown...")
         markdown_files = sorted(list(MARKDOWN_DIR.glob("*.md")))
         print(f"   OK {len(markdown_files)} fichiers markdown trouves")
+        if not MARKDOWN_DIR.is_dir():
+            raise RuntimeError("Markdown directory missing; refusing index cleanup")
+        if repairing and set(indexed_map) - {p.name for p in markdown_files} and not delete_missing:
+            raise RuntimeError("Repair requires missing source files to be restored or explicit --delete-missing")
 
         # Identifier les documents manquants (optionnel)
         if delete_missing:
@@ -282,7 +291,10 @@ def index_incremental(force_reindex: bool = False,
                 print(f"\n   ATTENTION {len(missing_sources)} document(s) supprime(s) detecte(s)")
                 for source in missing_sources:
                     chunk_ids = indexed_map[source]['chunk_ids']
+                    bump_revision(collection, "writing")
                     collection.delete(ids=chunk_ids)
+                    bump_revision(collection)
+                    library.record(source, "removed")
                     print(f"      - Supprime: {source}")
                 del indexed_map
                 # Recharger map
@@ -291,7 +303,7 @@ def index_incremental(force_reindex: bool = False,
                 for i, metadata in enumerate(existing_docs['metadatas']):
                     source = metadata.get('source')
                     if source not in indexed_map:
-                        indexed_map[source] = {'hash': metadata.get('doc_hash'), 'chunk_ids': []}
+                        indexed_map[source] = {'hash': metadata.get('doc_hash'), 'chunk_ids': [], 'metadata': metadata}
                     indexed_map[source]['chunk_ids'].append(existing_docs['ids'][i])
 
         # Indexation incrémentale
@@ -313,21 +325,28 @@ def index_incremental(force_reindex: bool = False,
 
         for i, md_file in enumerate(markdown_files, 1):
             try:
-                content = md_file.read_text(encoding='utf-8', errors='ignore')
+                content = md_file.read_text(encoding='utf-8')
                 current_hash = compute_doc_hash(content)
+                sidecar = read_sidecar(md_file)
+                if sidecar.get('completeness') == 'partial':
+                    raise ValueError("Partial/test PDF conversion must not replace a full indexed article")
+                provenance_meta = document_metadata(md_file, content, sidecar)
                 
                 # Déterminer le statut du document
                 status = "NEW"
                 if md_file.name in indexed_map:
-                    if not force_reindex and indexed_map[md_file.name]['hash'] == current_hash:
+                    old_meta = indexed_map[md_file.name].get('metadata', {})
+                    if (not force_reindex and indexed_map[md_file.name]['hash'] == current_hash
+                            and old_meta.get('metadata_sha256') == provenance_meta['metadata_sha256']
+                            and old_meta.get('pipeline') == 'scientific_v3'):
                         stats['unchanged'] += 1
                         print(f"   [{i:3d}/{len(markdown_files)}] SKIP  {md_file.name}")
                         continue
                     else:
                         status = "MODIFIED"
-                        old_chunk_ids = indexed_map[md_file.name]['chunk_ids']
-                        if old_chunk_ids:
-                            collection.delete(ids=old_chunk_ids)
+
+                library.snapshot(content)
+                library.record(md_file.name, "preparing", provenance_meta['canonical_sha256'])
 
                 print(f"      Pipeline Chonkie (1024 tokens)...")
 
@@ -353,6 +372,7 @@ def index_incremental(force_reindex: bool = False,
 
                 # Étape 3: Overlap Refinery
                 overlap_refinery = OverlapRefinery(
+                    tokenizer=CHONKIE_TOKENIZER,
                     context_size=CHUNK_OVERLAP_TOKENS,
                     method="suffix",
                     merge=True
@@ -363,8 +383,7 @@ def index_incremental(force_reindex: bool = False,
                 chunk_texts = [chunk.text for chunk in chunks]
                 
                 if not chunk_texts:
-                    print("      AVERTISSEMENT: Aucun chunk généré")
-                    continue
+                    raise ValueError("No chunks generated; previous index preserved")
 
                 # Étape 4: Embeddings (Context-3 avec gestion gros docs)
                 embeddings = process_embeddings_with_limit_check(
@@ -375,8 +394,11 @@ def index_incremental(force_reindex: bool = False,
                 )
 
                 if not embeddings or len(embeddings) != len(chunk_texts):
-                    print(f"         ERREUR: Mismatch embeddings ({len(embeddings)}) vs chunks ({len(chunk_texts)})")
-                    continue
+                    raise ValueError(f"Embedding count mismatch: {len(embeddings)} vs {len(chunk_texts)}")
+                dimension = len(embeddings[0])
+                if not dimension or any(len(v) != dimension or not all(math.isfinite(x) for x in v) for v in embeddings):
+                    raise ValueError("Invalid embedding vectors; previous index preserved")
+                locations = locate_chunks(content, chunk_texts, sidecar)
 
                 # Ajouter à Chroma
                 chunk_ids = []
@@ -385,7 +407,9 @@ def index_incremental(force_reindex: bool = False,
                 chunk_metadatas = []
 
                 for j, chunk_text in enumerate(chunk_texts):
-                    chunk_id = f"{md_file.stem}_chunk_{j}"
+                    # IDs include exact chunk text and source revision; old citations cannot silently change.
+                    text_hash = hashlib.sha256(chunk_text.encode('utf-8')).hexdigest()[:16]
+                    chunk_id = f"{md_file.stem}_chunk_{j}_{provenance_meta['canonical_sha256'][:16]}_{text_hash}"
 
                     metadata = {
                         "source": md_file.name,
@@ -395,7 +419,9 @@ def index_incremental(force_reindex: bool = False,
                         "total_chunks": len(chunks),
                         "model": "voyage-context-3",
                         "chunking_strategy": "contextualized_fixed_1024",
-                        "pipeline": "unified_v2"
+                        "pipeline": "scientific_v3",
+                        **provenance_meta,
+                        **locations[j],
                     }
 
                     if USE_CONTENT_HASH:
@@ -409,12 +435,11 @@ def index_incremental(force_reindex: bool = False,
                     chunk_embeddings.append(embeddings[j])
                     chunk_metadatas.append(metadata)
 
-                collection.upsert(
-                    ids=chunk_ids,
-                    documents=chunk_documents,
-                    embeddings=chunk_embeddings,
-                    metadatas=chunk_metadatas
-                )
+                replace_document(collection, md_file.name, {
+                    "ids": chunk_ids, "documents": chunk_documents,
+                    "embeddings": chunk_embeddings, "metadatas": chunk_metadatas,
+                })
+                library.record(md_file.name, "ready", provenance_meta['canonical_sha256'])
 
                 stats[status.lower()] += 1
                 stats['total_chunks'] += len(chunks)
@@ -424,7 +449,10 @@ def index_incremental(force_reindex: bool = False,
 
             except Exception as e:
                 stats['errors'] += 1
+                library.record(md_file.name, "failed", error=str(e))
                 print(f"   [{i:3d}/{len(markdown_files)}] ERREUR {md_file.name}: {str(e)}")
+                if isinstance(e, IndexRepairRequired):
+                    raise
 
         # Résumé
         print("\n" + "=" * 70)
@@ -435,6 +463,10 @@ def index_incremental(force_reindex: bool = False,
         print(f"   Erreurs:                 {stats['errors']:3d}")
         print(f"   Chunks ajoutés/modifiés: {stats['total_chunks']:3d}")
         print("=" * 70 + "\n")
+        if repairing and not stats['errors']:
+            collection.modify(metadata={**(collection.metadata or {}), "ragdoc_repairing": False})
+            bump_revision(collection)
+        return stats
 
     finally:
         release_lock(lock_file, lock_handle)
@@ -447,7 +479,9 @@ def main():
     args = parser.parse_args()
 
     try:
-        index_incremental(force_reindex=args.force, delete_missing=args.delete_missing)
+        stats = index_incremental(force_reindex=args.force, delete_missing=args.delete_missing)
+        if stats['errors']:
+            sys.exit(1)
     except KeyboardInterrupt:
         print("\n\nInterruption utilisateur.")
         sys.exit(1)

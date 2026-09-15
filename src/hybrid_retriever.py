@@ -10,6 +10,7 @@ from typing import List, Dict, Tuple, TYPE_CHECKING
 from collections import defaultdict
 from rank_bm25 import BM25Okapi
 import threading
+from contextvars import ContextVar
 
 if TYPE_CHECKING:
     import chromadb
@@ -36,7 +37,7 @@ class HybridRetriever:
     """
 
     def __init__(self, collection: "chromadb.Collection", embedding_function=None,
-                 use_advanced_tokenizer: bool = True):
+                 use_advanced_tokenizer: bool = True, revision_provider=None):
         """
         Args:
             collection: ChromaDB collection
@@ -47,6 +48,10 @@ class HybridRetriever:
         """
         self.collection = collection
         self.embedding_function = embedding_function
+        self.revision_provider = revision_provider or (lambda: self.collection.metadata or {})
+        self._revision = None
+        self._search_lock = threading.RLock()
+        self._status = ContextVar(f"retrieval_status_{id(self)}", default={})
 
         # Initialize tokenizer
         self.tokenizer = None
@@ -69,6 +74,7 @@ class HybridRetriever:
         self._id_to_idx: dict[str, int] = {}
         self._bm25_lock = threading.Lock()
         self._bm25_building = False
+        self._token_sets = []
 
     def _build_bm25_index(self):
         """Build BM25 index from ChromaDB collection"""
@@ -84,15 +90,33 @@ class HybridRetriever:
         # Tokenize corpus for BM25
         # Simple whitespace tokenization (can be improved with stemming/lemmatization)
         tokenized_corpus = [self._tokenize(doc) for doc in self.docs]
+        self._token_sets = [set(tokens) for tokens in tokenized_corpus]
 
         # Initialize BM25
-        self.bm25 = BM25Okapi(tokenized_corpus)
+        self.bm25 = BM25Okapi(tokenized_corpus) if any(tokenized_corpus) else None
+
+    @property
+    def last_status(self):
+        return dict(self._status.get())
+
+    def _check_revision(self):
+        metadata = self.revision_provider() or {}
+        if metadata.get("ragdoc_write_state", "ready") != "ready" or metadata.get("ragdoc_repairing", False):
+            raise RuntimeError("Index write incomplete or in progress; retry after indexing/repair")
+        revision = metadata.get("ragdoc_revision")
+        if revision != self._revision:
+            self.bm25 = None
+            self.docs, self.ids, self.metadatas, self._token_sets = [], [], [], []
+            self._id_to_idx = {}
+            self._revision = revision
+        return revision
 
     def _build_bm25_index_worker(self) -> None:
         """Worker that builds the BM25 index and clears the building flag."""
         try:
             logger.info("Building BM25 index (lazy init)...")
-            self._build_bm25_index()
+            with self._search_lock:
+                self._build_bm25_index()
             logger.info(f"BM25 index built: {len(self.docs)} documents")
         except Exception as e:
             logger.exception(f"BM25 index build failed: {e}")
@@ -138,7 +162,21 @@ class HybridRetriever:
             # Fallback: simple tokenization
             return text.lower().split()
 
-    def search(
+    def search(self, query: str, top_k: int = 10, alpha: float = 0.5,
+               bm25_top_n: int = 100, semantic_top_n: int = 100, rrf_k: int = 60,
+               where: dict = None, where_document: dict = None) -> List[Dict]:
+        if not query or not query.strip():
+            raise ValueError("query must not be empty")
+        if not 0 <= alpha <= 1 or not 1 <= top_k <= 100:
+            raise ValueError("alpha must be in [0, 1] and top_k in [1, 100]")
+        with self._search_lock:
+            revision = self._check_revision()
+            result = self._search(query, top_k, alpha, bm25_top_n, semantic_top_n, rrf_k, where, where_document)
+            if self._check_revision() != revision:
+                raise RuntimeError("Index changed during search; retry against the new version")
+            return result
+
+    def _search(
         self,
         query: str,
         top_k: int = 10,
@@ -166,16 +204,12 @@ class HybridRetriever:
             List of dicts with keys: id, text, metadata, score, ranks
         """
 
-        # 1. BM25 search (optional / lazy)
+        warnings = []
+        # Build synchronously for deterministic hybrid results. Later searches reuse it.
         bm25_results: List[Tuple[str, float, int]] = []
         if alpha < 1.0:
             if self.bm25 is None:
-                # If user asked for pure BM25, we must build synchronously.
-                # Otherwise start in background and proceed with semantic-only results.
-                if alpha == 0.0:
-                    self.ensure_bm25_index(background=False)
-                else:
-                    self.ensure_bm25_index(background=True)
+                self.ensure_bm25_index(background=False)
             if self.bm25 is not None:
                 bm25_results = self._bm25_search(
                     query,
@@ -185,19 +219,39 @@ class HybridRetriever:
                 )
 
         # 2. Semantic search (ChromaDB) with filtering
-        semantic_results, semantic_payload = self._semantic_search(
-            query,
-            top_n=semantic_top_n,
-            where=where,
-            where_document=where_document
-        )
+        semantic_results, semantic_payload = [], {}
+        semantic_available = False
+        effective_alpha = alpha
+        if alpha > 0:
+            try:
+                semantic_results, semantic_payload = self._semantic_search(
+                    query, top_n=semantic_top_n, where=where, where_document=where_document)
+                semantic_available = True
+            except Exception:
+                logger.warning("Semantic search unavailable; falling back to lexical search", exc_info=True)
+                warnings.append("semantic_unavailable")
+                if self.bm25 is None:
+                    self.ensure_bm25_index(background=False)
+                bm25_results = self._bm25_search(query, bm25_top_n, where, where_document)
+                effective_alpha = 0.0
+        if self.bm25 is None and not semantic_available:
+            if self.collection.count() > 0:
+                raise RuntimeError("No search channel available")
+        if alpha < 1 and self.bm25 is None:
+            warnings.append("lexical_unavailable")
+            effective_alpha = 1.0
+        lexical_available = self.bm25 is not None and effective_alpha < 1
+        self._status.set({"mode": "hybrid" if semantic_available and lexical_available else
+                          "semantic" if semantic_available else "lexical",
+                          "bm25_ready": self.bm25 is not None,
+                          "index_revision": self._revision, "warnings": warnings})
 
         # 3. Reciprocal Rank Fusion
         fused_results = self._reciprocal_rank_fusion(
             bm25_results,
             semantic_results,
             k=rrf_k,
-            alpha=alpha,
+            alpha=effective_alpha,
             semantic_payload=semantic_payload
         )
 
@@ -223,15 +277,18 @@ class HybridRetriever:
         bm25_scores = self.bm25.get_scores(tokenized_query)
 
         # Apply optional filtering (metadata/content) to keep BM25 consistent with Chroma queries.
-        eligible_indices = list(range(len(bm25_scores)))
+        query_tokens = set(tokenized_query)
+        eligible_indices = [i for i, tokens in enumerate(self._token_sets) if query_tokens.intersection(tokens)]
         if where is not None or where_document is not None:
-            eligible_indices = []
-            for idx, (doc, meta) in enumerate(zip(self.docs, self.metadatas)):
+            filtered = []
+            for idx in eligible_indices:
+                doc, meta = self.docs[idx], self.metadatas[idx]
                 if where is not None and not self._match_where(meta, where):
                     continue
                 if where_document is not None and not self._match_where_document(doc, where_document):
                     continue
-                eligible_indices.append(idx)
+                filtered.append(idx)
+            eligible_indices = filtered
 
         if not eligible_indices:
             return []
@@ -292,6 +349,23 @@ class HybridRetriever:
                 allowed = condition.get("$in") or []
                 if value not in allowed:
                     return False
+            elif "$ne" in condition:
+                if value == condition["$ne"]:
+                    return False
+            elif "$nin" in condition:
+                if value in condition["$nin"]:
+                    return False
+            elif any(op in condition for op in ("$gt", "$gte", "$lt", "$lte")):
+                if value is None:
+                    return False
+                try:
+                    for op, target in condition.items():
+                        matches = {"$gt": lambda: value > target, "$gte": lambda: value >= target,
+                                   "$lt": lambda: value < target, "$lte": lambda: value <= target}
+                        if op not in matches or not matches[op]():
+                            return False
+                except TypeError:
+                    return False
             else:
                 # Unknown operator → best effort: fail closed to avoid leaking out-of-scope docs
                 return False
@@ -314,12 +388,12 @@ class HybridRetriever:
             needle = where_document.get("$contains")
             if needle is None:
                 return True
-            return str(needle).lower() in document.lower()
+            return str(needle) in document
         if "$not_contains" in where_document:
             needle = where_document.get("$not_contains")
             if needle is None:
                 return True
-            return str(needle).lower() not in document.lower()
+            return str(needle) not in document
 
         # Unknown operator: fail closed
         return False

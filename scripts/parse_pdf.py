@@ -17,8 +17,12 @@ import os
 import sys
 import argparse
 import time
+import json
+from importlib.metadata import version
 from pathlib import Path
 from dotenv import load_dotenv
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.library import sha256, docling_page_spans, read_sidecar
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -129,7 +133,17 @@ def convert_with_docling(pdf_path: Path, output_file: Path, mode: str) -> bool:
 """
 
         # Sauvegarder
-        output_file.write_text(header + markdown_text, encoding='utf-8')
+        canonical = header + markdown_text
+        metadata = read_sidecar(output_file)
+        metadata.update(source_pdf=str(pdf_path.absolute()), parser="docling", parser_version=version("docling"),
+                        content_sha256=sha256(canonical), page_spans=docling_page_spans(result.document, canonical),
+                        completeness="partial" if max_pages else "not_assessed")
+        # Keep the rich representation for future table/figure and bounding-box readers.
+        output_file.with_suffix('.docling.json').write_text(
+            json.dumps(result.document.export_to_dict(), ensure_ascii=False), encoding='utf-8')
+        output_file.with_suffix('.metadata.json').write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2), encoding='utf-8')
+        output_file.write_text(canonical, encoding='utf-8')
 
         file_size = output_file.stat().st_size / 1024  # KB
         print(f"\n[SUCCESS] Fichier converti et sauvegarde!")
@@ -216,7 +230,14 @@ def convert_with_llamaparse(pdf_path: Path, output_file: Path, mode: str) -> boo
 """
 
         # Sauvegarder
-        output_file.write_text(header + markdown_text, encoding='utf-8')
+        canonical = header + markdown_text
+        metadata = read_sidecar(output_file)
+        metadata.update(source_pdf=str(pdf_path.absolute()), parser="llamaparse", parser_version=version("llama-parse"),
+                        content_sha256=sha256(canonical), page_spans=[],
+                        completeness="partial" if config.get("max_pages") else "not_assessed")
+        output_file.with_suffix('.metadata.json').write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2), encoding='utf-8')
+        output_file.write_text(canonical, encoding='utf-8')
 
         file_size = output_file.stat().st_size / 1024  # KB
         print(f"\n[SUCCESS] Fichier converti et sauvegarde!")

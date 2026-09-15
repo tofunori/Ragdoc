@@ -10,6 +10,12 @@
 
 A production-ready Model Context Protocol (MCP) server with a fully **Contextualized** pipeline for academic research, optimized for scientific literature retrieval.
 
+Scientific reliability updates: canonical versioned document reads, structured
+evidence/citation tools, recoverable index writes, explicit search fallbacks and an
+annotation-gated evaluation workflow. Read the [migration and validation guide](docs/SCIENTIFIC_RELIABILITY.md)
+before upgrading an existing library. Production retrieval quality has not been
+measured by the new draft benchmark.
+
 > Note: The legacy “hybrid mode” (Voyage-3-large embeddings) has been removed. All search paths now use contextualized embeddings + BM25 fusion; function names are preserved for compatibility.
 
 ## 🚀 Key Features
