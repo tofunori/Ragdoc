@@ -54,6 +54,7 @@ RAGDOC_MODE = "contextualized"
 # Allow override via environment variable for MCP flexibility
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", COLLECTION_CONTEXTUALIZED_NAME)
 ACTIVE_DB_PATH = CHROMA_DB_CONTEXTUALIZED_PATH
+LIBRARY_PATH = Path(os.getenv("RAGDOC_LIBRARY_DIR", str(CHROMA_DB_PATH.parent / "ragdoc_library" / COLLECTION_NAME)))
 
 # Collection Metadata (HNSW optimization)
 COLLECTION_METADATA = {

@@ -11,6 +11,8 @@ import logging
 import argparse
 import re
 import unicodedata
+import json
+from types import SimpleNamespace
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -37,6 +39,7 @@ if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 # Import internal modules
 from src.config import (
@@ -46,9 +49,11 @@ from src.config import (
     CONTEXT_WINDOW_SIZE,
     VOYAGE_API_KEY,
     COHERE_API_KEY,
-    LOG_LEVEL
+    LOG_LEVEL, LIBRARY_PATH
 )
 from src.hybrid_retriever import HybridRetriever
+from src.library import Library, provenance
+from src.schemas import SearchResponse, PassageResponse
 
 # Configure logging
 logging.basicConfig(
@@ -240,9 +245,9 @@ def init_cohere_client():
     """Initialize Cohere client (used for reranking)."""
     global cohere_client
     if not cohere_client:
-        cohere = _get_cohere()
         if not os.getenv("COHERE_API_KEY"):
-            logging.warning("COHERE_API_KEY not set. Reranking will fail.")
+            return None
+        cohere = _get_cohere()
         cohere_client = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
     return cohere_client
 
@@ -260,13 +265,12 @@ def init_retriever():
 
     try:
         init_chroma_client()
-        init_voyage_client()
-        init_cohere_client()
 
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
         # Contextualized embedding function (only mode supported)
         def voyage_contextualized_embed(texts):
+            init_voyage_client()
             results = []
             for text in texts:
                 result = voyage_client.contextualized_embed(
@@ -282,12 +286,28 @@ def init_retriever():
 
         hybrid_retriever = HybridRetriever(
             collection=collection,
-            embedding_function=embed_fn
+            embedding_function=embed_fn,
+            revision_provider=lambda: chroma_client.get_collection(name=COLLECTION_NAME).metadata,
         )
     except Exception as e:
         logging.error(f"Failed to initialize HybridRetriever: {e}")
 
     return hybrid_retriever
+
+
+def _ready_collection():
+    init_chroma_client()
+    collection = chroma_client.get_collection(name=COLLECTION_NAME)
+    metadata = collection.metadata or {}
+    if metadata.get("ragdoc_write_state", "ready") != "ready" or metadata.get("ragdoc_repairing", False):
+        raise ToolError("Index write incomplete or in progress; retry after indexing/repair")
+    return collection
+
+
+def _assert_revision(collection):
+    current = _ready_collection()
+    if (current.metadata or {}).get("ragdoc_revision") != (collection.metadata or {}).get("ragdoc_revision"):
+        raise ToolError("Index changed during this read; retry")
 
 
 def _fetch_document_chunks(collection, source: str) -> dict:
@@ -382,17 +402,27 @@ def _perform_search_hybrid(
     format: str = "verbose",
     preview_chars: int | None = None,
     context_window: int | None = None,
-) -> str:
+    max_per_document: int | None = None,
+) -> str | dict:
     """
     Unified search (contextualized embeddings + BM25 + Cohere rerank).
     """
     try:
+        if not query or not query.strip() or not 1 <= top_k <= 100 or not 0 <= alpha <= 1:
+            raise ValueError("Nonempty query, top_k in [1, 100], and alpha in [0, 1] required")
+        if max_per_document is not None and not 1 <= max_per_document <= 100:
+            raise ValueError("max_per_document must be in [1, 100]")
+        if preview_chars is not None and not 0 <= preview_chars <= 16000:
+            raise ValueError("preview_chars must be in [0, 16000]")
+        if context_window is not None and not 0 <= context_window <= 10:
+            raise ValueError("context_window must be in [0, 10]")
         init_retriever()
         
         if not hybrid_retriever:
-            return "ERROR: Hybrid retriever not initialized. Check database connection."
+            raise ToolError("Hybrid retriever not initialized. Check database connection.")
 
-        collection = chroma_client.get_collection(name=COLLECTION_NAME)
+        collection = _ready_collection()
+        search_states = []
 
         # 1. Retrieval (BM25 + contextualized semantic with RRF)
         # Optional: multi-query rewrite/expansion (heuristic), fused with RRF.
@@ -412,10 +442,17 @@ def _perform_search_hybrid(
                 where=where,
                 where_document=where_document,
             )
+            search_states.append(hybrid_retriever.last_status)
             if res:
                 per_query_results.append(res)
 
         if not per_query_results:
+            _assert_revision(collection)
+            if format == "structured":
+                return {"schema_version": 1, "query": query, "queries": queries,
+                        "index_revision": (collection.metadata or {}).get('ragdoc_revision'),
+                        "hits": [], "retrieval": search_states,
+                        "reranking": "not_needed", "warnings": ["No evidence retrieved; this does not prove absence from the literature."]}
             return "No results found for your search."
 
         hybrid_results = per_query_results[0] if len(per_query_results) == 1 else _multiquery_rrf_fuse(per_query_results)
@@ -430,16 +467,25 @@ def _perform_search_hybrid(
         metadatas = [r['metadata'] for r in hybrid_results]
 
         # 3. Rerank with Cohere v4.0 Pro
-        rerank_results = cohere_client.rerank(
-            model="rerank-v4.0-pro",
-            query=query,
-            documents=documents_for_rerank,
-            top_n=top_k
-        )
+        reranking = "cohere"
+        warnings = []
+        try:
+            client = init_cohere_client()
+            if client is None:
+                raise RuntimeError("Cohere not configured")
+            rerank_results = client.rerank(
+                model="rerank-v4.0-pro", query=query, documents=documents_for_rerank,
+                top_n=len(documents_for_rerank) if max_per_document else top_k)
+        except Exception:
+            logging.warning("Reranking unavailable; returning fusion ranking", exc_info=True)
+            reranking = "unavailable"
+            warnings.append("reranking_unavailable: results use retrieval fusion scores")
+            rerank_results = SimpleNamespace(results=[SimpleNamespace(index=i, relevance_score=None)
+                                                      for i in range(len(hybrid_results))])
 
         # 4. Normalize output controls (presentation-only; retrieval/rerank unchanged)
         output_format = (format or "compact").strip().lower()
-        if output_format not in {"compact", "verbose"}:
+        if output_format not in {"compact", "verbose", "structured"}:
             output_format = "compact"
 
         if context_window is None:
@@ -464,12 +510,16 @@ def _perform_search_hybrid(
 
         # 5. Materialize ranked hits once, then format them (ensures same hits across formats)
         ranked_hits: list[dict] = []
+        source_counts = {}
         for result in rerank_results.results:
             idx = result.index
             metadata = metadatas[idx]
 
             doc_id = hybrid_results[idx].get('id')
             source = metadata.get('source', metadata.get('filename', 'unknown'))
+            if max_per_document and source_counts.get(source, 0) >= max_per_document:
+                continue
+            source_counts[source] = source_counts.get(source, 0) + 1
             chunk_index = metadata.get('chunk_index', 0)
 
             total_chunks = metadata.get('total_chunks')
@@ -480,7 +530,7 @@ def _perform_search_hybrid(
 
             ranked_hits.append({
                 "id": doc_id,
-                "rerank_score": float(result.relevance_score),
+                "rerank_score": float(result.relevance_score) if result.relevance_score is not None else None,
                 "fusion_score": float(hybrid_results[idx].get('score', 0.0)),
                 "bm25_rank": hybrid_results[idx].get('bm25_rank'),
                 "semantic_rank": hybrid_results[idx].get('semantic_rank'),
@@ -490,15 +540,34 @@ def _perform_search_hybrid(
                 "text": documents_for_rerank[idx] if idx < len(documents_for_rerank) else "",
                 "metadata": metadata,
             })
+            if len(ranked_hits) >= top_k:
+                break
+
+        _assert_revision(collection)
+        if output_format == "structured":
+            return {
+                "schema_version": 1, "query": query, "queries": queries,
+                "index_revision": (collection.metadata or {}).get("ragdoc_revision"),
+                "retrieval": search_states, "reranking": reranking, "warnings": warnings,
+                "score_note": "Scores rank relevance; they are not probabilities of scientific truth.",
+                "hits": [{"chunk_id": h['id'], "provenance": provenance(h['metadata']),
+                          "excerpt": h['text'][:preview_chars], "excerpt_truncated": len(h['text']) > preview_chars,
+                          "scores": {"rerank": h['rerank_score'], "fusion": h['fusion_score']}}
+                         for h in ranked_hits],
+            }
 
         output = f"SEARCH RESULTS ({RAGDOC_MODE.upper()} MODE): {query}\n"
+        output += f"[i] Reranking: {reranking}; retrieval: {', '.join(s.get('mode', 'unknown') for s in search_states)}\n"
+        for warning in warnings + [w for s in search_states for w in s.get('warnings', [])]:
+            output += f"[!] {warning}\n"
         if multi_query and len(queries) > 1:
             output += f"[i] Multi-query enabled ({len(queries)} variants)\n"
         output += "=" * 70 + "\n\n"
 
         if output_format == "compact":
             for i, hit in enumerate(ranked_hits, 1):
-                line = f"[{i}] rerank={hit['rerank_score']:.4f} fusion={hit['fusion_score']:.4f}"
+                rerank_label = f"{hit['rerank_score']:.4f}" if hit['rerank_score'] is not None else "unavailable"
+                line = f"[{i}] rerank={rerank_label} fusion={hit['fusion_score']:.4f}"
                 line += f" source={hit['source']}"
                 if hit.get('total_chunks') is not None:
                     line += f" chunk={hit['chunk_index']}/{hit['total_chunks']}"
@@ -538,7 +607,7 @@ def _perform_search_hybrid(
                 meta_list = doc_entry.get('metadatas') if doc_entry else []
                 total_chunks = len(meta_list) if meta_list else 1
 
-            output += f"[{i}] Rerank Score: {hit['rerank_score']:.4f} | Fusion: {hit['fusion_score']:.4f}\n"
+            output += f"[{i}] Rerank Score: {hit['rerank_score']} | Fusion: {hit['fusion_score']:.4f}\n"
             output += f"    Source: {source}\n"
             output += f"    Position: chunk {chunk_index}/{total_chunks}\n"
             output += f"    Rankings: BM25 #{hit.get('bm25_rank')}, Semantic #{hit.get('semantic_rank')}\n"
@@ -578,11 +647,12 @@ def _perform_search_hybrid(
 
             output += "-" * 70 + "\n\n"
 
+        _assert_revision(collection)
         return output
 
     except Exception as e:
         logging.exception("Error during hybrid search")
-        return f"ERROR: {str(e)}"
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -676,8 +746,7 @@ def list_documents() -> str:
         List of available papers with metadata.
     """
     try:
-        init_chroma_client()
-        collection = chroma_client.get_collection(name=COLLECTION_NAME)
+        collection = _ready_collection()
 
         all_docs = collection.get(include=["metadatas"])
 
@@ -696,10 +765,11 @@ def list_documents() -> str:
             output += f"    Title: {metadata.get('title', 'No title')}\n"
             output += f"    Chunks: {metadata.get('total_chunks', 'N/A')}\n\n"
 
+        _assert_revision(collection)
         return output
 
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -713,13 +783,14 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
         max_length: Maximum characters to return (default: 80000 chars ≈ 20K tokens)
     """
     try:
-        init_chroma_client()
-        collection = chroma_client.get_collection(name=COLLECTION_NAME)
+        if max_length is not None and not 1 <= max_length <= 500000:
+            raise ValueError("max_length must be in [1, 500000]")
+        collection = _ready_collection()
 
         doc_data = _fetch_document_chunks(collection, source)
 
         if not doc_data['documents']:
-            return f"ERROR: Document '{source}' not found in the database."
+            raise ToolError(f"Document '{source}' not found in the database.")
 
         documents = doc_data['documents']
         metadatas = doc_data['metadatas']
@@ -733,6 +804,12 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
         indexed_date = first_meta.get('indexed_date', 'N/A')
         model = first_meta.get('model', 'N/A')
         title = first_meta.get('title', source)
+        canonical = None
+        warning = ""
+        if first_meta.get('canonical_sha256'):
+            canonical = Library(LIBRARY_PATH).read(first_meta['canonical_sha256'])
+        else:
+            warning = "[!] Legacy index: reconstructed chunks may overlap; reindex to enable canonical reading.\n\n"
 
         output = ""
 
@@ -753,7 +830,7 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
                 output += "-" * 70 + "\n\n"
 
         elif format == "text":
-            full_text = "\n\n".join([chunk for chunk, _ in combined])
+            full_text = canonical if canonical is not None else warning + "\n\n".join([chunk for chunk, _ in combined])
             output = full_text
 
         else:  # markdown (default)
@@ -765,7 +842,7 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
             output += f"**Hash:** {doc_hash}  \n"
             output += "\n" + "=" * 70 + "\n\n"
 
-            full_text = "\n\n".join([chunk for chunk, _ in combined])
+            full_text = canonical if canonical is not None else warning + "\n\n".join([chunk for chunk, _ in combined])
             output += full_text
 
         if max_length and len(output) > max_length:
@@ -775,10 +852,11 @@ def get_document_content(source: str, format: str = "markdown", max_length: int 
             output += f"\n\n... (truncated: showing {max_length:,} of {original_length:,} chars, ~{estimated_tokens:,} tokens total)"
             output += f"\n\n[i] Use max_length parameter to adjust limit or retrieve in chunks via semantic_search_hybrid"
 
+        _assert_revision(collection)
         return output
 
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -792,8 +870,9 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
         highlight: Highlight the matched chunk (default: True)
     """
     try:
-        init_chroma_client()
-        collection = chroma_client.get_collection(name=COLLECTION_NAME)
+        if not 0 <= context_size <= 10:
+            raise ValueError("context_size must be in [0, 10]")
+        collection = _ready_collection()
 
         target = collection.get(
             ids=[chunk_id],
@@ -826,7 +905,7 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
                         pass
 
         if not target['documents']:
-            return f"ERROR: Chunk '{chunk_id}' not found in the database."
+            raise ToolError(f"Chunk '{chunk_id}' not found in the database.")
 
         target_text = target['documents'][0]
         target_meta = target['metadatas'][0]
@@ -848,6 +927,7 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
             total_chunks,
             window_size=context_size
         )
+        _assert_revision(collection)
 
         if not adjacent_chunks:
             output = f"CHUNK CONTEXT: {source}\n"
@@ -883,7 +963,187 @@ def get_chunk_with_context(chunk_id: str, context_size: int = 2, highlight: bool
         return output
 
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        raise ToolError(str(e)) from e
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def search_evidence(query: str, top_k: int = 10, alpha: float = 0.5,
+                    sources: list[str] | None = None, year_from: int | None = None,
+                    year_to: int | None = None, collection: str | None = None,
+                    multi_query: bool = False, max_per_document: int = 2,
+                    preview_chars: int = 1200) -> SearchResponse:
+    """Find scientific passages with structured citations and explicit search status.
+
+    Excerpts may be truncated: use get_passage before quoting. Unknown bibliography
+    and pages are null. Scores measure relevance, not truth. Year/collection filters
+    exclude legacy articles without those metadata. Multiple articles are preferred.
+    """
+    filters = []
+    if sources is not None:
+        if not sources or any(not s.strip() for s in sources):
+            raise ToolError("sources must contain at least one nonempty filename")
+        filters.append({"source": {"$in": sources}})
+    if year_from is not None and year_to is not None and year_from > year_to:
+        raise ToolError("year_from must be <= year_to")
+    if year_from is not None:
+        filters.append({"year": {"$gte": year_from}})
+    if year_to is not None:
+        filters.append({"year": {"$lte": year_to}})
+    if collection is not None:
+        filters.append({"collection": collection})
+    where = {"$and": filters} if len(filters) > 1 else filters[0] if filters else None
+    return SearchResponse.model_validate(_perform_search_hybrid(
+        query, top_k, alpha, where=where, multi_query=multi_query, format="structured",
+        preview_chars=preview_chars, max_per_document=max_per_document))
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_passage(chunk_id: str, expected_content_sha256: str | None = None) -> PassageResponse:
+    """Read an untruncated indexed passage and verify its exact canonical location.
+
+    Pass the content_sha256 from search_evidence to reject a changed document.
+    canonical_verified=false means the text is indexed but its source location
+    could not be checked; do not invent a page or claim a verified quotation.
+    """
+    collection = _ready_collection()
+    data = collection.get(ids=[chunk_id], include=["documents", "metadatas"])
+    if not data['ids']:
+        raise ToolError("Passage not found; it may have been superseded. Search again.")
+    meta, text = data['metadatas'][0], data['documents'][0]
+    digest = meta.get('canonical_sha256')
+    if expected_content_sha256 is not None and digest != expected_content_sha256:
+        raise ToolError("Document version differs from the requested citation; search again")
+    verified = False
+    warnings = []
+    if digest and meta.get('locator_status') == 'exact':
+        try:
+            canonical = Library(LIBRARY_PATH).read(digest)
+            start, end = meta.get('char_start'), meta.get('char_end')
+            verified = (type(start) is int and type(end) is int and 0 <= start < end <= len(canonical)
+                        and canonical[start:end] == text)
+        except (OSError, ValueError):
+            warnings.append("canonical_snapshot_unavailable_or_corrupt")
+    if not verified:
+        warnings.append("canonical_location_not_verified")
+    _assert_revision(collection)
+    return PassageResponse(chunk_id=chunk_id, provenance=provenance(meta), text=text,
+                           canonical_verified=verified, warnings=warnings)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def read_document(source: str, offset: int = 0, limit: int = 16000,
+                  expected_content_sha256: str | None = None) -> dict:
+    """Read canonical Markdown by character offset without duplicated search overlaps.
+
+    Follow next_offset to continue. Offsets refer to Unicode characters, not bytes.
+    Requires reindexing legacy articles. Pin expected_content_sha256 across pages.
+    """
+    if offset < 0 or not 1 <= limit <= 50000:
+        raise ToolError("offset must be >= 0 and limit in [1, 50000]")
+    collection = _ready_collection()
+    data = _fetch_document_chunks(collection, source)
+    if not data['metadatas']:
+        raise ToolError("Document not found")
+    meta = data['metadatas'][0]
+    digest = meta.get('canonical_sha256')
+    if not digest:
+        raise ToolError("Legacy article lacks a canonical snapshot; reindex it to enable this tool")
+    if expected_content_sha256 is not None and expected_content_sha256 != digest:
+        raise ToolError("Document version changed; restart reading or use the indexed version")
+    try:
+        text = Library(LIBRARY_PATH).read(digest)
+    except (OSError, ValueError) as error:
+        raise ToolError("Canonical snapshot unavailable or corrupt; check library storage") from error
+    if offset > len(text):
+        raise ToolError("offset exceeds document length")
+    end = min(len(text), offset + limit)
+    _assert_revision(collection)
+    return {"source": source, "content_sha256": digest, "text": text[offset:end],
+            "offset": offset, "next_offset": end if end < len(text) else None,
+            "total_chars": len(text), "canonical_verified": True}
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def search_documents(query: str = "", year_from: int | None = None, year_to: int | None = None,
+                     offset: int = 0, limit: int = 25) -> dict:
+    """Browse article metadata by title/author/DOI/filename with pagination.
+
+    This searches the catalogue, not full text. Null fields are unknown.
+    """
+    if offset < 0 or not 1 <= limit <= 100:
+        raise ToolError("offset must be >= 0 and limit in [1, 100]")
+    if year_from is not None and year_to is not None and year_from > year_to:
+        raise ToolError("year_from must be <= year_to")
+    collection = _ready_collection()
+    data = collection.get(include=["metadatas"])
+    papers = {}
+    for meta in data['metadatas']:
+        p = provenance(meta)
+        source = p['source']
+        if source in papers:
+            continue
+        year = p['bibliography']['year']
+        if year_from is not None and (year is None or year < year_from):
+            continue
+        if year_to is not None and (year is None or year > year_to):
+            continue
+        haystack = json.dumps({"source": source, **p['bibliography']}, ensure_ascii=False).casefold()
+        if all(term in haystack for term in query.casefold().split()):
+            papers[source] = {"source": source, "document_id": p['document_id'],
+                              "content_sha256": p['content_sha256'], "bibliography": p['bibliography']}
+    ranked = [papers[key] for key in sorted(papers)]
+    _assert_revision(collection)
+    return {"documents": ranked[offset:offset + limit], "total": len(ranked),
+            "next_offset": offset + limit if offset + limit < len(ranked) else None}
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def audit_library() -> dict:
+    """Report incomplete ingestion, missing canonical snapshots and candidate duplicates.
+
+    Candidate duplicates share DOI or canonical content hash; they are not deleted.
+    The local ingestion journal is unavailable when not shared with the indexer.
+    """
+    init_chroma_client()
+    collection = chroma_client.get_collection(name=COLLECTION_NAME)
+    data = collection.get(include=["metadatas"])
+    papers = {}
+    for meta in data['metadatas']:
+        source = meta.get('source', meta.get('filename', 'unknown'))
+        papers.setdefault(source, []).append(meta)
+    findings, duplicate_keys = [], {}
+    for source, metas in sorted(papers.items()):
+        first = metas[0]
+        digest = first.get('canonical_sha256')
+        expected = first.get('total_chunks')
+        if type(expected) is not int or expected < 1 or set(m.get('chunk_index') for m in metas) != set(range(expected)) or len(metas) != expected:
+            findings.append({"source": source, "issue": "incomplete_chunks"})
+        if len({m.get('canonical_sha256', m.get('doc_hash')) for m in metas}) > 1:
+            findings.append({"source": source, "issue": "mixed_document_versions"})
+        if digest:
+            try:
+                Library(LIBRARY_PATH).read(digest)
+            except (OSError, ValueError):
+                findings.append({"source": source, "issue": "canonical_snapshot_unavailable_or_corrupt"})
+            duplicate_keys.setdefault('content:' + digest, set()).add(source)
+        else:
+            findings.append({"source": source, "issue": "legacy_no_canonical_snapshot"})
+        bibliography = provenance(first)['bibliography']
+        missing = [key for key in ('title', 'authors', 'year', 'doi') if not bibliography.get(key)]
+        if missing:
+            findings.append({"source": source, "issue": "bibliography_incomplete", "missing": missing})
+        if bibliography.get('doi'):
+            doi = re.sub(r'^https?://(?:dx\.)?doi.org/', '', bibliography['doi'].strip(), flags=re.I).casefold()
+            duplicate_keys.setdefault('doi:' + doi, set()).add(source)
+    metadata = collection.metadata or {}
+    return {"documents": len(papers), "chunks": len(data['ids']),
+            "index_revision": metadata.get('ragdoc_revision'),
+            "write_state": metadata.get('ragdoc_write_state', 'legacy'),
+            "repairing": metadata.get('ragdoc_repairing', False), "findings": findings,
+            "candidate_duplicates": [{"key": key, "sources": sorted(sources)}
+                                     for key, sources in duplicate_keys.items() if len(sources) > 1],
+            "ingestion_events": Library(LIBRARY_PATH).latest_events(),
+            "journal_scope": "local indexer storage; must be shared with this MCP server"}
 
 
 @mcp.tool()
@@ -941,7 +1201,7 @@ def get_indexation_status() -> str:
         return output
 
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        raise ToolError(str(e)) from e
 
 
 def main():

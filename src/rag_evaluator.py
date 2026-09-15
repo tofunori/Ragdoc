@@ -218,10 +218,11 @@ class RAGEvaluator:
             0.8463  # Good but not perfect ranking
         """
         # Get relevance scores for retrieved documents (in order)
-        retrieved_relevances = [
-            relevance_dict.get(doc_id, 0.0)
-            for doc_id in retrieved_ids[:k]
-        ]
+        seen = set()
+        retrieved_relevances = []
+        for doc_id in retrieved_ids[:k]:
+            retrieved_relevances.append(0.0 if doc_id in seen else relevance_dict.get(doc_id, 0.0))
+            seen.add(doc_id)
 
         # Calculate DCG@K for retrieved ranking
         dcg = self.dcg_at_k(retrieved_relevances, k)

@@ -79,6 +79,8 @@ config/*.local.yaml
 # Virtual environments
 ragdoc-env/
 ragdoc-env-new/
+.venv/
+ragdoc_library/
 
 # MCP runtime
 run-mcp.sh
