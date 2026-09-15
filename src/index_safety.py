@@ -4,8 +4,12 @@ Chroma has no cross-request transaction here. A rollback failure is explicit;
 process termination during writes requires repair from the canonical snapshots.
 """
 
+import json
 import uuid
 from .chroma_reads import read_collection
+
+
+PRESERVED_HNSW_METADATA_KEY = "ragdoc_preserved_hnsw_json"
 
 
 class IndexRepairRequired(RuntimeError):
@@ -13,9 +17,25 @@ class IndexRepairRequired(RuntimeError):
 
 
 def update_collection_state(collection, **updates):
-    """Update Ragdoc state without resubmitting immutable Chroma index settings."""
-    metadata = {key: value for key, value in dict(collection.metadata or {}).items()
+    """Update Ragdoc state while retaining immutable legacy HNSW metadata."""
+    current = dict(collection.metadata or {})
+    preserved_hnsw = {}
+    previous = current.get(PRESERVED_HNSW_METADATA_KEY)
+    if isinstance(previous, str):
+        try:
+            decoded = json.loads(previous)
+            if isinstance(decoded, dict):
+                preserved_hnsw.update(decoded)
+        except json.JSONDecodeError:
+            pass
+    preserved_hnsw.update({key: value for key, value in current.items()
+                           if key.startswith("hnsw:")})
+    metadata = {key: value for key, value in current.items()
                 if not key.startswith("hnsw:")}
+    if preserved_hnsw:
+        metadata[PRESERVED_HNSW_METADATA_KEY] = json.dumps(
+            preserved_hnsw, sort_keys=True, separators=(",", ":")
+        )
     metadata.update(updates)
     collection.modify(metadata=metadata)
 
