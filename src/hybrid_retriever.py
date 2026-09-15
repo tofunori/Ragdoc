@@ -11,6 +11,10 @@ from collections import defaultdict
 from rank_bm25 import BM25Okapi
 import threading
 from contextvars import ContextVar
+try:
+    from .chroma_reads import read_collection
+except ImportError:
+    from chroma_reads import read_collection
 
 if TYPE_CHECKING:
     import chromadb
@@ -80,7 +84,7 @@ class HybridRetriever:
         """Build BM25 index from ChromaDB collection"""
         # Fetch all documents from ChromaDB
         # TODO: Optimize for large collections (lazy loading or caching)
-        all_data = self.collection.get(include=["documents", "metadatas"])
+        all_data = read_collection(self.collection, include=["documents", "metadatas"])
 
         self.docs = all_data['documents']
         self.ids = all_data['ids']

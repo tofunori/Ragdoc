@@ -5,6 +5,7 @@ process termination during writes requires repair from the canonical snapshots.
 """
 
 import uuid
+from .chroma_reads import read_collection
 
 
 class IndexRepairRequired(RuntimeError):
@@ -34,7 +35,7 @@ def replace_document(collection, source: str, data: dict, batch_size: int = 100)
         raise ValueError("Replacement must contain matching nonempty vectors, texts and metadata")
     if len(set(data["ids"])) != size:
         raise ValueError("Duplicate replacement chunk IDs")
-    old = collection.get(where={"source": source}, include=["documents", "metadatas", "embeddings"])
+    old = read_collection(collection, where={"source": source}, include=["documents", "metadatas", "embeddings"])
     backup = {key: list(old[key]) if old.get(key) is not None else []
               for key in ("ids", "documents", "embeddings", "metadatas")}
     if any(len(values) != len(backup["ids"]) for values in backup.values()):

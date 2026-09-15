@@ -23,9 +23,10 @@ class Collection:
         self.fail_on = set()
         self.fail_delete = False
 
-    def get(self, ids=None, where=None, include=None):
+    def get(self, ids=None, where=None, include=None, limit=None, offset=0):
         rows = [(i, r) for i, r in self.rows.items() if (ids is None or i in ids)
                 and (where is None or r['metadatas'].get('source') == where['source'])]
+        rows = rows[offset:offset + limit] if limit is not None else rows[offset:]
         return {"ids": [i for i, _ in rows],
                 **{key: [copy.deepcopy(r[key]) for _, r in rows]
                    for key in ('documents', 'metadatas', 'embeddings')}}
@@ -72,6 +73,35 @@ def test_replacement_preserves_old_on_partial_write(collection):
         replace_document(collection, 'paper.md', payload(['new', 'added'], ids=['c0', 'new']))
     assert collection.rows == original
     assert collection.metadata['ragdoc_write_state'] == 'ready'
+
+
+def test_paginated_reads_cover_large_filtered_corpus_without_unbounded_calls():
+    from src.chroma_reads import read_collection
+    c = Collection()
+    c.upsert(**payload([f'text {i}' for i in range(1501)]))
+    c.upsert(**payload(['excluded'], ['other'], source='other.md'))
+    original = c.get
+    calls = []
+    def bounded(**kwargs):
+        assert 1 <= kwargs['limit'] <= 500
+        calls.append(kwargs['offset'])
+        return original(**kwargs)
+    c.get = bounded
+    rows = read_collection(c, include=['documents', 'metadatas', 'embeddings'], where={'source':'paper.md'})
+    assert len(rows['ids']) == len(rows['documents']) == len(rows['embeddings']) == 1501
+    assert rows['documents'][-1] == 'text 1500'
+    assert calls == [0, 500, 1000, 1500, 1501]
+    assert 'other' not in rows['ids']
+
+
+def test_paginated_reads_reject_duplicates_and_incomplete_rows():
+    from src.chroma_reads import read_collection
+    repeated = SimpleNamespace(get=lambda **kwargs: {'ids':['same'], 'documents':['text']})
+    with pytest.raises(RuntimeError, match='changed'):
+        read_collection(repeated, ['documents'])
+    broken = SimpleNamespace(get=lambda **kwargs: {'ids':['same'], 'documents':None})
+    with pytest.raises(RuntimeError, match='Incomplete'):
+        read_collection(broken, ['documents'])
 
 
 def test_replacement_rolls_back_failed_cleanup(collection):
@@ -266,6 +296,19 @@ def test_audit_reports_missing_snapshot_and_catalogue_unknowns(mcp_library):
     assert any(f['source'] == 'legacy.md' and f['issue'] == 'legacy_no_canonical_snapshot' for f in audit['findings'])
     catalogue = server.search_documents.fn(query='Snow', year_from=2020)
     assert catalogue['total'] == 1
+
+
+@pytest.mark.parametrize('tool', ['audit_library', 'get_indexation_status'])
+def test_diagnostics_reject_revision_change_during_scan(mcp_library, monkeypatch, tool):
+    c, _, _ = mcp_library
+    original = server.read_collection
+    def changing(*args, **kwargs):
+        result = original(*args, **kwargs)
+        c.metadata['ragdoc_revision'] = 'updated_during_scan'
+        return result
+    monkeypatch.setattr(server, 'read_collection', changing)
+    with pytest.raises(Exception, match='Index changed'):
+        getattr(server, tool).fn()
 
 
 def test_corrupt_snapshot_cannot_be_presented_as_verified(mcp_library, tmp_path):

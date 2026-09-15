@@ -54,6 +54,7 @@ from src.config import (
 from src.hybrid_retriever import HybridRetriever
 from src.library import Library, provenance
 from src.schemas import SearchResponse, PassageResponse
+from src.chroma_reads import read_collection
 
 # Configure logging
 logging.basicConfig(
@@ -304,8 +305,8 @@ def _ready_collection():
     return collection
 
 
-def _assert_revision(collection):
-    current = _ready_collection()
+def _assert_revision(collection, require_ready=True):
+    current = _ready_collection() if require_ready else chroma_client.get_collection(name=COLLECTION_NAME)
     if (current.metadata or {}).get("ragdoc_revision") != (collection.metadata or {}).get("ragdoc_revision"):
         raise ToolError("Index changed during this read; retry")
 
@@ -316,7 +317,7 @@ def _fetch_document_chunks(collection, source: str) -> dict:
     """
     for field in ("source", "filename"):
         try:
-            results = collection.get(
+            results = read_collection(collection,
                 where={field: source},
                 include=["documents", "metadatas"]
             )
@@ -748,7 +749,7 @@ def list_documents() -> str:
     try:
         collection = _ready_collection()
 
-        all_docs = collection.get(include=["metadatas"])
+        all_docs = read_collection(collection, include=["metadatas"])
 
         sources = {}
         for metadata in all_docs['metadatas']:
@@ -1075,7 +1076,7 @@ def search_documents(query: str = "", year_from: int | None = None, year_to: int
     if year_from is not None and year_to is not None and year_from > year_to:
         raise ToolError("year_from must be <= year_to")
     collection = _ready_collection()
-    data = collection.get(include=["metadatas"])
+    data = read_collection(collection, include=["metadatas"])
     papers = {}
     for meta in data['metadatas']:
         p = provenance(meta)
@@ -1106,7 +1107,7 @@ def audit_library() -> dict:
     """
     init_chroma_client()
     collection = chroma_client.get_collection(name=COLLECTION_NAME)
-    data = collection.get(include=["metadatas"])
+    data = read_collection(collection, include=["metadatas"])
     papers = {}
     for meta in data['metadatas']:
         source = meta.get('source', meta.get('filename', 'unknown'))
@@ -1136,6 +1137,7 @@ def audit_library() -> dict:
             doi = re.sub(r'^https?://(?:dx\.)?doi.org/', '', bibliography['doi'].strip(), flags=re.I).casefold()
             duplicate_keys.setdefault('doi:' + doi, set()).add(source)
     metadata = collection.metadata or {}
+    _assert_revision(collection, require_ready=False)
     return {"documents": len(papers), "chunks": len(data['ids']),
             "index_revision": metadata.get('ragdoc_revision'),
             "write_state": metadata.get('ragdoc_write_state', 'legacy'),
@@ -1155,7 +1157,7 @@ def get_indexation_status() -> str:
         init_chroma_client()
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
 
-        all_docs = collection.get(include=["metadatas"])
+        all_docs = read_collection(collection, include=["metadatas"])
 
         docs_by_source = {}
         for metadata in all_docs['metadatas']:
@@ -1198,6 +1200,10 @@ def get_indexation_status() -> str:
             pct = (count / total_docs) * 100
             output += f"   {model:30} {count:3d} docs ({pct:5.1f}%)\n"
 
+        _assert_revision(collection, require_ready=False)
+        metadata = collection.metadata or {}
+        output += f"\nIndex write state: {metadata.get('ragdoc_write_state', 'legacy')}"
+        output += f"; repair in progress: {metadata.get('ragdoc_repairing', False)}\n"
         return output
 
     except Exception as e:
