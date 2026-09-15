@@ -108,8 +108,9 @@ BM25 excludes candidates without lexical token overlap (rather than discarding
 all nonpositive scores). The first hybrid search builds BM25 synchronously and
 rebuilds after an index revision change. This prioritizes consistent retrieval;
 first-search latency on a large production corpus remains to be measured. Builds
-and searches are serialized within a retriever. Catalogue/audit calls still scan
-all metadata; pagination bounds output, not backend work.
+and searches are serialized within a retriever. Bulk Chroma reads use batches of
+500 rows to stay below backend SQL parameter limits. Catalogue/audit calls still
+scan all metadata; bounded batches do not make those full scans constant-time.
 
 ## Evaluation
 

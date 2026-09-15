@@ -59,6 +59,7 @@ from src.config import (
 )
 from src.library import Library, read_sidecar, document_metadata, locate_chunks
 from src.index_safety import replace_document, bump_revision, IndexRepairRequired
+from src.chroma_reads import read_collection
 
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 
@@ -260,7 +261,7 @@ def index_incremental(force_reindex: bool = False,
 
         # Scanner les documents existants
         print("\n[3/5] Analyse des documents existants...")
-        existing_docs = collection.get(include=["metadatas"])
+        existing_docs = read_collection(collection, include=["metadatas"])
         indexed_map: Dict[str, Dict] = {}
 
         for i, metadata in enumerate(existing_docs['metadatas']):
@@ -298,7 +299,7 @@ def index_incremental(force_reindex: bool = False,
                     print(f"      - Supprime: {source}")
                 del indexed_map
                 # Recharger map
-                existing_docs = collection.get(include=["metadatas"])
+                existing_docs = read_collection(collection, include=["metadatas"])
                 indexed_map = {}
                 for i, metadata in enumerate(existing_docs['metadatas']):
                     source = metadata.get('source')
