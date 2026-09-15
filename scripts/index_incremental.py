@@ -58,7 +58,7 @@ from src.config import (
     CHONKIE_TOKENIZER, USE_CONTENT_HASH, TRACK_INDEXED_DATE, LIBRARY_PATH
 )
 from src.library import Library, read_sidecar, document_metadata, locate_chunks
-from src.index_safety import replace_document, bump_revision, IndexRepairRequired
+from src.index_safety import replace_document, bump_revision, update_collection_state, IndexRepairRequired
 from src.chroma_reads import read_collection
 
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
@@ -105,6 +105,21 @@ def compute_doc_hash(content: str) -> str:
 
 
 LockHandle = Optional[TextIO]
+
+
+def open_chroma_client(chromadb_module, db_path: Path, mode: str | None = None):
+    """Open the requested store without silently overriding an explicit local mode."""
+    resolved_mode = (mode or os.getenv("RAGDOC_CHROMA_MODE", "auto")).strip().lower()
+    if resolved_mode not in {"auto", "persistent"}:
+        raise RuntimeError("RAGDOC_CHROMA_MODE must be 'auto' or 'persistent'")
+    if resolved_mode == "persistent":
+        return chromadb_module.PersistentClient(path=str(db_path)), "persistent-forced"
+    try:
+        client = chromadb_module.HttpClient(host="localhost", port=8000)
+        client.heartbeat()
+        return client, "http"
+    except Exception:
+        return chromadb_module.PersistentClient(path=str(db_path)), "persistent-fallback"
 
 
 def acquire_lock(lock_file: Path) -> LockHandle:
@@ -238,13 +253,12 @@ def index_incremental(force_reindex: bool = False,
 
         # Connecter Chroma
         print("\n[2/5] Connexion à Chroma...")
-        try:
-            test_client = chromadb.HttpClient(host="localhost", port=8000)
-            test_client.heartbeat()
-            client = test_client
+        client, chroma_connection_mode = open_chroma_client(chromadb, CHROMA_DB_PATH)
+        if chroma_connection_mode == "persistent-forced":
+            print(f"   [INFO] Mode local force (PersistentClient): {CHROMA_DB_PATH}")
+        elif chroma_connection_mode == "http":
             print("   [OK] Connecte au serveur ChromaDB (localhost:8000)")
-        except Exception:
-            client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
+        else:
             print("   [INFO] Mode local (PersistentClient)")
 
         collection = client.get_or_create_collection(
@@ -256,7 +270,7 @@ def index_incremental(force_reindex: bool = False,
         if repairing and not force_reindex:
             raise RuntimeError("Interrupted index write detected. Inspect ingestion status and repair with --force.")
         if repairing:
-            collection.modify(metadata={**(collection.metadata or {}), "ragdoc_repairing": True})
+            update_collection_state(collection, ragdoc_repairing=True)
         print(f"   OK Collection '{COLLECTION_NAME}' chargee")
 
         # Scanner les documents existants
@@ -465,7 +479,7 @@ def index_incremental(force_reindex: bool = False,
         print(f"   Chunks ajoutés/modifiés: {stats['total_chunks']:3d}")
         print("=" * 70 + "\n")
         if repairing and not stats['errors']:
-            collection.modify(metadata={**(collection.metadata or {}), "ragdoc_repairing": False})
+            update_collection_state(collection, ragdoc_repairing=False)
             bump_revision(collection)
         return stats
 

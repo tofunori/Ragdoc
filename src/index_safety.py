@@ -4,20 +4,49 @@ Chroma has no cross-request transaction here. A rollback failure is explicit;
 process termination during writes requires repair from the canonical snapshots.
 """
 
+import json
 import uuid
 from .chroma_reads import read_collection
+
+
+PRESERVED_HNSW_METADATA_KEY = "ragdoc_preserved_hnsw_json"
 
 
 class IndexRepairRequired(RuntimeError):
     """A failed rollback must stop the writer, not continue with the next paper."""
 
 
+def update_collection_state(collection, **updates):
+    """Update Ragdoc state while retaining immutable legacy HNSW metadata."""
+    current = dict(collection.metadata or {})
+    preserved_hnsw = {}
+    previous = current.get(PRESERVED_HNSW_METADATA_KEY)
+    if isinstance(previous, str):
+        try:
+            decoded = json.loads(previous)
+            if isinstance(decoded, dict):
+                preserved_hnsw.update(decoded)
+        except json.JSONDecodeError:
+            pass
+    preserved_hnsw.update({key: value for key, value in current.items()
+                           if key.startswith("hnsw:")})
+    metadata = {key: value for key, value in current.items()
+                if not key.startswith("hnsw:")}
+    if preserved_hnsw:
+        metadata[PRESERVED_HNSW_METADATA_KEY] = json.dumps(
+            preserved_hnsw, sort_keys=True, separators=(",", ":")
+        )
+    metadata.update(updates)
+    collection.modify(metadata=metadata)
+
+
 def bump_revision(collection, state="ready"):
     # Index writers must hold the shared indexer lock throughout a run.
-    metadata = dict(collection.metadata or {})
-    metadata["ragdoc_revision"] = uuid.uuid4().hex
-    metadata["ragdoc_write_state"] = state
-    collection.modify(metadata=metadata)
+    update_collection_state(
+        collection,
+        ragdoc_revision=uuid.uuid4().hex,
+        ragdoc_write_state=state,
+    )
 
 
 def _batches(data, size):

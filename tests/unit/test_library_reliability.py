@@ -11,7 +11,7 @@ from fastmcp import Client
 
 from src import server
 from src.hybrid_retriever import HybridRetriever
-from src.index_safety import replace_document, IndexRepairRequired
+from src.index_safety import replace_document, bump_revision, IndexRepairRequired
 from src.library import Library, document_metadata, locate_chunks, sha256, read_sidecar
 
 
@@ -57,6 +57,30 @@ def payload(texts, ids=None, source='paper.md', **extra):
             "embeddings": [[1.0, 0.0] for _ in texts],
             "metadatas": [{"source": source, "chunk_index": i, "total_chunks": len(texts), **extra}
                           for i, _ in enumerate(texts)]}
+
+
+def test_revision_update_omits_immutable_chroma_settings():
+    c = Collection()
+    c.metadata.update({"hnsw:space": "cosine", "hnsw:M": 64, "pipeline": "legacy"})
+    original_modify = c.modify
+
+    def reject_hnsw(metadata):
+        if any(key.startswith("hnsw:") for key in metadata):
+            raise ValueError("immutable HNSW setting was resubmitted")
+        original_modify(metadata)
+
+    c.modify = reject_hnsw
+    bump_revision(c, "writing")
+    assert c.metadata["pipeline"] == "legacy"
+    assert c.metadata["ragdoc_write_state"] == "writing"
+    assert "hnsw:space" not in c.metadata
+    assert json.loads(c.metadata["ragdoc_preserved_hnsw_json"]) == {
+        "hnsw:M": 64,
+        "hnsw:space": "cosine",
+    }
+
+    bump_revision(c)
+    assert json.loads(c.metadata["ragdoc_preserved_hnsw_json"])["hnsw:space"] == "cosine"
 
 
 @pytest.fixture
@@ -419,3 +443,32 @@ def test_real_chroma_replacement_and_query(tmp_path):
     replace_document(c, 'paper.md', payload(['fire aerosol'], ['v2']))
     assert r.search('snow', alpha=0) == []
     assert r.search('fire', alpha=0)[0]['id'] == 'v2'
+
+
+def test_real_chroma_preserves_legacy_hnsw_configuration_after_reopen(tmp_path):
+    import chromadb
+    from chromadb.config import Settings
+    path = tmp_path / 'chroma_hnsw'
+    settings = Settings(anonymized_telemetry=False)
+    client = chromadb.PersistentClient(path=str(path), settings=settings)
+    c = client.create_collection(
+        'hnsw_migration_test',
+        embedding_function=None,
+        metadata={'hnsw:space': 'cosine', 'hnsw:M': 32, 'pipeline': 'legacy'},
+    )
+    data = payload(['same direction', 'orthogonal'], ['parallel', 'orthogonal'])
+    data['embeddings'] = [[10.0, 0.0], [0.0, 10.0]]
+    replace_document(c, 'paper.md', data)
+
+    reopened = chromadb.PersistentClient(path=str(path), settings=settings).get_collection(
+        'hnsw_migration_test', embedding_function=None
+    )
+    assert reopened.configuration['hnsw']['space'] == 'cosine'
+    assert reopened.configuration['hnsw']['max_neighbors'] == 32
+    assert json.loads(reopened.metadata['ragdoc_preserved_hnsw_json']) == {
+        'hnsw:M': 32,
+        'hnsw:space': 'cosine',
+    }
+    result = reopened.query(query_embeddings=[[1.0, 0.0]], n_results=1, include=['distances'])
+    assert result['ids'][0] == ['parallel']
+    assert result['distances'][0][0] == pytest.approx(0.0, abs=1e-6)
