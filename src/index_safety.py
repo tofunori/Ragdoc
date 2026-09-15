@@ -12,12 +12,21 @@ class IndexRepairRequired(RuntimeError):
     """A failed rollback must stop the writer, not continue with the next paper."""
 
 
+def update_collection_state(collection, **updates):
+    """Update Ragdoc state without resubmitting immutable Chroma index settings."""
+    metadata = {key: value for key, value in dict(collection.metadata or {}).items()
+                if not key.startswith("hnsw:")}
+    metadata.update(updates)
+    collection.modify(metadata=metadata)
+
+
 def bump_revision(collection, state="ready"):
     # Index writers must hold the shared indexer lock throughout a run.
-    metadata = dict(collection.metadata or {})
-    metadata["ragdoc_revision"] = uuid.uuid4().hex
-    metadata["ragdoc_write_state"] = state
-    collection.modify(metadata=metadata)
+    update_collection_state(
+        collection,
+        ragdoc_revision=uuid.uuid4().hex,
+        ragdoc_write_state=state,
+    )
 
 
 def _batches(data, size):

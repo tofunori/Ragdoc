@@ -11,7 +11,7 @@ from fastmcp import Client
 
 from src import server
 from src.hybrid_retriever import HybridRetriever
-from src.index_safety import replace_document, IndexRepairRequired
+from src.index_safety import replace_document, bump_revision, IndexRepairRequired
 from src.library import Library, document_metadata, locate_chunks, sha256, read_sidecar
 
 
@@ -57,6 +57,23 @@ def payload(texts, ids=None, source='paper.md', **extra):
             "embeddings": [[1.0, 0.0] for _ in texts],
             "metadatas": [{"source": source, "chunk_index": i, "total_chunks": len(texts), **extra}
                           for i, _ in enumerate(texts)]}
+
+
+def test_revision_update_omits_immutable_chroma_settings():
+    c = Collection()
+    c.metadata.update({"hnsw:space": "cosine", "hnsw:M": 64, "pipeline": "legacy"})
+    original_modify = c.modify
+
+    def reject_hnsw(metadata):
+        if any(key.startswith("hnsw:") for key in metadata):
+            raise ValueError("immutable HNSW setting was resubmitted")
+        original_modify(metadata)
+
+    c.modify = reject_hnsw
+    bump_revision(c, "writing")
+    assert c.metadata["pipeline"] == "legacy"
+    assert c.metadata["ragdoc_write_state"] == "writing"
+    assert "hnsw:space" not in c.metadata
 
 
 @pytest.fixture
