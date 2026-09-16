@@ -42,7 +42,7 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundleShortVersionString</key>
   <string>0.2</string>
   <key>CFBundleVersion</key>
-  <string>20</string>
+  <string>21</string>
   <key>CFBundleIconFile</key>
   <string>RagdropIcon</string>
   <key>CFBundlePackageType</key>
