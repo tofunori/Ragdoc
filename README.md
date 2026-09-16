@@ -5,7 +5,7 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![ChromaDB](https://img.shields.io/badge/vectordb-ChromaDB-orange.svg)](https://www.trychroma.com/)
 [![Voyage AI](https://img.shields.io/badge/embeddings-Voyage%20Context%203-green.svg)](https://www.voyageai.com/)
-[![Cohere](https://img.shields.io/badge/reranking-Cohere%20v3.5-purple.svg)](https://cohere.com/)
+[![Cohere](https://img.shields.io/badge/reranking-Cohere%20v4.0%20Pro-purple.svg)](https://cohere.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A production-ready Model Context Protocol (MCP) server with a fully **Contextualized** pipeline for academic research, optimized for scientific literature retrieval.
@@ -16,15 +16,15 @@ annotation-gated evaluation workflow. Read the [migration and validation guide](
 before upgrading an existing library. Production retrieval quality has not been
 measured by the new draft benchmark.
 
-> Note: The legacy “hybrid mode” (Voyage-3-large embeddings) has been removed. All search paths now use contextualized embeddings + BM25 fusion; function names are preserved for compatibility.
+> Note: The legacy “hybrid mode” has been removed. Production search now fuses Voyage Context 4 with a revision-pinned SQLite FTS index; function names are preserved for compatibility.
 
 ## 🚀 Key Features
 
--   **Contextualized Search (v1.7.0)**: Powered by **Voyage-Context-3** (32k context window) for superior understanding of document structure.
+-   **Contextualized Search**: Powered by **Voyage Context 4** with 1024-dimensional contextualized embeddings.
 -   **Smart Batching**: Robust handling of massive documents (700k+ tokens) with automatic batching and timeout management.
 -   **Professional TUI**: New `ragdoc-menu.py` interface with arrow navigation and real-time indexing feedback.
 -   **Evaluation System**: Comprehensive RAG metrics (Recall, Precision, MRR, NDCG) with automated benchmarking.
--   **Cohere Reranking**: v3.5 for intelligent result ranking.
+-   **Cohere Reranking**: v4.0 Pro for high-accuracy multilingual result ranking.
 -   **MCP Integration**: Native integration with Claude Desktop and compatible applications.
 -   **Incremental Indexing**: MD5-based change detection for efficient updates.
 
@@ -67,6 +67,25 @@ pip install -r requirements.txt
 
 # 4. Configure API keys (see Configuration section)
 ```
+
+For a reproducible development/MCP environment with `uv`, use the committed lockfile:
+
+```bash
+uv sync --locked --python 3.12 --extra dev
+uv run --locked python -m nltk.downloader -d .venv/nltk_data stopwords
+uv run --locked python src/server.py --check-runtime
+```
+
+The environment must be isolated from system packages. `--check-runtime` checks
+local SDK capabilities and tokenizer data without opening Chroma or calling APIs.
+It reports missing API keys separately; successful offline checks do not establish
+external service availability. The same diagnostics are exposed as `get_runtime_status`.
+
+Use identical connection settings for the server and indexer:
+`RAGDOC_CHROMA_MODE=persistent` selects only `CHROMA_DB_PATH`; `http` selects only
+`RAGDOC_CHROMA_HOST`/`RAGDOC_CHROMA_PORT` and fails if unavailable. The legacy
+`auto` default probes HTTP first, then falls back to the local path. The active
+connection is logged and reported in runtime diagnostics.
 
 ### Detailed Installation
 
@@ -111,12 +130,12 @@ COHERE_API_KEY=your_cohere_api_key
 
 1.  **Voyage AI** (required)
     -   Sign up: https://voyageai.com/
-    -   Model used: **voyage-context-3** (32k context)
+    -   Model used: **voyage-context-4** (32k per chunk, contextualized)
     -   Cost: ~$0.06 per 1M tokens (Contextualized)
 
 2.  **Cohere** (optional, for reranking)
     -   Sign up: https://cohere.com/
-    -   Model used: rerank-v3.5
+    -   Model used: rerank-v4.0-pro
     -   Free tier available
 
 ### Claude Desktop Setup
@@ -242,10 +261,12 @@ cat tests/results/evaluation_report_latest.md
 -   **MRR (Mean Reciprocal Rank)**: How early does first relevant result appear?
 -   **NDCG@K**: How well are results ranked?
 
-**Typical RAGDOC Performance:**
--   Recall@10: **96-97%** (Outstanding)
--   MRR: **91-92%** (First result usually relevant)
--   NDCG@10: **92-93%** (Excellent ranking quality)
+**Historical recognition regression (2025-11-15, 30 queries):**
+The archived report records Recall@10 of 0.9667, MRR of 0.9190 and NDCG@10 of
+0.9298 for alpha=0.5. Its queries reuse text from indexed passages to retrieve
+their source documents. These numbers do not measure current performance on
+independent scientific questions. The new 50-question benchmark remains unannotated;
+see [scientific evaluation requirements](docs/SCIENTIFIC_RELIABILITY.md#evaluation).
 
 **Configuration Tuning:**
 ```bash
@@ -274,6 +295,42 @@ python ragdoc-menu.py
 # Select "Indexation Incrémentale"
 ```
 
+### Importing local Zotero PDFs with MinerU
+
+With Zotero Desktop running and its local API enabled, create a read-only inventory:
+
+```bash
+uv run --locked python scripts/import_zotero_mineru.py inventory
+```
+
+Run a small quality-control batch before a whole-library import:
+
+```bash
+uv run --locked python scripts/import_zotero_mineru.py import --limit 10
+uv run --locked python scripts/import_zotero_mineru.py import
+```
+
+The importer reads local PDF attachment paths and bibliographic metadata from
+Zotero without modifying its library. It deduplicates attachments by Zotero MD5,
+uses MinerU `vlm` with table and formula extraction, keeps reference sections, and
+stores one Markdown file plus a metadata sidecar per unique PDF. MinerU content JSON
+is retained under `build/zotero_mineru/` to support page provenance; returned archives
+and their duplicate PDF payloads are discarded. Completed articles are skipped on
+later runs. The inventory and journal are local, ignored build artifacts.
+
+MinerU is a cloud service: every imported PDF is uploaded to it. A token must be
+stored in `~/.mineru_token`. The precision API accepts at most 200 MB and 200 pages
+per request. The importer automatically divides longer PDFs into 190-page parts and
+reassembles their Markdown and page locators. For a malformed large attachment,
+preserve the Zotero original and import a repaired, split copy:
+
+```bash
+uv run --locked python scripts/import_zotero_mineru.py import --repair-pdf ATTACHMENT_KEY
+```
+
+Conversion does not create embeddings. Run the incremental indexer afterward with
+`VOYAGE_API_KEY` configured; this can incur Voyage API costs.
+
 ## 🏗️ Architecture
 
 ### Contextualized Search Pipeline (v1.7.0)
@@ -282,8 +339,8 @@ python ragdoc-menu.py
 Query
   ↓
 ┌─────────────────────────────┐
-│ BM25 Search (rank-bm25)     │ → Top 100 candidates (lexical)
-│ Voyage-Context-3 Semantic   │ → Top 100 candidates (semantic)
+│ Fielded SQLite FTS5 BM25    │ → Top 100 diverse candidates (lexical)
+│ Voyage Context 4            │ → Top 100 candidates (semantic)
 └─────────────────────────────┘
   ↓
 ┌─────────────────────────────┐
@@ -292,7 +349,7 @@ Query
 └─────────────────────────────┘
   ↓
 ┌─────────────────────────────┐
-│ Cohere v3.5 Reranking       │ → Top 10 final results
+│ Cohere v4.0 Pro Reranking   │ → Top 10 final results
 └─────────────────────────────┘
   ↓
 ┌─────────────────────────────┐
@@ -302,17 +359,17 @@ Query
 
 ### Technologies Used
 
--   **rank-bm25**: BM25 Okapi for lexical search
--   **Voyage AI**: **voyage-context-3** embeddings (1024 dimensions, 32k context)
+-   **SQLite FTS5 BM25**: persistent, revision-pinned fielded search over body, title, authors, identifiers and source, without loading the corpus into RAM
+-   **Voyage AI**: **voyage-context-4** contextualized embeddings (1024 dimensions)
 -   **ChromaDB 0.5.0+**: HNSW-optimized vector database
--   **Cohere v3.5**: Intelligent result reranking
+-   **Cohere v4.0 Pro**: Multilingual, high-accuracy result reranking
 -   **FastMCP**: High-performance MCP server
 -   **Rich & Questionary**: Professional TUI
 
 ### Document Database
 
--   **100+ research papers** on glaciology and climate science
--   **24,884+ chunks** with contextualized indexing
+-   **501 research documents** in the current production corpus
+-   **70,522 passages** with contextualized indexing
 -   **Rich metadata** (source, chunk_index, total_chunks, doc_hash, indexed_date)
 -   **Continuous updates** with incremental indexing
 
@@ -361,11 +418,24 @@ python ragdoc-menu.py
 
 ## 📈 Performance
 
-### Benchmarks (v1.7.0)
+### Performance validation
 
--   **Search**: 2-3s for contextualized + BM25 fusion + reranking (10 results)
--   **Indexing**: ~2min/document with contextualized embeddings
--   **Retrieval**: ~25k chunks indexed and validated
+The operational recognition benchmark exercises the live MCP with deterministic
+catalogue-derived DOI and title probes. It records Hit@1, Hit@5, MRR, retrieval
+mode, reranking availability and warnings. It does not replace the separate,
+human-reviewed scientific-question benchmark.
+
+```bash
+python scripts/benchmark_operational_retrieval.py \
+  --output outputs/benchmarks/operational.json
+```
+
+The persistent lexical sidecar is synchronized after incremental writes and is
+used only when its revision and passage count exactly match the Chroma collection.
+It caps each source at ten lexical candidates, skips macOS `._` sidecars and uses
+separate weights for body, title, authors, identifiers and source. Search may expand
+its candidate pool for source diversity, with at most 100 passages sent to Cohere
+reranking.
 
 ## 🤝 Contributing
 

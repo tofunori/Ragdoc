@@ -18,7 +18,10 @@ from src.library import Library, document_metadata, locate_chunks, sha256, read_
 class Collection:
     def __init__(self):
         self.rows = {}
-        self.metadata = {"ragdoc_revision": "initial"}
+        self.metadata = {
+            "ragdoc_revision": "initial",
+            "embedding_model": "voyage-context-4",
+        }
         self.upsert_calls = 0
         self.fail_on = set()
         self.fail_delete = False
@@ -182,6 +185,28 @@ def test_metadata_does_not_infer_bibliography(tmp_path):
         read_sidecar(source)
 
 
+def test_sidecar_rejects_overlapping_or_reordered_page_spans(tmp_path):
+    source = tmp_path / 'paper.md'
+    sidecar = source.with_suffix('.metadata.json')
+    sidecar.write_text(json.dumps({'page_spans': [
+        {'page': 1, 'start': 0, 'end': 10},
+        {'page': 2, 'start': 9, 'end': 20},
+    ]}))
+    with pytest.raises(ValueError, match='ordered and non-overlapping'):
+        read_sidecar(source)
+    sidecar.write_text(json.dumps({'page_spans': [
+        {'page': 1, 'start': 0, 'end': 10},
+        {'page': 1, 'start': 10, 'end': 20},
+    ]}))
+    assert len(read_sidecar(source)['page_spans']) == 2
+    sidecar.write_text(json.dumps({'page_spans': [
+        {'page': 2, 'start': 0, 'end': 10},
+        {'page': 1, 'start': 10, 'end': 20},
+    ]}))
+    with pytest.raises(ValueError, match='ordered and non-overlapping'):
+        read_sidecar(source)
+
+
 def test_locators_use_exact_offsets_and_bound_page_mapping():
     text = '# Methods\nA result.\nAnother result.'
     sidecar = {'content_sha256': sha256(text), 'page_spans': [{'start': 0, 'end': len(text), 'page': 4}]}
@@ -272,7 +297,7 @@ def test_mcp_structured_evidence_canonical_read_and_version_pin(mcp_library):
     async def check():
         async with Client(server.mcp) as client:
             tools = await client.list_tools()
-            schema = next(t.outputSchema for t in tools if t.name == 'search_evidence')
+            schema = next(t.output_schema for t in tools if t.name == 'search_evidence')
             assert 'hits' in schema['properties']
             result = await client.call_tool('search_evidence', {'query': 'Snow', 'alpha': 0})
             data = result.structured_content
@@ -304,21 +329,21 @@ def test_legacy_read_warns_instead_of_claiming_canonical(mcp_library):
     c, _, _ = mcp_library
     for row in c.rows.values():
         row['metadatas'].pop('canonical_sha256')
-    result = server.get_document_content.fn('paper.md', format='text')
+    result = server.get_document_content('paper.md', format='text')
     assert 'Legacy index' in result
 
 
 def test_document_content_uses_snapshot_not_overlapping_chunks(mcp_library):
     _, text, _ = mcp_library
-    assert server.get_document_content.fn('paper.md', format='text') == text
+    assert server.get_document_content('paper.md', format='text') == text
 
 
 def test_audit_reports_missing_snapshot_and_catalogue_unknowns(mcp_library):
     c, _, _ = mcp_library
     c.upsert(**payload(['legacy'], ['legacy'], source='legacy.md'))
-    audit = server.audit_library.fn()
+    audit = server.audit_library()
     assert any(f['source'] == 'legacy.md' and f['issue'] == 'legacy_no_canonical_snapshot' for f in audit['findings'])
-    catalogue = server.search_documents.fn(query='Snow', year_from=2020)
+    catalogue = server.search_documents(query='Snow', year_from=2020)
     assert catalogue['total'] == 1
 
 
@@ -332,17 +357,17 @@ def test_diagnostics_reject_revision_change_during_scan(mcp_library, monkeypatch
         return result
     monkeypatch.setattr(server, 'read_collection', changing)
     with pytest.raises(Exception, match='Index changed'):
-        getattr(server, tool).fn()
+        getattr(server, tool)()
 
 
 def test_corrupt_snapshot_cannot_be_presented_as_verified(mcp_library, tmp_path):
     _, _, digest = mcp_library
     (tmp_path / 'snapshots' / f'{digest}.md').write_text('broken')
-    passage = server.get_passage.fn('c0')
+    passage = server.get_passage('c0')
     assert not passage.canonical_verified
     assert 'canonical_snapshot_unavailable_or_corrupt' in passage.warnings
     with pytest.raises(Exception, match='snapshot unavailable or corrupt'):
-        server.read_document.fn('paper.md')
+        server.read_document('paper.md')
 
 
 def test_source_diversity_and_rerank_service_failure(mcp_library, monkeypatch):
@@ -350,10 +375,89 @@ def test_source_diversity_and_rerank_service_failure(mcp_library, monkeypatch):
     c.upsert(**payload(['Snow impurity observation.'], ['other'], source='other.md'))
     monkeypatch.setattr(server, 'init_cohere_client', lambda: SimpleNamespace(
         rerank=Mock(side_effect=RuntimeError('service outage'))))
-    result = server.search_evidence.fn('Snow', alpha=0, max_per_document=1)
+    result = server.search_evidence('Snow', alpha=0, max_per_document=1)
     assert len(result.hits) == 2
     assert len({h.provenance.source for h in result.hits}) == 2
     assert result.reranking == 'unavailable'
+
+
+@pytest.mark.parametrize('term', ['authors', 'null', 'year'])
+def test_catalogue_does_not_search_json_keys(mcp_library, term):
+    assert server.search_documents(query=term)['total'] == 0
+
+
+def test_catalogue_cache_reuses_scan_and_refreshes_revision(mcp_library, monkeypatch):
+    c, _, _ = mcp_library
+    scan = Mock(wraps=server.read_collection)
+    monkeypatch.setattr(server, 'read_collection', scan)
+    assert server.search_documents(query='Snow')['total'] == 1
+    server.search_documents(offset=0, limit=1)
+    assert scan.call_count == 1
+    c.upsert(**payload(['new'], ['new'], source='new.md'))
+    c.metadata['ragdoc_revision'] = 'new-revision'
+    assert server.search_documents()['total'] == 2
+    assert scan.call_count == 2
+    c.metadata['ragdoc_write_state'] = 'writing'
+    with pytest.raises(Exception, match='incomplete'):
+        server.search_documents()
+
+
+def test_catalogue_never_caches_unversioned_collection(mcp_library, monkeypatch):
+    c, _, _ = mcp_library
+    c.metadata.pop('ragdoc_revision')
+    scan = Mock(wraps=server.read_collection)
+    monkeypatch.setattr(server, 'read_collection', scan)
+    server.search_documents()
+    server.search_documents()
+    assert scan.call_count == 2
+
+
+def test_catalogue_rejects_revision_change_before_cache_publish(mcp_library, monkeypatch):
+    c, _, _ = mcp_library
+    original = server.read_collection
+    def changing(*args, **kwargs):
+        result = original(*args, **kwargs)
+        c.metadata['ragdoc_revision'] = 'changed'
+        return result
+    monkeypatch.setattr(server, 'read_collection', changing)
+    with pytest.raises(Exception, match='Index changed'):
+        server.search_documents()
+
+
+def test_search_can_return_one_hundred_hits(mcp_library, monkeypatch):
+    hits = [{'id': f'h{i}', 'text': 'snow', 'metadata': {'source': f'p{i}.md'},
+             'score': 1 / (i + 1)} for i in range(120)]
+    retrieve = Mock(side_effect=lambda **kw: hits[:kw['top_k']])
+    monkeypatch.setattr(server, 'hybrid_retriever', SimpleNamespace(search=retrieve, last_status={}))
+    result = server.search_evidence('snow', top_k=100, alpha=0)
+    assert len(result.hits) == 100
+
+
+def test_search_expands_candidates_for_source_diversity(mcp_library, monkeypatch):
+    hits = [{'id': f'h{i}', 'text': 'snow',
+             'metadata': {'source': 'dominant.md' if i < 180 else f'p{i}.md'},
+             'score': 1 / (i + 1)} for i in range(210)]
+    retrieve = Mock(side_effect=lambda **kw: hits[:kw['top_k']])
+    rerank = Mock(side_effect=RuntimeError('offline'))
+    monkeypatch.setattr(server, 'hybrid_retriever', SimpleNamespace(search=retrieve, last_status={}))
+    monkeypatch.setattr(server, 'init_cohere_client', lambda: SimpleNamespace(rerank=rerank))
+    result = server.search_evidence('snow', top_k=10, alpha=0, max_per_document=2)
+    assert len(result.hits) == 10
+    assert sum(h.provenance.source == 'dominant.md' for h in result.hits) <= 2
+    assert retrieve.call_args.kwargs['top_k'] > 100
+    assert len(rerank.call_args.kwargs['documents']) <= 100
+    assert rerank.call_args.kwargs['documents'][0].startswith('Source: dominant.md\n')
+
+
+def test_runtime_diagnostics_are_offline(monkeypatch):
+    monkeypatch.setattr(server, 'init_chroma_client', Mock(side_effect=AssertionError('must not connect')))
+    status = server.get_runtime_status()
+    assert status['offline_check_only']
+    assert 'versions' in status
+
+
+def test_french_query_expansion_handles_accents():
+    assert any('remote sensing' in q for q in server._generate_query_variants('télédétection de la neige', 5))
 
 
 def test_benchmark_refuses_unreviewed_or_unpinned_judgments():
@@ -412,9 +516,8 @@ def test_indexer_counts_errors_preserves_previous_and_stops_on_failed_rollback(t
     monkeypatch.setattr(indexer.chromadb, 'HttpClient', lambda **k: SimpleNamespace(
         heartbeat=lambda: None, get_or_create_collection=lambda **kw: collection))
     chunk = SimpleNamespace(text='new contents', token_count=2)
-    chunker = SimpleNamespace(chunk=lambda text: [] if failure == 'empty_chunks' else [chunk], refine=lambda c: c)
-    for name in ('TokenChunker', 'SemanticChunker', 'OverlapRefinery'):
-        monkeypatch.setattr(indexer, name, lambda **kw: chunker)
+    chunker = SimpleNamespace(chunk=lambda text: [] if failure == 'empty_chunks' else [chunk])
+    monkeypatch.setattr(indexer, 'TokenChunker', lambda **kw: chunker)
     monkeypatch.setattr(indexer, 'process_embeddings_with_limit_check',
                         lambda *a: [] if failure == 'embeddings' else [[1.0, 0.0]])
     previous = copy.deepcopy(collection.rows)

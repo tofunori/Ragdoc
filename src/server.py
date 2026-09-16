@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MCP Server for RAGDOC
-Contextualized embeddings + BM25 hybrid search with Cohere reranking.
+Contextualized embeddings + persistent lexical search with Cohere reranking.
 """
 
 import os
@@ -12,8 +12,10 @@ import argparse
 import re
 import unicodedata
 import json
+import threading
 from types import SimpleNamespace
 from pathlib import Path
+from functools import lru_cache
 from dotenv import load_dotenv
 
 # Windows: normalize newlines for stdio transports (avoids CRLF issues in some MCP clients)
@@ -40,6 +42,7 @@ if __name__ == "__main__" and __package__ is None:
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.utilities.types import Image
 
 # Import internal modules
 from src.config import (
@@ -48,13 +51,18 @@ from src.config import (
     ACTIVE_DB_PATH,
     CONTEXT_WINDOW_SIZE,
     VOYAGE_API_KEY,
+    EMBEDDING_MODEL,
     COHERE_API_KEY,
-    LOG_LEVEL, LIBRARY_PATH
+    LOG_LEVEL, LIBRARY_PATH, LEXICAL_INDEX_PATH, ARTIFACTS_PATH
 )
+from src.artifacts import ArtifactIndex
 from src.hybrid_retriever import HybridRetriever
+from src.lexical_index import PersistentLexicalIndex
 from src.library import Library, provenance
 from src.schemas import SearchResponse, PassageResponse
 from src.chroma_reads import read_collection
+from src.chroma_connection import open_chroma_client
+from src.runtime_status import runtime_status
 
 # Configure logging
 logging.basicConfig(
@@ -74,6 +82,9 @@ hybrid_retriever = None
 _chromadb = None
 _voyageai = None
 _cohere = None
+_catalogue_lock = threading.Lock()
+_catalogue_cache = None
+_connection_mode = None
 
 
 def _get_chromadb():
@@ -136,7 +147,7 @@ def _generate_query_variants(query: str, n_queries: int = 3) -> list[str]:
     replacements: list[tuple[str, str]] = [
         # French -> English (common in papers)
         ("albédo", "albedo"),
-        ("télédétection", "remote sensing"),
+        ("teledetection", "remote sensing"),
         ("carbone noir", "black carbon"),
         ("neige", "snow"),
         ("glaciers", "glacier"),
@@ -215,19 +226,13 @@ def _multiquery_rrf_fuse(results_by_query: list[list[dict]], rrf_k: int = 60) ->
 
 def init_chroma_client():
     """Initialize Chroma client (server mode if available, otherwise local persistent)."""
-    global chroma_client
+    global chroma_client, _connection_mode
 
     if not chroma_client:
-        chromadb = _get_chromadb()
-        # Try HttpClient (server mode) first, fallback to PersistentClient
-        try:
-            test_client = chromadb.HttpClient(host="localhost", port=8000)
-            test_client.heartbeat()
-            chroma_client = test_client
-            logging.info(f"[OK] MCP: Connected to ChromaDB server (localhost:8000) - Collection: {COLLECTION_NAME}")
-        except Exception:
-            logging.info(f"[INFO] MCP: ChromaDB server not available, using local mode: {ACTIVE_DB_PATH}")
-            chroma_client = chromadb.PersistentClient(path=str(ACTIVE_DB_PATH))
+        chroma_client, _connection_mode = open_chroma_client(_get_chromadb(), ACTIVE_DB_PATH)
+        target = (f"{os.getenv('RAGDOC_CHROMA_HOST', 'localhost')}:{os.getenv('RAGDOC_CHROMA_PORT', '8000')}"
+                  if _connection_mode == "http" else str(ACTIVE_DB_PATH))
+        logging.info("Chroma connection: %s; target=%s; collection=%s", _connection_mode, target, COLLECTION_NAME)
 
     return chroma_client
 
@@ -256,8 +261,7 @@ def init_cohere_client():
 def init_retriever():
     """
     Initialize HybridRetriever.
-    IMPORTANT: HybridRetriever BM25 index is lazy (and may build in background),
-    so this should be fast and not cause MCP timeouts.
+    Production lexical retrieval uses the revision-pinned SQLite FTS sidecar.
     """
     global hybrid_retriever
 
@@ -268,30 +272,33 @@ def init_retriever():
         init_chroma_client()
 
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
+        collection_model = (collection.metadata or {}).get("embedding_model")
+        if collection_model != EMBEDDING_MODEL:
+            raise RuntimeError(
+                f"Embedding model mismatch: collection={collection_model!r}, "
+                f"configured={EMBEDDING_MODEL!r}"
+            )
 
         # Contextualized embedding function (only mode supported)
-        def voyage_contextualized_embed(texts):
+        @lru_cache(maxsize=128)
+        def embed_query(text):
             init_voyage_client()
-            results = []
-            for text in texts:
-                result = voyage_client.contextualized_embed(
-                    inputs=[[text]],
-                    model="voyage-context-3",
-                    input_type="query"
-                )
-                results.append(result.results[0].embeddings[0])
-            return results
+            result = voyage_client.contextualized_embed(
+                inputs=[[text]], model=EMBEDDING_MODEL, input_type="query")
+            return result.results[0].embeddings[0]
 
-        embed_fn = voyage_contextualized_embed
+        embed_fn = lambda texts: [embed_query(text) for text in texts]
         logging.info("[OK] Retriever initialized (Contextualized Mode)")
 
         hybrid_retriever = HybridRetriever(
             collection=collection,
             embedding_function=embed_fn,
             revision_provider=lambda: chroma_client.get_collection(name=COLLECTION_NAME).metadata,
+            lexical_index=PersistentLexicalIndex(LEXICAL_INDEX_PATH),
         )
     except Exception as e:
         logging.error(f"Failed to initialize HybridRetriever: {e}")
+        raise
 
     return hybrid_retriever
 
@@ -406,7 +413,7 @@ def _perform_search_hybrid(
     max_per_document: int | None = None,
 ) -> str | dict:
     """
-    Unified search (contextualized embeddings + BM25 + Cohere rerank).
+    Unified search (contextualized embeddings + persistent lexical + Cohere rerank).
     """
     try:
         if not query or not query.strip() or not 1 <= top_k <= 100 or not 0 <= alpha <= 1:
@@ -425,7 +432,7 @@ def _perform_search_hybrid(
         collection = _ready_collection()
         search_states = []
 
-        # 1. Retrieval (BM25 + contextualized semantic with RRF)
+        # 1. Retrieval (persistent lexical + contextualized semantic with RRF)
         # Optional: multi-query rewrite/expansion (heuristic), fused with RRF.
         if multi_query:
             queries = _generate_query_variants(query, n_queries=n_queries)
@@ -433,16 +440,26 @@ def _perform_search_hybrid(
             queries = [query]
 
         per_query_results: list[list[dict]] = []
+        candidate_warnings = []
         for q in queries:
-            res = hybrid_retriever.search(
-                query=q,
-                top_k=50,  # candidates per query
-                alpha=alpha,
-                bm25_top_n=100,
-                semantic_top_n=100,
-                where=where,
-                where_document=where_document,
-            )
+            budget = max(50, top_k)
+            while True:
+                res = hybrid_retriever.search(
+                    query=q, top_k=budget, alpha=alpha,
+                    bm25_top_n=max(100, budget), semantic_top_n=max(100, budget),
+                    where=where, where_document=where_document,
+                )
+                counts = {}
+                for hit in res:
+                    source = hit['metadata'].get('source', hit['metadata'].get('filename', 'unknown'))
+                    counts[source] = counts.get(source, 0) + 1
+                capacity = sum(min(count, max_per_document) for count in counts.values()) if max_per_document else len(res)
+                if not max_per_document or capacity >= top_k or len(res) < budget:
+                    break
+                if budget >= 1000:
+                    candidate_warnings.append("candidate_limit_reached: source diversity may be incomplete")
+                    break
+                budget = min(1000, budget * 2)
             search_states.append(hybrid_retriever.last_status)
             if res:
                 per_query_results.append(res)
@@ -457,8 +474,23 @@ def _perform_search_hybrid(
             return "No results found for your search."
 
         hybrid_results = per_query_results[0] if len(per_query_results) == 1 else _multiquery_rrf_fuse(per_query_results)
-        # Cap rerank candidates (Cohere side) to keep latency/cost bounded
-        hybrid_results = hybrid_results[:100]
+        # Reserve enough diverse candidates before imposing the reranking budget.
+        # Fill remaining slots in fusion order so Cohere still has alternatives.
+        if max_per_document:
+            selected, selected_ids, counts = [], set(), {}
+            for hit in hybrid_results:
+                source = hit['metadata'].get('source', hit['metadata'].get('filename', 'unknown'))
+                if counts.get(source, 0) < max_per_document:
+                    selected.append(hit)
+                    selected_ids.add(hit['id'])
+                    counts[source] = counts.get(source, 0) + 1
+                if len(selected) >= top_k:
+                    break
+            selected.extend(hit for hit in hybrid_results if hit['id'] not in selected_ids)
+            allowed_ids = {hit['id'] for hit in selected[:100]}
+            hybrid_results = [hit for hit in hybrid_results if hit['id'] in allowed_ids]
+        else:
+            hybrid_results = hybrid_results[:100]
 
         if not hybrid_results:
             return "No results found for your search."
@@ -466,17 +498,27 @@ def _perform_search_hybrid(
         # 2. Prepare for reranking
         documents_for_rerank = [r['text'] for r in hybrid_results]
         metadatas = [r['metadata'] for r in hybrid_results]
+        rerank_documents = []
+        for text, metadata in zip(documents_for_rerank, metadatas):
+            header = []
+            if metadata.get("title"):
+                header.append(f"Title: {metadata['title']}")
+            if metadata.get("doi"):
+                header.append(f"DOI: {metadata['doi']}")
+            if metadata.get("source"):
+                header.append(f"Source: {metadata['source']}")
+            rerank_documents.append("\n".join(header + ["", text]))
 
         # 3. Rerank with Cohere v4.0 Pro
         reranking = "cohere"
-        warnings = []
+        warnings = candidate_warnings
         try:
             client = init_cohere_client()
             if client is None:
                 raise RuntimeError("Cohere not configured")
             rerank_results = client.rerank(
-                model="rerank-v4.0-pro", query=query, documents=documents_for_rerank,
-                top_n=len(documents_for_rerank) if max_per_document else top_k)
+                model="rerank-v4.0-pro", query=query, documents=rerank_documents,
+                top_n=len(documents_for_rerank) if max_per_document else min(top_k, len(documents_for_rerank)))
         except Exception:
             logging.warning("Reranking unavailable; returning fusion ranking", exc_info=True)
             reranking = "unavailable"
@@ -668,7 +710,7 @@ def semantic_search_hybrid(
     context_window: int | None = None,
 ) -> str:
     """
-    Hybrid search with BM25 + Vector + Cohere v3.5 reranking.
+    Hybrid search with persistent lexical + vector retrieval and Cohere v4.0 Pro reranking.
 
     Args:
         query: Search query about the indexed knowledge base.
@@ -1064,6 +1106,28 @@ def read_document(source: str, offset: int = 0, limit: int = 16000,
             "total_chars": len(text), "canonical_verified": True}
 
 
+def _document_catalogue(collection):
+    """Cache one row per source only when the writer supplies a revision."""
+    global _catalogue_cache
+    revision = (collection.metadata or {}).get('ragdoc_revision')
+    with _catalogue_lock:
+        if (revision is not None and _catalogue_cache is not None
+                and _catalogue_cache[0] is chroma_client
+                and _catalogue_cache[1:3] == (COLLECTION_NAME, revision)):
+            _assert_revision(collection)
+            return _catalogue_cache[3]
+        data = read_collection(collection, include=["metadatas"])
+        papers = {}
+        for meta in data['metadatas']:
+            source = meta.get('source', meta.get('filename', 'unknown'))
+            if source not in papers:
+                papers[source] = provenance(meta)
+        rows = tuple(papers[source] for source in sorted(papers))
+        _assert_revision(collection)
+        _catalogue_cache = (chroma_client, COLLECTION_NAME, revision, rows) if revision is not None else None
+        return rows
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 def search_documents(query: str = "", year_from: int | None = None, year_to: int | None = None,
                      offset: int = 0, limit: int = 25) -> dict:
@@ -1076,10 +1140,8 @@ def search_documents(query: str = "", year_from: int | None = None, year_to: int
     if year_from is not None and year_to is not None and year_from > year_to:
         raise ToolError("year_from must be <= year_to")
     collection = _ready_collection()
-    data = read_collection(collection, include=["metadatas"])
     papers = {}
-    for meta in data['metadatas']:
-        p = provenance(meta)
+    for p in _document_catalogue(collection):
         source = p['source']
         if source in papers:
             continue
@@ -1088,10 +1150,12 @@ def search_documents(query: str = "", year_from: int | None = None, year_to: int
             continue
         if year_to is not None and (year is None or year > year_to):
             continue
-        haystack = json.dumps({"source": source, **p['bibliography']}, ensure_ascii=False).casefold()
-        if all(term in haystack for term in query.casefold().split()):
+        bibliography = p['bibliography']
+        values = [source, bibliography['title'], bibliography['doi'], *(bibliography['authors'] or [])]
+        haystack = _normalize_query_text(' '.join(value for value in values if value)).casefold()
+        if all(term in haystack for term in _normalize_query_text(query).casefold().split()):
             papers[source] = {"source": source, "document_id": p['document_id'],
-                              "content_sha256": p['content_sha256'], "bibliography": p['bibliography']}
+                              "content_sha256": p['content_sha256'], "bibliography": dict(p['bibliography'])}
     ranked = [papers[key] for key in sorted(papers)]
     _assert_revision(collection)
     return {"documents": ranked[offset:offset + limit], "total": len(ranked),
@@ -1210,12 +1274,94 @@ def get_indexation_status() -> str:
         raise ToolError(str(e)) from e
 
 
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_runtime_status() -> dict:
+    """Check installed capabilities and connection settings without opening the database or calling APIs."""
+    return {**runtime_status(), "connection": {
+        "requested_mode": os.getenv("RAGDOC_CHROMA_MODE", "auto"),
+        "active_mode": _connection_mode, "local_path": str(ACTIVE_DB_PATH),
+        "host": os.getenv("RAGDOC_CHROMA_HOST", "localhost"),
+        "port": os.getenv("RAGDOC_CHROMA_PORT", "8000"),
+        "collection": COLLECTION_NAME}, "embedding_model": EMBEDDING_MODEL}
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def find_document_artifacts(query: str = "", source: str | None = None,
+                            artifact_type: str | None = None, label: str | None = None,
+                            limit: int = 20) -> dict:
+    """Find extracted tables and figures by exact label or their textual content.
+
+    For requests such as "Table 2 in Ren et al.", first resolve the article source,
+    then pass source and label="Table 2". Query searches captions and table bodies.
+    """
+    if not 1 <= limit <= 100:
+        raise ToolError("limit must be in [1, 100]")
+    if artifact_type is not None and artifact_type not in {"table", "image", "chart"}:
+        raise ToolError("artifact_type must be table, image or chart")
+    try:
+        rows = ArtifactIndex(ARTIFACTS_PATH).search(
+            query=query, source=source, kind=artifact_type, label=label, limit=limit
+        )
+    except Exception as error:
+        raise ToolError(f"Artifact search failed: {error}") from error
+    for row in rows:
+        row.pop("image_path", None)
+    return {"artifacts": rows, "total": len(rows)}
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_artifact(artifact_id: str) -> dict:
+    """Read one extracted table or figure with its caption, page and structured body."""
+    row = ArtifactIndex(ARTIFACTS_PATH).get(artifact_id)
+    if row is None:
+        raise ToolError("Artifact not found")
+    row.pop("image_path", None)
+    return row
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_artifact_image(artifact_id: str) -> Image:
+    """Return the original MinerU image for one table or figure."""
+    row = ArtifactIndex(ARTIFACTS_PATH).get(artifact_id)
+    if row is None or not row.get("image_path"):
+        raise ToolError("Artifact image is unavailable")
+    return Image(path=row["image_path"])
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_server_status() -> dict:
+    """Return the model and revision actually served by this MCP process."""
+    collection = _ready_collection()
+    metadata = dict(collection.metadata or {})
+    lexical = PersistentLexicalIndex(LEXICAL_INDEX_PATH).status(
+        metadata.get("ragdoc_revision"), collection.count()
+    )
+    return {
+        "configured_embedding_model": EMBEDDING_MODEL,
+        "collection_embedding_model": metadata.get("embedding_model"),
+        "index_revision": metadata.get("ragdoc_revision"),
+        "write_state": metadata.get("ragdoc_write_state", "legacy"),
+        "repairing": bool(metadata.get("ragdoc_repairing", False)),
+        "connection_mode": _connection_mode,
+        "collection": COLLECTION_NAME,
+        "lexical_index": lexical,
+        "reranking_model": "rerank-v4.0-pro",
+    }
+
+
 def main():
     """Entry point for CLI execution"""
     parser = argparse.ArgumentParser(description="Ragdoc MCP Server")
+    parser.add_argument("--check-runtime", action="store_true", help="Print offline capability diagnostics and exit")
     parser.add_argument("--mode", choices=["hybrid", "contextualized"], 
                         help="Override operation mode")
     args, unknown = parser.parse_known_args()
+    if args.check_runtime:
+        status = get_runtime_status()
+        print(json.dumps(status, indent=2))
+        raise SystemExit(1 if status['issues'] else 0)
+    for issue in runtime_status()['issues']:
+        logging.warning("Runtime capability: %s", issue)
 
     # If mode is passed via CLI, warn user it might not persist for MCP stdio
     if args.mode:

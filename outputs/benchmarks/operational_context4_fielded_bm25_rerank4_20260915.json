@@ -1,0 +1,770 @@
+{
+  "name": "Ragdoc operational retrieval recognition",
+  "scope": "Catalogue-derived DOI, lexical-title and semantic-title recognition through the live MCP. This does not measure independent scientific-question relevance.",
+  "at": "2026-09-16T03:53:13.178966+00:00",
+  "seed": 20260915,
+  "probe_sha256": "36a7945512735cb41815606ef1e08ef64aa916391268ebdbac802148d489e2bc",
+  "server_status": {
+    "configured_embedding_model": "voyage-context-4",
+    "collection_embedding_model": "voyage-context-4",
+    "index_revision": "f896f11959dd4155aa786d620cff202d",
+    "write_state": "ready",
+    "repairing": false,
+    "connection_mode": null,
+    "collection": "ragdoc_contextualized_v1",
+    "lexical_index": {
+      "ready": true,
+      "reason": null,
+      "path": "/volume1/Services/mcp/ragdoc/chroma_db_new/ragdoc_lexical.sqlite3",
+      "revision": "f896f11959dd4155aa786d620cff202d",
+      "chunks": 70522
+    },
+    "reranking_model": "rerank-v4.0-pro"
+  },
+  "summary": {
+    "overall": {
+      "queries": 45,
+      "hit_at_1": 0.9555555555555556,
+      "hit_at_5": 1.0,
+      "mrr_at_5": 0.9777777777777777,
+      "rerank_active_rate": 1.0,
+      "warning_queries": 0,
+      "retrieval_modes": {
+        "lexical": 30,
+        "semantic": 15
+      }
+    },
+    "doi_lexical": {
+      "queries": 15,
+      "hit_at_1": 1.0,
+      "hit_at_5": 1.0,
+      "mrr_at_5": 1.0,
+      "rerank_active_rate": 1.0,
+      "warning_queries": 0,
+      "retrieval_modes": {
+        "lexical": 15
+      }
+    },
+    "title_lexical": {
+      "queries": 15,
+      "hit_at_1": 0.9333333333333333,
+      "hit_at_5": 1.0,
+      "mrr_at_5": 0.9666666666666667,
+      "rerank_active_rate": 1.0,
+      "warning_queries": 0,
+      "retrieval_modes": {
+        "lexical": 15
+      }
+    },
+    "title_semantic": {
+      "queries": 15,
+      "hit_at_1": 0.9333333333333333,
+      "hit_at_5": 1.0,
+      "mrr_at_5": 0.9666666666666667,
+      "rerank_active_rate": 1.0,
+      "warning_queries": 0,
+      "retrieval_modes": {
+        "semantic": 15
+      }
+    }
+  },
+  "rows": [
+    {
+      "kind": "doi_lexical",
+      "query": "10.3389/feart.2020.00129",
+      "expected_source": "zotero_TCLRQNLQ_SR3YR6A8.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_TCLRQNLQ_SR3YR6A8.md",
+        "zotero_TCLRQNLQ_SR3YR6A8.md",
+        "Volery_2024_the sub-seasonal and interannual spatio-temporal variabil.md",
+        "Kinnard_2022_Saskatchewan_Glacier.md",
+        "Volery_2024_the sub-seasonal and interannual spatio-temporal variabil.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.1139/cjfr-2019-0094",
+      "expected_source": "zotero_Q36FNXN4_W58YM7MD.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_Q36FNXN4_W58YM7MD.md",
+        "zotero_Q36FNXN4_W58YM7MD.md",
+        "Bourque_2025_Snow_Algae_Black_Carbon.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.5194/tc-14-3249-2020",
+      "expected_source": "zotero_WZQMHN8L_422VGY2F.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_WZQMHN8L_422VGY2F.md",
+        "zotero_WZQMHN8L_422VGY2F.md",
+        "Menounos_Glaciers in Western Canada‐Conterminous US and.md",
+        "zotero_237ZPN7X_JAMQL7NQ.md",
+        "Bertoncini_2024_Assimilation of Satellite Albedo to Improve Simulations.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.3390/rs12060927",
+      "expected_source": "zotero_5YIZG7DN_G4HT2JJI.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_5YIZG7DN_G4HT2JJI.md",
+        "zotero_5YIZG7DN_G4HT2JJI.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.1111/j.1365-2664.2008.01466.x",
+      "expected_source": "zotero_XV2CDHY4_B8R7NXJ5.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_XV2CDHY4_B8R7NXJ5.md",
+        "zotero_XV2CDHY4_B8R7NXJ5.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.3189/172756502781831458",
+      "expected_source": "zotero_ACPRCP94_FLNCXIPL.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_ACPRCP94_FLNCXIPL.md",
+        "zotero_ACPRCP94_FLNCXIPL.md",
+        "Gunnarsson et al. - 2021 - Annual and inter-annual variability and trends of albedo of Icelandic glaciers.md",
+        "zotero_4UHES669_69DTDC4E.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.3389/feart.2022.863933",
+      "expected_source": "zotero_FR8IYB8E_FKE7I4BH.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_FR8IYB8E_FKE7I4BH.md",
+        "zotero_FR8IYB8E_FKE7I4BH.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.1016/S0034-4257(02)00091-3",
+      "expected_source": "zotero_XI8G5Z24_K5DK8IVQ.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_XI8G5Z24_K5DK8IVQ.md",
+        "zotero_XI8G5Z24_K5DK8IVQ.md",
+        "zotero_2E9I3MVY_MDWANN5C.md",
+        "zotero_E3CFTFGY_FDHQSEX2.md",
+        "Palomaki_et_al_2025_Assessment of methods for mapping snow albedo from MODIS.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.1038/s43247-025-02503-x",
+      "expected_source": "zotero_2G3NX5SX_9FRC4W6P.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_2G3NX5SX_9FRC4W6P.md",
+        "zotero_2G3NX5SX_9FRC4W6P.md",
+        "zotero_standalone_CR7N3FDA.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.1016/j.rse.2004.09.001",
+      "expected_source": "zotero_II3ENLEE_9VWXQAUW.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_II3ENLEE_9VWXQAUW.md",
+        "zotero_II3ENLEE_9VWXQAUW.md",
+        "DiMauro_Fugazza_2022_Pan-Alpine_Glacier_Phenology.md",
+        "zotero_ZDVZRNH5_K7MDAA3B.md",
+        "zotero_6CPMF6KQ_VYHC2ZKM.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.5194/tc-19-3553-2025",
+      "expected_source": "zotero_ZDVZRNH5_K7MDAA3B.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_ZDVZRNH5_K7MDAA3B.md",
+        "zotero_ZDVZRNH5_K7MDAA3B.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.3389/feart.2017.00067",
+      "expected_source": "zotero_DPRUDUNV_8BVHCMLP.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_DPRUDUNV_8BVHCMLP.md",
+        "zotero_DPRUDUNV_8BVHCMLP.md",
+        "zotero_I52DGTJN_XVU38B8J.md",
+        "Menounos_Glaciers in Western Canada‐Conterminous US and.md",
+        "Bevington_2026_Smart_Stakes_Place_Glacier.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.1038/ismej.2012.107",
+      "expected_source": "zotero_77ACBJK7_4DAT4MXK.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_77ACBJK7_4DAT4MXK.md",
+        "zotero_77ACBJK7_4DAT4MXK.md",
+        "yallop_2012_Photophysiology and albedo-changing potential of the ice algal community on the surface of the Greenland ice sheet.md",
+        "Yallop_2012_Photophysiology and albedo-changing potential of the ice algal community on the surface of the Greenland ice sheet (2).md",
+        "Whicker_2022_SNICAR-ADv4 a physically based radiative transfer model to represent the spectral albedo of glacier ice.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.5194/essd-16-3913-2024",
+      "expected_source": "zotero_PEZTMRS4_QMAKB2KQ.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_PEZTMRS4_QMAKB2KQ.md",
+        "zotero_PEZTMRS4_QMAKB2KQ.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "doi_lexical",
+      "query": "10.1088/1748-9326/adeea9",
+      "expected_source": "zotero_K754TDKY_Y2UJCRGF.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_K754TDKY_Y2UJCRGF.md",
+        "zotero_K754TDKY_Y2UJCRGF.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Why environmental scientists are becoming Bayesians",
+      "expected_source": "zotero_SK5CWEPS_EE6I8XJ9.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_SK5CWEPS_EE6I8XJ9.md",
+        "zotero_SK5CWEPS_EE6I8XJ9.md",
+        "zotero_322D98CV_7XB5Y4YI.md",
+        "Gopalan_2023_Review_Bayesian_Modelling_Glaciology.md",
+        "Gopalan_2023_Review_Bayesian_Modelling_Glaciology.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Responses of wildfire-induced global black carbon pollution and radiative forcing to climate change",
+      "expected_source": "zotero_3NY49762_BKYEAH3V.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_3NY49762_BKYEAH3V.md",
+        "zotero_3NY49762_BKYEAH3V.md",
+        "zotero_XWGKR8ZF_CRYXM4TN.md",
+        "Chelluboyina_2025_Dark brown carbon from wildfires a potent snow radiative forc.md",
+        "zotero_ACPE8JD3_ALZ6JQDI.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Development of aerosol optical properties for improving the MESSy photolysis module in the GEM-MACH v2.4 air quality model and application for calculating photolysis rates in a biomass burning plume",
+      "expected_source": "zotero_TD9L8NLH_DN3YVSNV.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_TD9L8NLH_DN3YVSNV.md",
+        "zotero_TD9L8NLH_DN3YVSNV.md",
+        "zotero_GCJTCTF5_RL49CAL5.md",
+        "zotero_97WLWT2I_M77WNSTM.md",
+        "zotero_GCJTCTF5_RL49CAL5.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Mapping Surface Broadband Albedo from Satellite Observations: A Review of Literatures on Algorithms and Products",
+      "expected_source": "zotero_H3GFZV3I_REJ67846.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_H3GFZV3I_REJ67846.md",
+        "zotero_H3GFZV3I_REJ67846.md",
+        "zotero_A7FQSSGC_GIYI9K8S.md",
+        "zotero_CKIKG748_QYUQGFEH.md",
+        "zotero_YR7SASXU_RGLSGSN2.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Contribution of glaciers to water, energy and food security in mountain regions: current perspectives and future priorities",
+      "expected_source": "zotero_8M8FEGE5_876WCW9Z.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_8M8FEGE5_876WCW9Z.md",
+        "zotero_8M8FEGE5_876WCW9Z.md",
+        "Clason et al. - 2022 - Contribution of glaciers to water, energy and food security in mountain regions current perspective.md",
+        "Clason et al. - 2022 - Contribution of glaciers to water, energy and food security in mountain regions current perspective.md",
+        "zotero_87G9YCM2_LU5M47RB.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Glacier melt: a review of processes and their modelling",
+      "expected_source": "zotero_RX3ZZLIN_J7YDQWTF.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_RX3ZZLIN_J7YDQWTF.md",
+        "Sauter_2026_Glacier_Atmosphere_Interactions_Feedbacks_High_Mountain_Regions.md",
+        "Ayala_2015_Modeling_2m_Air_Temperature_Glaciers.md",
+        "zotero_RX3ZZLIN_J7YDQWTF.md",
+        "Gunnarsson_2023_Modeling of surface energy balance for Icelandic glaciers using remote-sensing albedo.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Estimation of Shortwave Solar Radiation on Clear-Sky Days for a Valley Glacier with Sentinel-2 Time Series",
+      "expected_source": "zotero_5YIZG7DN_G4HT2JJI.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_5YIZG7DN_G4HT2JJI.md",
+        "zotero_5YIZG7DN_G4HT2JJI.md",
+        "Ren_et_al_2021_Anisotropy Parameterization Development and Evaluation for Glacier Surface Albedo Retrieval from Satellite Observations.md",
+        "zotero_A7FQSSGC_GIYI9K8S.md",
+        "Ren_et_al_2021_Anisotropy Parameterization Development and Evaluation for Glacier Surface Albedo Retrieval from Satellite Observations.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Snowfall Variability Dictates Glacier Mass Balance Variability in Himalaya-Karakoram",
+      "expected_source": "zotero_GKVSUPAC_S3ZCBURI.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_GKVSUPAC_S3ZCBURI.md",
+        "zotero_GKVSUPAC_S3ZCBURI.md",
+        "zotero_TCLRQNLQ_SR3YR6A8.md",
+        "zotero_standalone_CR7N3FDA.md",
+        "zotero_TCLRQNLQ_SR3YR6A8.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "NOAA’s HYSPLIT Atmospheric Transport and Dispersion Modeling System",
+      "expected_source": "zotero_LFP72FRH_J7LHMZ3I.md",
+      "rank": 2,
+      "returned_sources": [
+        "zotero_K8W53I47_ZY3SVD5U.md",
+        "zotero_LFP72FRH_J7LHMZ3I.md",
+        "zotero_K8W53I47_ZY3SVD5U.md",
+        "zotero_LFP72FRH_J7LHMZ3I.md",
+        "Kinase_2025_Long-term observations of black carbon and carbon monoxide in the Poker Flat Research Range, central Alaska, with a focus on forest wildfire emissions.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Light-absorbing impurities in Arctic snow",
+      "expected_source": "zotero_AZ7URTVM_3VT2KVAX.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_AZ7URTVM_3VT2KVAX.md",
+        "Doherty_2010_Light-absorbing impurities in Arctic snow.md",
+        "warren_2019_Light-Absorbing_Impurities_in_Snow.md",
+        "warren_2019_Light-Absorbing_Impurities_in_Snow.md",
+        "Doherty_2010_Light-absorbing impurities in Arctic snow.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Simulation of Spectral Albedo and Bidirectional Reflectance over Snow-Covered Urban Canyon: Model Development and Factor Analysis",
+      "expected_source": "zotero_XU744J9I_7JRWEDR7.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_XU744J9I_7JRWEDR7.md",
+        "zotero_XU744J9I_7JRWEDR7.md",
+        "Chen_204_Simulation of Spectral Albedo and Bidirectional Reflectance.md",
+        "Chen_204_Simulation of Spectral Albedo and Bidirectional Reflectance.md",
+        "Flanner_et_al_2021_SNICAR-ADv3 a community tool for modeling spectral snow albedo.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Time series of alpine snow surface radiative-temperature maps from high-precision thermal-infrared imaging",
+      "expected_source": "zotero_PEZTMRS4_QMAKB2KQ.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_PEZTMRS4_QMAKB2KQ.md",
+        "zotero_PEZTMRS4_QMAKB2KQ.md",
+        "Sauter_2026_Glacier_Atmosphere_Interactions_Feedbacks_High_Mountain_Regions.md",
+        "Sauter_2026_Glacier_Atmosphere_Interactions_Feedbacks_High_Mountain_Regions.md",
+        "Nezamabad_2023_Glacier_Albedo_Temperature_Trends.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Global glacier albedo trends over 2000–2022: Drivers and implications",
+      "expected_source": "zotero_J4XDCYPB_HGRK9MIR.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_J4XDCYPB_HGRK9MIR.md",
+        "zotero_J4XDCYPB_HGRK9MIR.md",
+        "zotero_J4XDCYPB_PJ53D749.md",
+        "zotero_J4XDCYPB_PJ53D749.md",
+        "zotero_HC2BSEJS_RYDNHZLY.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Multi-Year (2013–2016) PM2.5 Wildfire Pollution Exposure over North America as Determined from Operational Air Quality Forecasts",
+      "expected_source": "zotero_P44XWRU6_8WDHBNW4.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_P44XWRU6_8WDHBNW4.md",
+        "zotero_P44XWRU6_8WDHBNW4.md",
+        "Munoz-Alpizar et al. - 2017 - Multi-Year (2013–2016) PM2.5 Wildfire Pollution Exposure over North America as Determined from Opera.md",
+        "zotero_LKIVXT6S_2DDR8JUQ.md",
+        "Munoz-Alpizar et al. - 2017 - Multi-Year (2013–2016) PM2.5 Wildfire Pollution Exposure over North America as Determined from Opera.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_lexical",
+      "query": "Remote sensing of ice albedo using harmonized Landsat and Sentinel 2 datasets: validation",
+      "expected_source": "zotero_Q2Q7C96N_HXRFYYT6.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_Q2Q7C96N_HXRFYYT6.md",
+        "zotero_Q2Q7C96N_4NWEQ5DI.md",
+        "zotero_Q2Q7C96N_4NWEQ5DI.md",
+        "zotero_Q2Q7C96N_HXRFYYT6.md",
+        "Bevington_2026_Smart_Stakes_Place_Glacier.md"
+      ],
+      "retrieval_mode": "lexical",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Why environmental scientists are becoming Bayesians",
+      "expected_source": "zotero_SK5CWEPS_EE6I8XJ9.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_SK5CWEPS_EE6I8XJ9.md",
+        "zotero_SK5CWEPS_EE6I8XJ9.md",
+        "zotero_322D98CV_7XB5Y4YI.md",
+        "zotero_322D98CV_7XB5Y4YI.md",
+        "Gopalan_2023_Review_Bayesian_Modelling_Glaciology.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Responses of wildfire-induced global black carbon pollution and radiative forcing to climate change",
+      "expected_source": "zotero_3NY49762_BKYEAH3V.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_3NY49762_BKYEAH3V.md",
+        "zotero_3NY49762_BKYEAH3V.md",
+        "Xu_2026_Strong_Global_Radiative_Effects_Wildfire_Dark_Brown_Carbon.md",
+        "Xu_2026_Strong_Global_Radiative_Effects_Wildfire_Dark_Brown_Carbon.md",
+        "Veira_2015_Fire emission heights in the climate system – Part 2 Impact on transport, Black Carbon concentrations and radiation.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Development of aerosol optical properties for improving the MESSy photolysis module in the GEM-MACH v2.4 air quality model and application for calculating photolysis rates in a biomass burning plume",
+      "expected_source": "zotero_TD9L8NLH_DN3YVSNV.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_TD9L8NLH_DN3YVSNV.md",
+        "zotero_TD9L8NLH_DN3YVSNV.md",
+        "zotero_GCJTCTF5_RL49CAL5.md",
+        "zotero_97WLWT2I_M77WNSTM.md",
+        "zotero_GCJTCTF5_RL49CAL5.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Mapping Surface Broadband Albedo from Satellite Observations: A Review of Literatures on Algorithms and Products",
+      "expected_source": "zotero_H3GFZV3I_REJ67846.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_H3GFZV3I_REJ67846.md",
+        "zotero_H3GFZV3I_REJ67846.md",
+        "zotero_ZSMTGGWU_65PQZVRF.md",
+        "Sánchez-Zapero et al. - 2023 - Global estimates of surface albedo from Sentinel-3 OLCI and SLSTR data for Copernicus Climate Change.md",
+        "zotero_ZSMTGGWU_65PQZVRF.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Contribution of glaciers to water, energy and food security in mountain regions: current perspectives and future priorities",
+      "expected_source": "zotero_8M8FEGE5_876WCW9Z.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_8M8FEGE5_876WCW9Z.md",
+        "zotero_8M8FEGE5_876WCW9Z.md",
+        "Clason et al. - 2022 - Contribution of glaciers to water, energy and food security in mountain regions current perspective.md",
+        "Clason et al. - 2022 - Contribution of glaciers to water, energy and food security in mountain regions current perspective.md",
+        "zotero_ZVVGHSVC_9VUQ69HH.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Glacier melt: a review of processes and their modelling",
+      "expected_source": "zotero_RX3ZZLIN_J7YDQWTF.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_RX3ZZLIN_J7YDQWTF.md",
+        "zotero_RX3ZZLIN_J7YDQWTF.md",
+        "Sauter_2026_Glacier_Atmosphere_Interactions_Feedbacks_High_Mountain_Regions.md",
+        "Ayala_2015_Modeling_2m_Air_Temperature_Glaciers.md",
+        "zotero_WZQMHN8L_422VGY2F.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Estimation of Shortwave Solar Radiation on Clear-Sky Days for a Valley Glacier with Sentinel-2 Time Series",
+      "expected_source": "zotero_5YIZG7DN_G4HT2JJI.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_5YIZG7DN_G4HT2JJI.md",
+        "zotero_5YIZG7DN_G4HT2JJI.md",
+        "zotero_3YVV8D9E_I2FFD899.md",
+        "Marshall, S. J. (2014). Meltwater run-off from Haig Glacier, Canadian Rocky Mountains, 2002-2013.md",
+        "Marshall, S. J. (2014). Meltwater run-off from Haig Glacier, Canadian Rocky Mountains, 2002-2013.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Snowfall Variability Dictates Glacier Mass Balance Variability in Himalaya-Karakoram",
+      "expected_source": "zotero_GKVSUPAC_S3ZCBURI.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_GKVSUPAC_S3ZCBURI.md",
+        "zotero_GKVSUPAC_S3ZCBURI.md",
+        "Sauter_2026_Glacier_Atmosphere_Interactions_Feedbacks_High_Mountain_Regions.md",
+        "Sauter_2026_Glacier_Atmosphere_Interactions_Feedbacks_High_Mountain_Regions.md",
+        "Muhammad_2020_An improved Terra-Aqua MODIS snow cover and Randolph Glacier Inventory 6.0 combined product (MOYDGL06) for high-mountain Asia between 2002 and 2018.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "NOAA’s HYSPLIT Atmospheric Transport and Dispersion Modeling System",
+      "expected_source": "zotero_LFP72FRH_J7LHMZ3I.md",
+      "rank": 2,
+      "returned_sources": [
+        "zotero_K8W53I47_ZY3SVD5U.md",
+        "zotero_LFP72FRH_J7LHMZ3I.md",
+        "zotero_K8W53I47_ZY3SVD5U.md",
+        "zotero_LFP72FRH_J7LHMZ3I.md",
+        "Kinase_2025_Long-term observations of black carbon and carbon monoxide in the Poker Flat Research Range, central Alaska, with a focus on forest wildfire emissions.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Light-absorbing impurities in Arctic snow",
+      "expected_source": "zotero_AZ7URTVM_3VT2KVAX.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_AZ7URTVM_3VT2KVAX.md",
+        "Doherty_2010_Light-absorbing impurities in Arctic snow.md",
+        "zotero_AZ7URTVM_3VT2KVAX.md",
+        "Doherty_2010_Light-absorbing impurities in Arctic snow.md",
+        "warren_2019_Light-Absorbing_Impurities_in_Snow.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Simulation of Spectral Albedo and Bidirectional Reflectance over Snow-Covered Urban Canyon: Model Development and Factor Analysis",
+      "expected_source": "zotero_XU744J9I_7JRWEDR7.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_XU744J9I_7JRWEDR7.md",
+        "zotero_XU744J9I_7JRWEDR7.md",
+        "Chen_204_Simulation of Spectral Albedo and Bidirectional Reflectance.md",
+        "Chen_204_Simulation of Spectral Albedo and Bidirectional Reflectance.md",
+        "Robledano_2023_Unraveling the optical shape of snow.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Time series of alpine snow surface radiative-temperature maps from high-precision thermal-infrared imaging",
+      "expected_source": "zotero_PEZTMRS4_QMAKB2KQ.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_PEZTMRS4_QMAKB2KQ.md",
+        "zotero_PEZTMRS4_QMAKB2KQ.md",
+        "Sauter_2026_Glacier_Atmosphere_Interactions_Feedbacks_High_Mountain_Regions.md",
+        "Sauter_2026_Glacier_Atmosphere_Interactions_Feedbacks_High_Mountain_Regions.md",
+        "Bevington_2026_Smart_Stakes_Place_Glacier.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Global glacier albedo trends over 2000–2022: Drivers and implications",
+      "expected_source": "zotero_J4XDCYPB_HGRK9MIR.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_J4XDCYPB_HGRK9MIR.md",
+        "zotero_J4XDCYPB_PJ53D749.md",
+        "zotero_J4XDCYPB_HGRK9MIR.md",
+        "zotero_J4XDCYPB_PJ53D749.md",
+        "zotero_HC2BSEJS_RYDNHZLY.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Multi-Year (2013–2016) PM2.5 Wildfire Pollution Exposure over North America as Determined from Operational Air Quality Forecasts",
+      "expected_source": "zotero_P44XWRU6_8WDHBNW4.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_P44XWRU6_8WDHBNW4.md",
+        "zotero_P44XWRU6_8WDHBNW4.md",
+        "Munoz-Alpizar et al. - 2017 - Multi-Year (2013–2016) PM2.5 Wildfire Pollution Exposure over North America as Determined from Opera.md",
+        "Munoz-Alpizar et al. - 2017 - Multi-Year (2013–2016) PM2.5 Wildfire Pollution Exposure over North America as Determined from Opera.md",
+        "Griffin_2020_The 2018 fire season in North America as seen by TROPOMI aerosol layer height intercomparisons and evaluation of model-derived plume heights.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    },
+    {
+      "kind": "title_semantic",
+      "query": "Remote sensing of ice albedo using harmonized Landsat and Sentinel 2 datasets: validation",
+      "expected_source": "zotero_Q2Q7C96N_HXRFYYT6.md",
+      "rank": 1,
+      "returned_sources": [
+        "zotero_Q2Q7C96N_HXRFYYT6.md",
+        "zotero_Q2Q7C96N_4NWEQ5DI.md",
+        "zotero_Q2Q7C96N_HXRFYYT6.md",
+        "zotero_Q2Q7C96N_4NWEQ5DI.md",
+        "zotero_standalone_CR7N3FDA.md"
+      ],
+      "retrieval_mode": "semantic",
+      "reranking": "cohere",
+      "warnings": []
+    }
+  ]
+}

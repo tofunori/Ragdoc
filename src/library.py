@@ -32,11 +32,17 @@ def read_sidecar(path: Path) -> dict:
     spans = data.get("page_spans", [])
     if not isinstance(spans, list):
         raise ValueError("page_spans must be a list")
+    previous_end = -1
+    previous_page = 0
     for span in spans:
         if not isinstance(span, dict) or any(type(span.get(k)) is not int for k in ("start", "end", "page")):
             raise ValueError("Page spans require integer start, end and page")
         if not 0 <= span["start"] < span["end"] or span["page"] < 1:
             raise ValueError("Invalid page span")
+        if span["start"] < previous_end or span["page"] < previous_page:
+            raise ValueError("Page spans must be ordered and non-overlapping")
+        previous_end = span["end"]
+        previous_page = span["page"]
     return data
 
 
@@ -96,7 +102,8 @@ class Library:
 def document_metadata(path: Path, content: str, sidecar: dict) -> dict:
     """Only supplied bibliography is treated as known; a filename is not a title."""
     bibliographic = {k: sidecar[k] for k in
-                     ("title", "authors", "year", "doi", "version", "source_pdf", "collection") if k in sidecar}
+                     ("title", "authors", "year", "doi", "version", "source_pdf", "collection",
+                      "zotero_item_key", "zotero_attachment_key") if k in sidecar}
     metadata = {
         "document_id": sha256("source:" + path.name),
         "canonical_sha256": sha256(content),

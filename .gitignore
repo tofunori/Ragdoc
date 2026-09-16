@@ -8,6 +8,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.build/
 
 # Temporary indexation files
 .indexing.lock
@@ -80,7 +81,11 @@ config/*.local.yaml
 ragdoc-env/
 ragdoc-env-new/
 .venv/
+.venv-audit-backup/
 ragdoc_library/
 
 # MCP runtime
 run-mcp.sh
+
+# Local diagnostic output unrelated to Ragdoc releases
+outputs/mac-file-detective/
