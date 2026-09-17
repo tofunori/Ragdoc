@@ -1,395 +1,136 @@
-# RAGDOC - Semantic RAG System for Scientific Literature
+# Ragdoc + Ragdrop
 
-**Advanced Retrieval-Augmented Generation system with contextualized embeddings, smart batching, and reranking for scientific research papers.**
+**Search your own scientific papers from Claude, Codex or another MCP-compatible assistant.**
 
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![ChromaDB](https://img.shields.io/badge/vectordb-ChromaDB-orange.svg)](https://www.trychroma.com/)
-[![Voyage AI](https://img.shields.io/badge/embeddings-Voyage%20Context%203-green.svg)](https://www.voyageai.com/)
-[![Cohere](https://img.shields.io/badge/reranking-Cohere%20v3.5-purple.svg)](https://cohere.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**Ragdoc** is a server for the **Model Context Protocol (MCP)**, a standard way for
+assistants to call external tools. Once connected, your assistant can use Ragdoc to
+search the articles in your personal literature library, read their content and
+retrieve supporting passages with source context and provenance information.
 
-A production-ready Model Context Protocol (MCP) server with a fully **Contextualized** pipeline for academic research, optimized for scientific literature retrieval.
+**Ragdrop** is the companion macOS application that prepares that library: import
+PDFs from Finder or Zotero, compare extracted text with the original, then approve
+documents for indexing. Ragdoc searches the articles you have added to this library;
+you ask questions through your connected assistant.
 
-Scientific reliability updates: canonical versioned document reads, structured
-evidence/citation tools, recoverable index writes, explicit search fallbacks and an
-annotation-gated evaluation workflow. Read the [migration and validation guide](docs/SCIENTIFIC_RELIABILITY.md)
-before upgrading an existing library. Production retrieval quality has not been
-measured by the new draft benchmark.
+For example: “Which papers in my library compare field measurements with satellite
+estimates?” Then: “Show me the source passages describing their limitations.”
+Traceable passages help you check an answer; they do not guarantee scientific accuracy.
 
-> Note: The legacy “hybrid mode” (Voyage-3-large embeddings) has been removed. All search paths now use contextualized embeddings + BM25 fusion; function names are preserved for compatibility.
+![Ragdrop in light mode: PDF and Zotero import actions above a synthetic example library](docs/assets/ragdrop/home-light.png)
 
-## 🚀 Key Features
+*Actual Ragdrop interface, shown with original synthetic examples. The current app
+uses French labels. The demonstration controls along the bottom are not part of
+the normal app.*
 
--   **Contextualized Search (v1.7.0)**: Powered by **Voyage-Context-3** (32k context window) for superior understanding of document structure.
--   **Smart Batching**: Robust handling of massive documents (700k+ tokens) with automatic batching and timeout management.
--   **Professional TUI**: New `ragdoc-menu.py` interface with arrow navigation and real-time indexing feedback.
--   **Evaluation System**: Comprehensive RAG metrics (Recall, Precision, MRR, NDCG) with automated benchmarking.
--   **Cohere Reranking**: v3.5 for intelligent result ranking.
--   **MCP Integration**: Native integration with Claude Desktop and compatible applications.
--   **Incremental Indexing**: MD5-based change detection for efficient updates.
+## What you can do
 
-## 📋 Table of Contents
+- **Bring in PDFs from Finder or Zotero.** Queue several articles and detect
+  duplicates using PDF fingerprints.
+- **Review before indexing.** Compare the original PDF with rendered extraction,
+  Markdown source, and extracted tables or figures. Follow page links when the
+  conversion provides matching locators.
+- **Keep track of each article.** Conversion, human review, transfer, indexing and
+  verification remain distinct; failures and pending decisions stay visible.
+- **Search beyond exact wording.** Ragdoc combines lexical and vector retrieval,
+  with optional reranking, source filters and structured evidence results.
+- **Read the supporting context.** Retrieve passages and canonical document
+  snapshots with version hashes and provenance coverage rather than relying on a
+  search snippet alone.
 
--   [Installation](#installation)
--   [Configuration](#configuration)
--   [Usage](#usage)
--   [Evaluation & Quality Metrics](#evaluation--quality-metrics)
--   [Architecture](#architecture)
--   [Troubleshooting](#troubleshooting)
--   [Performance](#performance)
--   [Contributing](#contributing)
+## See the workflow
 
-## 🛠️ Installation
+![Ragdrop review in light mode: original synthetic PDF alongside rendered extraction and an approval button](docs/assets/ragdrop/review-light.png)
 
-### Prerequisites
+*Human review is a separate step. Approval makes an extraction eligible for
+indexing; successful indexing does not certify its scientific accuracy.*
 
--   Python 3.10 or higher
--   API Keys: Voyage AI, Cohere (optional)
--   4GB+ RAM recommended
+<details>
+<summary>Dark appearance</summary>
 
-### Quick Install (Windows/macOS/Linux)
+![Ragdrop home in dark mode with the same synthetic example library](docs/assets/ragdrop/home-dark.png)
 
-```bash
-# 1. Clone the repository
-git clone https://github.com/tofunori/Ragdoc.git
-cd Ragdoc
+![Ragdrop review in dark mode; the original PDF retains its white page](docs/assets/ragdrop/review-dark.png)
 
-# 2. Create virtual environment
-python -m venv ragdoc-env
+</details>
 
-# Windows
-ragdoc-env\Scripts\activate
-# macOS/Linux
-source ragdoc-env/bin/activate
+Ragdrop offers **light, dark and system** appearance under **Réglages → Apparence**.
+See [screenshot provenance and reproduction](docs/assets/ragdrop/README.md).
 
-# 3. Install dependencies
-pip install -r requirements.txt
+**Prepare your library with Ragdrop**
 
-# 4. Configure API keys (see Configuration section)
+```mermaid
+flowchart LR
+    A[PDF / Zotero] --> B[OCR conversion]
+    B --> C[Human review in Ragdrop]
+    C -->|Approve and add| D[Your indexed article library]
 ```
 
-### Detailed Installation
+**Search it from your assistant**
 
-#### Windows (PowerShell)
-```powershell
-# Create virtual environment
-python -m venv ragdoc-env
-.\ragdoc-env\Scripts\Activate.ps1
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set environment variables
-$env:VOYAGE_API_KEY = "your_voyage_api_key"
-$env:COHERE_API_KEY = "your_cohere_api_key"
+```mermaid
+flowchart LR
+    A[Claude / Codex / compatible client] -->|MCP request| B[Ragdoc server]
+    B -->|Search and read| C[Your indexed article library]
+    C -->|Passages and provenance| B
+    B -->|MCP results| A
 ```
 
-#### macOS/Linux (bash/zsh)
-```bash
-# Create virtual environment
-python3 -m venv ragdoc-env
-source ragdoc-env/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set environment variables
-export VOYAGE_API_KEY="your_voyage_api_key"
-export COHERE_API_KEY="your_cohere_api_key"
-```
-
-#### Alternative: .env File
-Create a `.env` file in the project root (copy from `.env.example`):
-```env
-VOYAGE_API_KEY=your_voyage_api_key
-COHERE_API_KEY=your_cohere_api_key
-```
-
-## ⚙️ Configuration
-
-### Required API Keys
-
-1.  **Voyage AI** (required)
-    -   Sign up: https://voyageai.com/
-    -   Model used: **voyage-context-3** (32k context)
-    -   Cost: ~$0.06 per 1M tokens (Contextualized)
-
-2.  **Cohere** (optional, for reranking)
-    -   Sign up: https://cohere.com/
-    -   Model used: rerank-v3.5
-    -   Free tier available
-
-### Claude Desktop Setup
-
-1.  Install Claude Desktop: https://claude.ai/download
-2.  Configure MCP server in Claude settings:
-
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "ragdoc": {
-      "command": "python",
-      "args": ["src/server.py"],
-      "cwd": "/path/to/Ragdoc"
-    }
-  }
-}
-```
-
-### YAML Configuration
-
-Configuration files are located in `config/`:
-
--   `models.yaml` - Embedding and reranking models
--   `chunking.yaml` - Chunking pipeline settings
--   `database.yaml` - ChromaDB and HNSW parameters
-
-See `config/README.md` for detailed documentation.
-
-## 🎯 Usage
-
-### Via Claude Desktop
-
-Once configured, use directly in Claude conversations:
-
-```
-Search for information about glacier albedo
-Find articles about ice mass measurement techniques
-What are the remote sensing methods for albedo analysis?
-```
-
-### Available MCP Tools
-
-#### Search Tools
--   `semantic_search_hybrid(query, top_k=10, alpha=0.5)` - Contextualized search (BM25 + contextualized embeddings) with reranking
--   `search_by_source(query, sources, top_k=10, alpha=0.5)` - Search limited to specific documents
-
-#### Document Management Tools
--   `list_documents()` - List all indexed documents
--   `get_document_content(source, format="markdown", max_length=None)` - Retrieve complete document content
--   `get_chunk_with_context(chunk_id, context_size=2, highlight=True)` - Show chunk with surrounding context
-
-#### Database Tools
--   `get_indexation_status()` - Database statistics
-
-### Tool Examples
-
-#### Search and Discovery
-```python
-# Contextualized search (BM25 + contextualized embeddings) - alpha=0.5 is balanced fusion (default)
-semantic_search_hybrid("black carbon impact on glacier albedo", top_k=10, alpha=0.5)
-
-# Adjust semantic/lexical weight (alpha=0.5 = equal weight)
-semantic_search_hybrid("remote sensing albedo measurement", alpha=0.5)
-
-# Search in specific documents only
-search_by_source("glacier albedo", sources=["1982_RGSP.md"])
-search_by_source("ice mass balance", sources=["Warren_1982.md", "Painter_2009.md"], top_k=5)
-
-# Get document list
-list_documents()
-```
-
-#### Document Reading
-```python
-# Read complete document in markdown format
-get_document_content("1982_RGSP.md", format="markdown")
-
-# Read document as plain text with length limit
-get_document_content("1982_RGSP.md", format="text", max_length=5000)
-
-# View document as individual chunks with metadata
-get_document_content("1982_RGSP.md", format="chunks")
-```
-
-#### Context Exploration
-```python
-# Show chunk with 2 surrounding chunks on each side (default)
-get_chunk_with_context("1982_RGSP_chunk_042", context_size=2, highlight=True)
-
-# Show more context (5 chunks before and after)
-get_chunk_with_context("1982_RGSP_chunk_042", context_size=5)
-
-# Show context without highlighting
-get_chunk_with_context("1982_RGSP_chunk_042", context_size=3, highlight=False)
-```
-
-#### Database Management
-```python
-# Get database statistics
-get_indexation_status()
-```
-
-### Evaluation & Quality Metrics
-
-RAGDOC includes a comprehensive evaluation system to measure and optimize retrieval quality:
-
-```bash
-# Quick Start: Generate test dataset and evaluate
-python scripts/generate_test_dataset.py --n_queries 30
-python tests/evaluate_ragdoc.py
-
-# View results
-cat tests/results/evaluation_report_latest.md
-```
-
-**Metrics Measured:**
--   **Recall@K**: What % of relevant documents are found in top-K results?
--   **Precision@K**: What % of top-K results are relevant?
--   **MRR (Mean Reciprocal Rank)**: How early does first relevant result appear?
--   **NDCG@K**: How well are results ranked?
-
-**Typical RAGDOC Performance:**
--   Recall@10: **96-97%** (Outstanding)
--   MRR: **91-92%** (First result usually relevant)
--   NDCG@10: **92-93%** (Excellent ranking quality)
-
-**Configuration Tuning:**
-```bash
-# Test different alpha values (BM25 vs Semantic weight)
-python tests/evaluate_ragdoc.py --alpha 0.3 0.5 0.7 1.0
-
-# Custom dataset
-python tests/evaluate_ragdoc.py --dataset tests/test_datasets/my_queries.json
-```
-
-**Output Files:**
--   `evaluation_report_latest.md` - Comparison report
--   `evaluation_detailed_latest.json` - Full results
--   `evaluation_aggregate_latest.csv` - Metrics table
-
-See [docs/EVALUATION_GUIDE.md](docs/EVALUATION_GUIDE.md) for complete documentation.
-
-### Indexing Your Documents
-
-```bash
-# 1. Add markdown files to articles_markdown/
-cp your_paper.md articles_markdown/
-
-# 2. Run the Menu
-python ragdoc-menu.py
-# Select "Indexation Incrémentale"
-```
-
-## 🏗️ Architecture
-
-### Contextualized Search Pipeline (v1.7.0)
-
-```
-Query
-  ↓
-┌─────────────────────────────┐
-│ BM25 Search (rank-bm25)     │ → Top 100 candidates (lexical)
-│ Voyage-Context-3 Semantic   │ → Top 100 candidates (semantic)
-└─────────────────────────────┘
-  ↓
-┌─────────────────────────────┐
-│ Reciprocal Rank Fusion      │ → Top 50 merged results
-│ (Weighted RRF)              │
-└─────────────────────────────┘
-  ↓
-┌─────────────────────────────┐
-│ Cohere v3.5 Reranking       │ → Top 10 final results
-└─────────────────────────────┘
-  ↓
-┌─────────────────────────────┐
-│ Context Window Expansion    │ → Results with adjacent chunks
-└─────────────────────────────┘
-```
-
-### Technologies Used
-
--   **rank-bm25**: BM25 Okapi for lexical search
--   **Voyage AI**: **voyage-context-3** embeddings (1024 dimensions, 32k context)
--   **ChromaDB 0.5.0+**: HNSW-optimized vector database
--   **Cohere v3.5**: Intelligent result reranking
--   **FastMCP**: High-performance MCP server
--   **Rich & Questionary**: Professional TUI
-
-### Document Database
-
--   **100+ research papers** on glaciology and climate science
--   **24,884+ chunks** with contextualized indexing
--   **Rich metadata** (source, chunk_index, total_chunks, doc_hash, indexed_date)
--   **Continuous updates** with incremental indexing
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### API Keys Not Found
-```
-ERROR: VOYAGE_API_KEY not found
-```
-**Solution**: Check environment variables or `.env` file configuration
-
-#### Import Error
-```
-ModuleNotFoundError: No module named 'fastmcp'
-```
-**Solution**: Reactivate virtual environment and reinstall:
-```bash
-source ragdoc-env/bin/activate  # macOS/Linux
-# or
-.\ragdoc-env\Scripts\activate   # Windows
-pip install -r requirements.txt
-```
-
-#### Empty Database
-```
-Collection empty or not found
-```
-**Solution**: Run indexation:
-```bash
-python ragdoc-menu.py
-```
-
-#### Slow Performance
--   Check internet connection (Voyage AI embeddings require API calls)
--   Enable GPU if available (CUDA)
--   Reduce number of results in searches
--   Use local ChromaDB server for faster access
-
-### Technical Support
-
--   **Logs**: Check console output for detailed errors
--   **Status**: Use `get_indexation_status()` for diagnostics
--   **Reset**: Delete `chroma_db_new/` and reindex if necessary
-
-## 📈 Performance
-
-### Benchmarks (v1.7.0)
-
--   **Search**: 2-3s for contextualized + BM25 fusion + reranking (10 results)
--   **Indexing**: ~2min/document with contextualized embeddings
--   **Retrieval**: ~25k chunks indexed and validated
-
-## 🤝 Contributing
-
-Contributions are welcome! To contribute:
-
-1.  Fork the project
-2.  Create a feature branch
-3.  Add your documents to `articles_markdown/`
-4.  Run indexation: `python ragdoc-menu.py`
-5.  Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
--   Built with [Chonkie](https://github.com/bhavnicksm/chonkie) for advanced chunking
--   Powered by [Voyage AI](https://voyageai.com/) embeddings
--   Enhanced with [Cohere](https://cohere.com/) reranking
--   Integrated with [Claude Desktop](https://claude.ai/) via MCP
-
----
-
-**Developed for the scientific research community** 🔬
-
-For questions or issues, please open an issue on GitHub.
+## Try it
+
+| Your goal | Start here |
+|---|---|
+| Explore the macOS interface without a backend or API keys | [Build the isolated synthetic demo](Ragdrop/README.md#try-the-interface) |
+| Build Ragdrop and connect your own backend | [macOS application guide](Ragdrop/README.md) |
+| Run the search backend or connect an MCP client | [Backend installation](INSTALLATION.md) |
+| Understand provenance, migration and evaluation | [Scientific reliability guide](docs/SCIENTIFIC_RELIABILITY.md) |
+
+**This is currently a source-build project, not a one-click installation.** Ragdrop
+requires macOS 14 or later and Swift 6.2 to build. Real imports need a configured
+SSH-accessible Linux backend and an OCR service credential. Build from source; a notarized macOS download is not available yet. The demo works without those services.
+
+## What runs where
+
+Ragdrop reads local PDFs and the Zotero Desktop local API. Mistral OCR is the default
+converter; MinerU is an alternative. These converters upload selected PDFs to their
+respective services **before** the human review step. Approved Markdown, metadata
+and visual artifacts are transferred to your backend over SSH.
+
+Ragdoc stores Chroma vectors, a SQLite FTS5 lexical index and versioned Markdown
+snapshots on your infrastructure. Voyage AI receives document text during embedding
+and queries during semantic search. Cohere, when configured, receives the query and
+candidate passages for reranking. Your MCP client receives the retrieved content;
+its own model and data handling are separate from Ragdoc.
+
+Lexical retrieval and canonical reads can run locally once the library is indexed.
+With `alpha=0`, search skips Voyage; to avoid reranking API calls, leave Cohere
+unconfigured too. Building a new vector index uses Voyage. Model identifiers and
+configuration are described in the [backend guide](INSTALLATION.md#configuration).
+Storage and indexes stay on your infrastructure; OCR, embeddings and optional
+reranking use the services listed above.
+
+## Trust and limitations
+
+- OCR can lose or misread equations, table structure, units and reading order.
+  Check the PDF before relying on extracted content.
+- An exact match to a canonical snapshot establishes textual provenance, not
+  scientific truth or correct OCR. PDF page links depend on available, verified
+  locator coverage and may be missing.
+- Search scores rank candidates; they are not confidence probabilities. No result
+  does not establish that evidence is absent from the literature.
+- Evaluation tooling separates human-reviewed judgments from provisional assistant
+  diagnostics. Current diagnostics do not establish a general retrieval-quality
+  score. See the
+  [evaluation requirements](docs/SCIENTIFIC_RELIABILITY.md#evaluation).
+- Back up source Markdown, canonical snapshots and the index before migration.
+  Index replacement has recovery checks, but is not a database-wide transaction.
+
+## Development and contributions
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for offline checks and contribution scope.
+Useful next steps include simpler backend onboarding, broader extraction tests,
+accessibility, and language support. Use original synthetic documents in issues
+and tests; do not commit articles, personal libraries, credentials or generated
+indexes.
+
+[MIT license](LICENSE). Service credentials and any rights needed to process your
+own documents remain your responsibility.

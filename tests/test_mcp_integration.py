@@ -31,7 +31,7 @@ def test_mcp_tools():
     print("TEST 1/5: get_indexation_status()")
     print("=" * 80)
     try:
-        result = server.get_indexation_status.fn()
+        result = server.get_indexation_status()
         # Show first 500 chars
         print(result[:500])
         if "ERROR" in result:
@@ -46,7 +46,7 @@ def test_mcp_tools():
     print("TEST 2/5: list_documents()")
     print("=" * 80)
     try:
-        result = server.list_documents.fn()
+        result = server.list_documents()
         # Show first 500 chars
         print(result[:500])
         if "ERROR" in result:
@@ -79,7 +79,7 @@ def test_new_tools(first_doc):
     print("=" * 80)
     try:
         print(f"\n[3.1] Testing with source='{first_doc}', format='markdown', max_length=800")
-        result = server.get_document_content.fn(source=first_doc, format="markdown", max_length=800)
+        result = server.get_document_content(source=first_doc, format="markdown", max_length=800)
         print(result)
         if "ERROR" in result:
             print("[FAIL] Test failed")
@@ -87,7 +87,7 @@ def test_new_tools(first_doc):
             print("[OK] Test passed")
 
         print(f"\n[3.2] Testing with format='text', max_length=500")
-        result = server.get_document_content.fn(source=first_doc, format="text", max_length=500)
+        result = server.get_document_content(source=first_doc, format="text", max_length=500)
         print(result[:500])
         if "ERROR" in result:
             print("[FAIL] Test failed")
@@ -95,7 +95,7 @@ def test_new_tools(first_doc):
             print("[OK] Test passed")
 
         print(f"\n[3.3] Testing error handling (non-existent document)")
-        result = server.get_document_content.fn(source="fake_document.md")
+        result = server.get_document_content(source="fake_document.md")
         print(result)
         if "ERROR" in result and "not found" in result:
             print("[OK] Test passed (error handled correctly)")
@@ -138,7 +138,7 @@ def test_new_tools(first_doc):
             print(f"Using first chunk: {test_chunk_id}")
 
         print(f"\n[4.2] Testing with chunk_id='{test_chunk_id}', context_size=2")
-        result = server.get_chunk_with_context.fn(chunk_id=test_chunk_id, context_size=2, highlight=True)
+        result = server.get_chunk_with_context(chunk_id=test_chunk_id, context_size=2, highlight=True)
         # Show first 1000 chars
         print(result[:1000])
         if "ERROR" in result:
@@ -147,7 +147,7 @@ def test_new_tools(first_doc):
             print("[OK] Test passed")
 
         print(f"\n[4.3] Testing with context_size=1, highlight=False")
-        result = server.get_chunk_with_context.fn(chunk_id=test_chunk_id, context_size=1, highlight=False)
+        result = server.get_chunk_with_context(chunk_id=test_chunk_id, context_size=1, highlight=False)
         print(result[:800])
         if "ERROR" in result:
             print("[FAIL] Test failed")
@@ -155,7 +155,7 @@ def test_new_tools(first_doc):
             print("[OK] Test passed")
 
         print(f"\n[4.4] Testing error handling (non-existent chunk)")
-        result = server.get_chunk_with_context.fn(chunk_id="fake_chunk_id_12345")
+        result = server.get_chunk_with_context(chunk_id="fake_chunk_id_12345")
         print(result)
         if "ERROR" in result and "not found" in result:
             print("[OK] Test passed (error handled correctly)")
@@ -173,7 +173,7 @@ def test_new_tools(first_doc):
     print("=" * 80)
     try:
         print("\n[5.1] Testing search with query='glacier albedo', top_k=3")
-        result = server.semantic_search_hybrid.fn(query="glacier albedo", top_k=3, alpha=0.7)
+        result = server.semantic_search_hybrid(query="glacier albedo", top_k=3, alpha=0.7)
         # Show first 1000 chars
         print(result[:1000])
         if "ERROR" in result:

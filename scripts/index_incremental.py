@@ -7,7 +7,7 @@ Fonctionnalités:
 - Détecte et réindexe les documents modifiés (hash MD5)
 - Skip les documents inchangés (économie API)
 - Évite toute duplication
-- Utilise EXCLUSIVEMENT voyage-context-3 pour une qualité optimale
+- Utilise le modèle contextualisé configuré dans RAGDOC_EMBEDDING_MODEL
 
 Usage:
     python index_incremental.py                  # Indexation normale
@@ -46,7 +46,7 @@ else:
 from dotenv import load_dotenv
 import chromadb
 import voyageai
-from chonkie import TokenChunker, SemanticChunker, OverlapRefinery
+from chonkie import TokenChunker
 
 # Charger configuration
 load_dotenv()
@@ -55,31 +55,34 @@ load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.config import (
     MARKDOWN_DIR, CHROMA_DB_PATH, COLLECTION_NAME, COLLECTION_CONTEXTUALIZED_METADATA,
-    CHONKIE_TOKENIZER, USE_CONTENT_HASH, TRACK_INDEXED_DATE, LIBRARY_PATH
+    CHONKIE_TOKENIZER, USE_CONTENT_HASH, TRACK_INDEXED_DATE, LIBRARY_PATH,
+    EMBEDDING_MODEL, LEXICAL_INDEX_PATH,
 )
 from src.library import Library, read_sidecar, document_metadata, locate_chunks
 from src.index_safety import replace_document, bump_revision, update_collection_state, IndexRepairRequired
 from src.chroma_reads import read_collection
+from src.chroma_connection import open_chroma_client
+from src.lexical_index import PersistentLexicalIndex
 
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 
 class HybridModelProcessor:
-    """Classe de gestion des embeddings - SIMPLIFIÉE pour Context-3 uniquement"""
+    """Classe de gestion des embeddings contextualisés."""
 
     def __init__(self, api_key: str):
         self.client = voyageai.Client(api_key=api_key)
-        self.model_name = "voyage-context-3"
+        self.model_name = EMBEDDING_MODEL
 
     def choose_strategy(self, num_chunks: int) -> dict:
-        """Stratégie unique : Context-3 pour tout le monde"""
+        """Stratégie contextualisée unique pour tout le monde."""
         return {
             "model": self.model_name,
             "method": "contextualized",
-            "reason": "Qualité optimale (Context-3)"
+            "reason": f"Embeddings contextualisés ({self.model_name})"
         }
 
     def process_contextualized(self, chunk_texts: List[str]) -> List[List[float]]:
-        """Traitement contextualized avec Voyage Context-3"""
+        """Traitement contextualisé avec le modèle Voyage configuré."""
         try:
             result = self.client.contextualized_embed(
                 inputs=[chunk_texts],
@@ -105,21 +108,6 @@ def compute_doc_hash(content: str) -> str:
 
 
 LockHandle = Optional[TextIO]
-
-
-def open_chroma_client(chromadb_module, db_path: Path, mode: str | None = None):
-    """Open the requested store without silently overriding an explicit local mode."""
-    resolved_mode = (mode or os.getenv("RAGDOC_CHROMA_MODE", "auto")).strip().lower()
-    if resolved_mode not in {"auto", "persistent"}:
-        raise RuntimeError("RAGDOC_CHROMA_MODE must be 'auto' or 'persistent'")
-    if resolved_mode == "persistent":
-        return chromadb_module.PersistentClient(path=str(db_path)), "persistent-forced"
-    try:
-        client = chromadb_module.HttpClient(host="localhost", port=8000)
-        client.heartbeat()
-        return client, "http"
-    except Exception:
-        return chromadb_module.PersistentClient(path=str(db_path)), "persistent-fallback"
 
 
 def acquire_lock(lock_file: Path) -> LockHandle:
@@ -166,7 +154,7 @@ def release_lock(lock_file: Path, lock_handle: LockHandle):
 def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk_objects):
     """
     Traitement des embeddings avec découpage intelligent pour les très gros documents.
-    Garantit que l'on reste sous la limite de 32k tokens de voyage-context-3.
+    Garantit que l'on reste sous la limite de 32k tokens du modèle contextualisé.
     """
     
     # Estimer les tokens totaux
@@ -186,13 +174,16 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
             )
             return result.results[0].embeddings
         except Exception as e:
-            raise RuntimeError("Voyage embedding request failed") from e
+            raise RuntimeError(
+                f"Voyage embedding request failed: {type(e).__name__}: {e}"
+            ) from e
     else:
         print(f"      ⚠️ GROS DOCUMENT ({len(chunk_texts)} chunks) -> Découpage en sections")
         all_embeddings = []
         
-        # Taille de lot réduite pour éviter les timeouts (10 chunks ~ 10k tokens)
-        BATCH_SIZE = 10
+        # 25 x 1024 tokens stays below the 30k safety budget while avoiding
+        # excessive round trips for books and long reports.
+        BATCH_SIZE = 25
         
         current_idx = 0
         while current_idx < len(chunk_texts):
@@ -219,7 +210,10 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
                 all_embeddings.extend(batch_embeddings)
                 
             except Exception as e:
-                raise RuntimeError(f"Voyage embedding batch {current_idx}-{end_idx} failed") from e
+                raise RuntimeError(
+                    f"Voyage embedding batch {current_idx}-{end_idx} failed: "
+                    f"{type(e).__name__}: {e}"
+                ) from e
             
             # Avancer
             current_idx = end_idx
@@ -227,8 +221,15 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
         return all_embeddings
 
 
+def remove_empty_chunks(chunks):
+    """Discard parser artifacts that contain no indexable text."""
+    return [chunk for chunk in chunks
+            if isinstance(getattr(chunk, "text", None), str) and chunk.text.strip()]
+
+
 def index_incremental(force_reindex: bool = False,
-                      delete_missing: bool = False) -> dict:
+                      delete_missing: bool = False,
+                      sources: Optional[List[str]] = None) -> dict:
     """Indexation incrémentale simplifiée."""
 
     if not VOYAGE_API_KEY:
@@ -243,7 +244,7 @@ def index_incremental(force_reindex: bool = False,
 
     try:
         print("\n" + "=" * 70)
-        print("INDEXATION RAGDOC - MODE CONTEXT-3 UNIFIE")
+        print(f"INDEXATION RAGDOC - {EMBEDDING_MODEL}")
         print("=" * 70)
 
         # Initialiser Voyage
@@ -265,8 +266,17 @@ def index_incremental(force_reindex: bool = False,
             name=COLLECTION_NAME,
             metadata=COLLECTION_CONTEXTUALIZED_METADATA
         )
+        collection_model = (collection.metadata or {}).get("embedding_model")
+        if collection_model != EMBEDDING_MODEL:
+            raise RuntimeError(
+                f"Embedding model mismatch: collection={collection_model!r}, "
+                f"configured={EMBEDDING_MODEL!r}. Refusing mixed-model writes."
+            )
+        initial_revision = (collection.metadata or {}).get("ragdoc_revision")
         repairing = ((collection.metadata or {}).get("ragdoc_write_state", "ready") != "ready"
                      or (collection.metadata or {}).get("ragdoc_repairing", False))
+        if repairing and sources:
+            raise RuntimeError("Targeted --source indexing is disabled while a global index repair is required")
         if repairing and not force_reindex:
             raise RuntimeError("Interrupted index write detected. Inspect ingestion status and repair with --force.")
         if repairing:
@@ -291,16 +301,29 @@ def index_incremental(force_reindex: bool = False,
 
         # Scanner les fichiers markdown
         print("\n[4/5] Scan du repertoire markdown...")
-        markdown_files = sorted(list(MARKDOWN_DIR.glob("*.md")))
-        print(f"   OK {len(markdown_files)} fichiers markdown trouves")
+        all_markdown_files = sorted(list(MARKDOWN_DIR.glob("*.md")))
+        markdown_files = all_markdown_files
+        if sources:
+            requested = set(sources)
+            available = {path.name for path in all_markdown_files}
+            missing = requested - available
+            if missing:
+                raise RuntimeError(f"Requested Markdown files missing: {', '.join(sorted(missing))}")
+            markdown_files = [path for path in all_markdown_files if path.name in requested]
+            print(f"   OK {len(markdown_files)} fichiers cibles sur {len(all_markdown_files)}")
+        else:
+            print(f"   OK {len(markdown_files)} fichiers markdown trouves")
         if not MARKDOWN_DIR.is_dir():
             raise RuntimeError("Markdown directory missing; refusing index cleanup")
-        if repairing and set(indexed_map) - {p.name for p in markdown_files} and not delete_missing:
+        if repairing and set(indexed_map) - {p.name for p in all_markdown_files} and not delete_missing:
             raise RuntimeError("Repair requires missing source files to be restored or explicit --delete-missing")
 
         # Identifier les documents manquants (optionnel)
+        changed_sources: set[str] = set()
         if delete_missing:
-            current_sources = {f.name for f in markdown_files}
+            if sources:
+                raise RuntimeError("--delete-missing cannot be combined with --source")
+            current_sources = {f.name for f in all_markdown_files}
             missing_sources = set(indexed_map.keys()) - current_sources
             if missing_sources:
                 print(f"\n   ATTENTION {len(missing_sources)} document(s) supprime(s) detecte(s)")
@@ -309,6 +332,7 @@ def index_incremental(force_reindex: bool = False,
                     bump_revision(collection, "writing")
                     collection.delete(ids=chunk_ids)
                     bump_revision(collection)
+                    changed_sources.add(source)
                     library.record(source, "removed")
                     print(f"      - Supprime: {source}")
                 del indexed_map
@@ -332,7 +356,7 @@ def index_incremental(force_reindex: bool = False,
             'total_chunks': 0
         }
 
-        # Configuration UNIFIÉE et OPTIMISÉE pour Context-3
+        # Configuration unifiée; stable across the Context 4 migration.
         # 1024 tokens = précision chirurgicale
         # Le modèle gère le contexte global, donc pas besoin de gros chunks
         CHUNK_SIZE_TOKENS = 1024
@@ -351,9 +375,13 @@ def index_incremental(force_reindex: bool = False,
                 status = "NEW"
                 if md_file.name in indexed_map:
                     old_meta = indexed_map[md_file.name].get('metadata', {})
+                    current_scientific_metadata = (
+                        old_meta.get('metadata_sha256') == provenance_meta['metadata_sha256']
+                        and old_meta.get('pipeline') == 'scientific_v3'
+                    )
+                    legacy_without_sidecar = not sidecar and old_meta.get('pipeline') != 'scientific_v3'
                     if (not force_reindex and indexed_map[md_file.name]['hash'] == current_hash
-                            and old_meta.get('metadata_sha256') == provenance_meta['metadata_sha256']
-                            and old_meta.get('pipeline') == 'scientific_v3'):
+                            and (current_scientific_metadata or legacy_without_sidecar)):
                         stats['unchanged'] += 1
                         print(f"   [{i:3d}/{len(markdown_files)}] SKIP  {md_file.name}")
                         continue
@@ -363,36 +391,20 @@ def index_incremental(force_reindex: bool = False,
                 library.snapshot(content)
                 library.record(md_file.name, "preparing", provenance_meta['canonical_sha256'])
 
-                print(f"      Pipeline Chonkie (1024 tokens)...")
+                print(f"      Pipeline Chonkie déterministe (1024 tokens)...")
 
-                # Étape 1: Token Chunker (structure globale)
+                # Voyage contextualizes each group remotely. A second local embedding
+                # model added substantial CPU cost and made chunk boundaries non-reproducible.
                 token_chunker = TokenChunker(
                     tokenizer=CHONKIE_TOKENIZER,
-                    chunk_size=CHUNK_SIZE_TOKENS * 2,
+                    chunk_size=CHUNK_SIZE_TOKENS,
                     chunk_overlap=CHUNK_OVERLAP_TOKENS
                 )
-                token_chunks = token_chunker.chunk(content)
-
-                # Étape 2: Semantic Chunker (cohérence thématique)
-                semantic_chunker = SemanticChunker(
-                    embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-                    threshold=0.75,
-                    chunk_size=CHUNK_SIZE_TOKENS,
-                    min_sentences_per_chunk=2
-                )
-                
-                all_semantic_chunks = []
-                for tc in token_chunks:
-                    all_semantic_chunks.extend(semantic_chunker.chunk(tc.text))
-
-                # Étape 3: Overlap Refinery
-                overlap_refinery = OverlapRefinery(
-                    tokenizer=CHONKIE_TOKENIZER,
-                    context_size=CHUNK_OVERLAP_TOKENS,
-                    method="suffix",
-                    merge=True
-                )
-                chunks = overlap_refinery.refine(all_semantic_chunks)
+                raw_chunks = token_chunker.chunk(content)
+                chunks = remove_empty_chunks(raw_chunks)
+                removed_empty = len(raw_chunks) - len(chunks)
+                if removed_empty:
+                    print(f"      INFO {removed_empty} passage(s) vide(s) ignore(s)")
                 
                 # Extraire textes
                 chunk_texts = [chunk.text for chunk in chunks]
@@ -400,11 +412,11 @@ def index_incremental(force_reindex: bool = False,
                 if not chunk_texts:
                     raise ValueError("No chunks generated; previous index preserved")
 
-                # Étape 4: Embeddings (Context-3 avec gestion gros docs)
+                # Étape 4: embeddings contextualisés avec gestion des gros documents
                 embeddings = process_embeddings_with_limit_check(
                     voyage_client, 
                     chunk_texts, 
-                    "voyage-context-3",
+                    EMBEDDING_MODEL,
                     chunks
                 )
 
@@ -432,8 +444,8 @@ def index_incremental(force_reindex: bool = False,
                         "title": md_file.stem,
                         "chunk_index": j,
                         "total_chunks": len(chunks),
-                        "model": "voyage-context-3",
-                        "chunking_strategy": "contextualized_fixed_1024",
+                        "model": EMBEDDING_MODEL,
+                        "chunking_strategy": "contextualized_token_1024_overlap_180",
                         "pipeline": "scientific_v3",
                         **provenance_meta,
                         **locations[j],
@@ -454,6 +466,7 @@ def index_incremental(force_reindex: bool = False,
                     "ids": chunk_ids, "documents": chunk_documents,
                     "embeddings": chunk_embeddings, "metadatas": chunk_metadatas,
                 })
+                changed_sources.add(md_file.name)
                 library.record(md_file.name, "ready", provenance_meta['canonical_sha256'])
 
                 stats[status.lower()] += 1
@@ -481,6 +494,14 @@ def index_incremental(force_reindex: bool = False,
         if repairing and not stats['errors']:
             update_collection_state(collection, ragdoc_repairing=False)
             bump_revision(collection)
+        if changed_sources:
+            lexical_status = PersistentLexicalIndex(LEXICAL_INDEX_PATH).sync_sources(
+                collection, changed_sources, initial_revision
+            )
+            print(
+                f"   Index lexical: {lexical_status['chunks']} passages, "
+                f"révision {str(lexical_status['revision'])[:12]}"
+            )
         return stats
 
     finally:
@@ -488,13 +509,18 @@ def index_incremental(force_reindex: bool = False,
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Indexation RAGDOC Unifiée (Context-3)")
+    parser = argparse.ArgumentParser(description=f"Indexation RAGDOC ({EMBEDDING_MODEL})")
     parser.add_argument('--force', action='store_true', help="Forcer réindexation")
     parser.add_argument('--delete-missing', action='store_true', help="Nettoyer docs supprimés")
+    parser.add_argument('--source', action='append', help="Indexer seulement ce fichier Markdown (répétable)")
     args = parser.parse_args()
 
     try:
-        stats = index_incremental(force_reindex=args.force, delete_missing=args.delete_missing)
+        stats = index_incremental(
+            force_reindex=args.force,
+            delete_missing=args.delete_missing,
+            sources=args.source,
+        )
         if stats['errors']:
             sys.exit(1)
     except KeyboardInterrupt:

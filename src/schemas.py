@@ -12,6 +12,14 @@ class Bibliography(BaseModel):
 
 class Location(BaseModel):
     section: str | None = None
+    section_id: str | None = None
+    section_level: int | None = None
+    section_path: str | None = None
+    section_types: list[str] = Field(default_factory=list)
+    section_overlap: bool = False
+    section_start: int | None = None
+    section_end: int | None = None
+    structure_version: str | None = None
     page_start: int | None = None
     page_end: int | None = None
     char_start: int | None = None
@@ -40,6 +48,7 @@ class EvidenceHit(BaseModel):
     excerpt: str
     excerpt_truncated: bool
     scores: Scores
+    matched_queries: list[str] = Field(default_factory=list)
 
 
 class SearchResponse(BaseModel):
@@ -50,8 +59,19 @@ class SearchResponse(BaseModel):
     retrieval: list[dict]
     reranking: str
     warnings: list[str]
+    retrieval_strategy: str = "passages"
+    selected_articles: list[str] = Field(default_factory=list)
     score_note: str = "Scores rank relevance; they are not probabilities of scientific truth."
     hits: list[EvidenceHit]
+
+
+class PassageContext(BaseModel):
+    text: str
+    char_start: int
+    char_end: int
+    passage_start: int
+    passage_end: int
+    truncated: bool
 
 
 class PassageResponse(BaseModel):
@@ -60,3 +80,4 @@ class PassageResponse(BaseModel):
     text: str
     canonical_verified: bool
     warnings: list[str]
+    context: PassageContext | None = None

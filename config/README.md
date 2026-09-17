@@ -1,6 +1,8 @@
 # RAGDOC Configuration
 
-This directory contains YAML-based configuration files for the RAGDOC system.
+These YAML files are reference configurations. The current server and indexer
+read `src/config.py` and environment variables; editing these files alone does
+not configure the active pipeline. Start with the [current setup guide](../INSTALLATION.md#configuration).
 
 ## Configuration Files
 

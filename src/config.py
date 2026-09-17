@@ -40,12 +40,18 @@ else:
     CHROMA_DB_NEW_PATH = PROJECT_ROOT / "chroma_db_new"
 CHROMA_DB_CONTEXTUALIZED_PATH = CHROMA_DB_NEW_PATH  # Point to chroma_db_new
 CHROMA_DB_PATH = CHROMA_DB_NEW_PATH
+LEXICAL_INDEX_PATH = Path(os.getenv(
+    "RAGDOC_LEXICAL_INDEX_PATH",
+    str(CHROMA_DB_PATH / "ragdoc_lexical.sqlite3"),
+))
+ARTIFACTS_PATH = Path(os.getenv("RAGDOC_ARTIFACTS_DIR", str(PROJECT_ROOT / "ragdoc_artifacts")))
 
 # ============================================================================
 # CHROMA COLLECTIONS
 # ============================================================================
 
-# Contextualized Embeddings collection (voyage-context-3)
+# Contextualized embeddings collection.  The model is configurable so a new
+# collection can be built and validated before the canonical one is switched.
 COLLECTION_CONTEXTUALIZED_NAME = "ragdoc_contextualized_v1"
 
 # Force Contextualized Collection regardless of mode
@@ -63,13 +69,16 @@ COLLECTION_METADATA = {
     "hnsw:M": 64
 }
 
+# Model used by both document and query embeddings.
+EMBEDDING_MODEL = os.getenv("RAGDOC_EMBEDDING_MODEL", "voyage-context-4")
+
 # Metadata for contextualized collection
 COLLECTION_CONTEXTUALIZED_METADATA = {
     "hnsw:space": "cosine",
     "hnsw:construction_ef": 400,
     "hnsw:M": 64,
     "pipeline": "contextualized_adaptive",
-    "embedding_model": "voyage-context-3",
+    "embedding_model": EMBEDDING_MODEL,
     "description": "Contextualized chunk embeddings with adaptive strategy"
 }
 
@@ -89,9 +98,9 @@ LARGE_DOC_CHUNK_OVERLAP = 200  # characters
 # CHONKIE PARAMETERS (Tokens)
 # ============================================================================
 
-# Optimal Chonkie config for Voyage Context-3
-CHONKIE_CHUNK_SIZE = 1024      # Tokens (standard for RAG, 25% of Context-3 window)
-CHONKIE_CHUNK_OVERLAP = 180    # Tokens (~17.5% optimal for Context-3)
+# Stable chunking retained for Voyage Context 4 and citation continuity.
+CHONKIE_CHUNK_SIZE = 1024
+CHONKIE_CHUNK_OVERLAP = 180
 CHONKIE_TOKENIZER = "gpt2"     # Compatible with Voyage AI
 
 # ============================================================================
@@ -106,7 +115,7 @@ CONTEXT_WINDOW_SIZE = 4  # Returns [n-4 ... n ... n+4]
 # ============================================================================
 
 # Default model for standard docs
-DEFAULT_MODEL = "voyage-context-3"
+DEFAULT_MODEL = EMBEDDING_MODEL
 
 # Model for large docs (>50K chars)
 LARGE_DOC_MODEL = "voyage-3-large"

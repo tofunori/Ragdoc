@@ -5,6 +5,7 @@ Pour ChromaDB (qui n'a pas de hybrid search natif)
 """
 
 import logging
+import os
 import numpy as np
 from typing import List, Dict, Tuple, TYPE_CHECKING
 from collections import defaultdict
@@ -41,7 +42,8 @@ class HybridRetriever:
     """
 
     def __init__(self, collection: "chromadb.Collection", embedding_function=None,
-                 use_advanced_tokenizer: bool = True, revision_provider=None):
+                 use_advanced_tokenizer: bool = True, revision_provider=None,
+                 lexical_index=None):
         """
         Args:
             collection: ChromaDB collection
@@ -53,6 +55,7 @@ class HybridRetriever:
         self.collection = collection
         self.embedding_function = embedding_function
         self.revision_provider = revision_provider or (lambda: self.collection.metadata or {})
+        self.lexical_index = lexical_index
         self._revision = None
         self._search_lock = threading.RLock()
         self._status = ContextVar(f"retrieval_status_{id(self)}", default={})
@@ -79,6 +82,8 @@ class HybridRetriever:
         self._bm25_lock = threading.Lock()
         self._bm25_building = False
         self._token_sets = []
+        self._bm25_max_chunks = int(os.getenv("RAGDOC_BM25_MAX_CHUNKS", "50000"))
+        self._bm25_disabled_reason = None
 
     def _build_bm25_index(self):
         """Build BM25 index from ChromaDB collection"""
@@ -138,6 +143,19 @@ class HybridRetriever:
         """
         if self.bm25 is not None:
             return True
+        if self._bm25_disabled_reason is not None:
+            return False
+
+        chunk_count = self.collection.count()
+        if chunk_count > self._bm25_max_chunks:
+            self._bm25_disabled_reason = (
+                f"corpus has {chunk_count} chunks; safe limit is {self._bm25_max_chunks}"
+            )
+            logger.warning(
+                "BM25 disabled to protect server memory: %s. Semantic search remains available.",
+                self._bm25_disabled_reason,
+            )
+            return False
 
         with self._bm25_lock:
             if self.bm25 is not None:
@@ -171,8 +189,8 @@ class HybridRetriever:
                where: dict = None, where_document: dict = None) -> List[Dict]:
         if not query or not query.strip():
             raise ValueError("query must not be empty")
-        if not 0 <= alpha <= 1 or not 1 <= top_k <= 100:
-            raise ValueError("alpha must be in [0, 1] and top_k in [1, 100]")
+        if not 0 <= alpha <= 1 or not 1 <= top_k <= 1000:
+            raise ValueError("alpha must be in [0, 1] and internal top_k in [1, 1000]")
         with self._search_lock:
             revision = self._check_revision()
             result = self._search(query, top_k, alpha, bm25_top_n, semantic_top_n, rrf_k, where, where_document)
@@ -209,18 +227,15 @@ class HybridRetriever:
         """
 
         warnings = []
-        # Build synchronously for deterministic hybrid results. Later searches reuse it.
         bm25_results: List[Tuple[str, float, int]] = []
+        lexical_payload: Dict[str, Tuple[str, dict]] = {}
+        lexical_ready = False
         if alpha < 1.0:
-            if self.bm25 is None:
-                self.ensure_bm25_index(background=False)
-            if self.bm25 is not None:
-                bm25_results = self._bm25_search(
-                    query,
-                    top_n=bm25_top_n,
-                    where=where,
-                    where_document=where_document,
-                )
+            bm25_results, lexical_payload, lexical_ready = self._lexical_search(
+                query, bm25_top_n, where, where_document
+            )
+            if not lexical_ready:
+                warnings.append("lexical_unavailable")
 
         # 2. Semantic search (ChromaDB) with filtering
         semantic_results, semantic_payload = [], {}
@@ -234,20 +249,22 @@ class HybridRetriever:
             except Exception:
                 logger.warning("Semantic search unavailable; falling back to lexical search", exc_info=True)
                 warnings.append("semantic_unavailable")
-                if self.bm25 is None:
-                    self.ensure_bm25_index(background=False)
-                bm25_results = self._bm25_search(query, bm25_top_n, where, where_document)
+                if not lexical_ready:
+                    bm25_results, lexical_payload, lexical_ready = self._lexical_search(
+                        query, bm25_top_n, where, where_document
+                    )
                 effective_alpha = 0.0
-        if self.bm25 is None and not semantic_available:
+        if not lexical_ready and not semantic_available:
             if self.collection.count() > 0:
                 raise RuntimeError("No search channel available")
-        if alpha < 1 and self.bm25 is None:
-            warnings.append("lexical_unavailable")
+        if alpha < 1 and not lexical_ready:
             effective_alpha = 1.0
-        lexical_available = self.bm25 is not None and effective_alpha < 1
+        lexical_available = lexical_ready and effective_alpha < 1
         self._status.set({"mode": "hybrid" if semantic_available and lexical_available else
                           "semantic" if semantic_available else "lexical",
                           "bm25_ready": self.bm25 is not None,
+                          "persistent_lexical_ready": bool(self.lexical_index) and lexical_ready,
+                          "tokenizer": "advanced" if self.tokenizer else "simple",
                           "index_revision": self._revision, "warnings": warnings})
 
         # 3. Reciprocal Rank Fusion
@@ -256,10 +273,41 @@ class HybridRetriever:
             semantic_results,
             k=rrf_k,
             alpha=effective_alpha,
-            semantic_payload=semantic_payload
+            semantic_payload=semantic_payload,
+            lexical_payload=lexical_payload,
         )
 
         return fused_results[:top_k]
+
+    def _lexical_search(self, query: str, top_n: int, where: dict, where_document: dict):
+        """Use the persistent FTS sidecar, retaining in-memory BM25 for small tests."""
+        if self.lexical_index is not None:
+            try:
+                results, payload = self.lexical_index.search(
+                    query,
+                    top_n=top_n,
+                    revision=self._revision,
+                    chunk_count=self.collection.count(),
+                    where=where,
+                )
+                if where_document is not None:
+                    filtered = []
+                    for doc_id, score, _ in results:
+                        text, metadata = payload[doc_id]
+                        if where_document is not None and not self._match_where_document(text, where_document):
+                            continue
+                        filtered.append((doc_id, score, len(filtered)))
+                    results = filtered
+                return results, payload, True
+            except Exception:
+                logger.warning("Persistent lexical search unavailable", exc_info=True)
+                return [], {}, False
+
+        if self.bm25 is None:
+            self.ensure_bm25_index(background=False)
+        if self.bm25 is None:
+            return [], {}, False
+        return self._bm25_search(query, top_n, where, where_document), {}, True
 
     def _bm25_search(
         self,
@@ -456,7 +504,8 @@ class HybridRetriever:
         semantic_results: List[Tuple[str, float, int]],
         k: int = 60,
         alpha: float = 0.5,
-        semantic_payload: Dict[str, Tuple[str, dict]] | None = None
+        semantic_payload: Dict[str, Tuple[str, dict]] | None = None,
+        lexical_payload: Dict[str, Tuple[str, dict]] | None = None,
     ) -> List[Dict]:
         """
         Reciprocal Rank Fusion (RRF)
@@ -504,6 +553,9 @@ class HybridRetriever:
             # Prefer semantic payload (available even when BM25 index isn't built)
             if semantic_payload and doc_id in semantic_payload:
                 text, metadata = semantic_payload[doc_id]
+
+            if (text is None or metadata is None) and lexical_payload and doc_id in lexical_payload:
+                text, metadata = lexical_payload[doc_id]
 
             # Fast path: cached BM25 index payload
             if text is None or metadata is None:

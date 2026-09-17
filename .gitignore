@@ -84,3 +84,16 @@ ragdoc_library/
 
 # MCP runtime
 run-mcp.sh
+
+# Private local libraries, diagnostics and design work
+ragdoc_artifacts/
+.firecrawl/
+output/
+outputs/
+comparisons/
+Ragdrop/design/
+Ragdrop/*_REDESIGN.md
+
+# Swift build products and editor-specific local configuration
+.build/
+Ragdrop/.codex/

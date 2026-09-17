@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MCP Server for RAGDOC
-Contextualized embeddings + BM25 hybrid search with Cohere reranking.
+Contextualized embeddings + persistent lexical search with Cohere reranking.
 """
 
 import os
@@ -12,8 +12,10 @@ import argparse
 import re
 import unicodedata
 import json
+import threading
 from types import SimpleNamespace
 from pathlib import Path
+from functools import lru_cache
 from dotenv import load_dotenv
 
 # Windows: normalize newlines for stdio transports (avoids CRLF issues in some MCP clients)
@@ -40,6 +42,7 @@ if __name__ == "__main__" and __package__ is None:
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.utilities.types import Image
 
 # Import internal modules
 from src.config import (
@@ -48,13 +51,19 @@ from src.config import (
     ACTIVE_DB_PATH,
     CONTEXT_WINDOW_SIZE,
     VOYAGE_API_KEY,
+    EMBEDDING_MODEL,
     COHERE_API_KEY,
-    LOG_LEVEL, LIBRARY_PATH
+    LOG_LEVEL, LIBRARY_PATH, LEXICAL_INDEX_PATH, ARTIFACTS_PATH
 )
+from src.artifacts import ArtifactIndex
 from src.hybrid_retriever import HybridRetriever
+from src.lexical_index import PersistentLexicalIndex
 from src.library import Library, provenance
+from src.document_structure import SECTION_TYPES, bounded_context
 from src.schemas import SearchResponse, PassageResponse
 from src.chroma_reads import read_collection
+from src.chroma_connection import open_chroma_client
+from src.runtime_status import runtime_status
 
 # Configure logging
 logging.basicConfig(
@@ -74,6 +83,9 @@ hybrid_retriever = None
 _chromadb = None
 _voyageai = None
 _cohere = None
+_catalogue_lock = threading.Lock()
+_catalogue_cache = None
+_connection_mode = None
 
 
 def _get_chromadb():
@@ -136,7 +148,7 @@ def _generate_query_variants(query: str, n_queries: int = 3) -> list[str]:
     replacements: list[tuple[str, str]] = [
         # French -> English (common in papers)
         ("albédo", "albedo"),
-        ("télédétection", "remote sensing"),
+        ("teledetection", "remote sensing"),
         ("carbone noir", "black carbon"),
         ("neige", "snow"),
         ("glaciers", "glacier"),
@@ -213,21 +225,53 @@ def _multiquery_rrf_fuse(results_by_query: list[list[dict]], rrf_k: int = 60) ->
     return merged
 
 
+def _combine_where(*conditions: dict | None) -> dict | None:
+    clauses = [condition for condition in conditions if condition]
+    if not clauses:
+        return None
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
+
+
+def _section_filter(section_types: list[str]) -> dict:
+    clauses = [{f"section_is_{section_type}": True} for section_type in section_types]
+    return clauses[0] if len(clauses) == 1 else {"$or": clauses}
+
+
+def _matched_section(metadata: dict, section_types: list[str]) -> bool:
+    return any(metadata.get(f"section_is_{section_type}") is True for section_type in section_types)
+
+
+def _article_shortlist(results: list[dict], limit: int) -> list[str]:
+    """Rank articles using at most three passage contributions per source."""
+    source_scores: dict[str, list[float]] = {}
+    source_first_rank: dict[str, int] = {}
+    for rank, hit in enumerate(results):
+        source = hit.get("metadata", {}).get("source")
+        if not source:
+            continue
+        source_first_rank.setdefault(source, rank)
+        source_scores.setdefault(source, []).append(float(hit.get("score", 0.0)))
+    ranked = sorted(
+        source_scores,
+        key=lambda source: (
+            -sum(sorted(source_scores[source], reverse=True)[:3]),
+            source_first_rank[source], source,
+        ),
+    )
+    return ranked[:limit]
+
+
 def init_chroma_client():
     """Initialize Chroma client (server mode if available, otherwise local persistent)."""
-    global chroma_client
+    global chroma_client, _connection_mode
 
     if not chroma_client:
-        chromadb = _get_chromadb()
-        # Try HttpClient (server mode) first, fallback to PersistentClient
-        try:
-            test_client = chromadb.HttpClient(host="localhost", port=8000)
-            test_client.heartbeat()
-            chroma_client = test_client
-            logging.info(f"[OK] MCP: Connected to ChromaDB server (localhost:8000) - Collection: {COLLECTION_NAME}")
-        except Exception:
-            logging.info(f"[INFO] MCP: ChromaDB server not available, using local mode: {ACTIVE_DB_PATH}")
-            chroma_client = chromadb.PersistentClient(path=str(ACTIVE_DB_PATH))
+        chroma_client, _connection_mode = open_chroma_client(_get_chromadb(), ACTIVE_DB_PATH)
+        target = (f"{os.getenv('RAGDOC_CHROMA_HOST', 'localhost')}:{os.getenv('RAGDOC_CHROMA_PORT', '8000')}"
+                  if _connection_mode == "http" else str(ACTIVE_DB_PATH))
+        logging.info("Chroma connection: %s; target=%s; collection=%s", _connection_mode, target, COLLECTION_NAME)
 
     return chroma_client
 
@@ -256,8 +300,7 @@ def init_cohere_client():
 def init_retriever():
     """
     Initialize HybridRetriever.
-    IMPORTANT: HybridRetriever BM25 index is lazy (and may build in background),
-    so this should be fast and not cause MCP timeouts.
+    Production lexical retrieval uses the revision-pinned SQLite FTS sidecar.
     """
     global hybrid_retriever
 
@@ -268,30 +311,33 @@ def init_retriever():
         init_chroma_client()
 
         collection = chroma_client.get_collection(name=COLLECTION_NAME)
+        collection_model = (collection.metadata or {}).get("embedding_model")
+        if collection_model != EMBEDDING_MODEL:
+            raise RuntimeError(
+                f"Embedding model mismatch: collection={collection_model!r}, "
+                f"configured={EMBEDDING_MODEL!r}"
+            )
 
         # Contextualized embedding function (only mode supported)
-        def voyage_contextualized_embed(texts):
+        @lru_cache(maxsize=128)
+        def embed_query(text):
             init_voyage_client()
-            results = []
-            for text in texts:
-                result = voyage_client.contextualized_embed(
-                    inputs=[[text]],
-                    model="voyage-context-3",
-                    input_type="query"
-                )
-                results.append(result.results[0].embeddings[0])
-            return results
+            result = voyage_client.contextualized_embed(
+                inputs=[[text]], model=EMBEDDING_MODEL, input_type="query")
+            return result.results[0].embeddings[0]
 
-        embed_fn = voyage_contextualized_embed
+        embed_fn = lambda texts: [embed_query(text) for text in texts]
         logging.info("[OK] Retriever initialized (Contextualized Mode)")
 
         hybrid_retriever = HybridRetriever(
             collection=collection,
             embedding_function=embed_fn,
             revision_provider=lambda: chroma_client.get_collection(name=COLLECTION_NAME).metadata,
+            lexical_index=PersistentLexicalIndex(LEXICAL_INDEX_PATH),
         )
     except Exception as e:
         logging.error(f"Failed to initialize HybridRetriever: {e}")
+        raise
 
     return hybrid_retriever
 
@@ -404,9 +450,13 @@ def _perform_search_hybrid(
     preview_chars: int | None = None,
     context_window: int | None = None,
     max_per_document: int | None = None,
+    subqueries: list[str] | None = None,
+    retrieval_strategy: str = "passages",
+    article_limit: int = 8,
+    preferred_section_types: list[str] | None = None,
 ) -> str | dict:
     """
-    Unified search (contextualized embeddings + BM25 + Cohere rerank).
+    Unified search (contextualized embeddings + persistent lexical + Cohere rerank).
     """
     try:
         if not query or not query.strip() or not 1 <= top_k <= 100 or not 0 <= alpha <= 1:
@@ -417,6 +467,15 @@ def _perform_search_hybrid(
             raise ValueError("preview_chars must be in [0, 16000]")
         if context_window is not None and not 0 <= context_window <= 10:
             raise ValueError("context_window must be in [0, 10]")
+        if retrieval_strategy not in {"passages", "articles_then_passages"}:
+            raise ValueError("retrieval_strategy must be passages or articles_then_passages")
+        if not 2 <= article_limit <= 50:
+            raise ValueError("article_limit must be in [2, 50]")
+        if subqueries is not None:
+            if multi_query:
+                raise ValueError("subqueries and multi_query cannot be combined")
+            if not 1 <= len(subqueries) <= 5 or any(not item.strip() for item in subqueries):
+                raise ValueError("subqueries must contain 1 to 5 nonempty questions")
         init_retriever()
         
         if not hybrid_retriever:
@@ -425,27 +484,41 @@ def _perform_search_hybrid(
         collection = _ready_collection()
         search_states = []
 
-        # 1. Retrieval (BM25 + contextualized semantic with RRF)
+        # 1. Retrieval (persistent lexical + contextualized semantic with RRF)
         # Optional: multi-query rewrite/expansion (heuristic), fused with RRF.
-        if multi_query:
+        if subqueries:
+            queries = list(dict.fromkeys([query, *(item.strip() for item in subqueries)]))
+        elif multi_query:
             queries = _generate_query_variants(query, n_queries=n_queries)
         else:
             queries = [query]
 
         per_query_results: list[list[dict]] = []
+        per_query_pairs: list[tuple[str, list[dict]]] = []
+        candidate_warnings = []
         for q in queries:
-            res = hybrid_retriever.search(
-                query=q,
-                top_k=50,  # candidates per query
-                alpha=alpha,
-                bm25_top_n=100,
-                semantic_top_n=100,
-                where=where,
-                where_document=where_document,
-            )
+            budget = max(50, top_k)
+            while True:
+                res = hybrid_retriever.search(
+                    query=q, top_k=budget, alpha=alpha,
+                    bm25_top_n=max(100, budget), semantic_top_n=max(100, budget),
+                    where=where, where_document=where_document,
+                )
+                counts = {}
+                for hit in res:
+                    source = hit['metadata'].get('source', hit['metadata'].get('filename', 'unknown'))
+                    counts[source] = counts.get(source, 0) + 1
+                capacity = sum(min(count, max_per_document) for count in counts.values()) if max_per_document else len(res)
+                if not max_per_document or capacity >= top_k or len(res) < budget:
+                    break
+                if budget >= 1000:
+                    candidate_warnings.append("candidate_limit_reached: source diversity may be incomplete")
+                    break
+                budget = min(1000, budget * 2)
             search_states.append(hybrid_retriever.last_status)
             if res:
                 per_query_results.append(res)
+                per_query_pairs.append((q, res))
 
         if not per_query_results:
             _assert_revision(collection)
@@ -453,12 +526,69 @@ def _perform_search_hybrid(
                 return {"schema_version": 1, "query": query, "queries": queries,
                         "index_revision": (collection.metadata or {}).get('ragdoc_revision'),
                         "hits": [], "retrieval": search_states,
-                        "reranking": "not_needed", "warnings": ["No evidence retrieved; this does not prove absence from the literature."]}
+                        "reranking": "not_needed", "retrieval_strategy": retrieval_strategy,
+                        "selected_articles": [],
+                        "warnings": ["No evidence retrieved; this does not prove absence from the literature."]}
             return "No results found for your search."
 
         hybrid_results = per_query_results[0] if len(per_query_results) == 1 else _multiquery_rrf_fuse(per_query_results)
-        # Cap rerank candidates (Cohere side) to keep latency/cost bounded
-        hybrid_results = hybrid_results[:100]
+        selected_articles: list[str] = []
+        if retrieval_strategy == "articles_then_passages":
+            selected_articles = _article_shortlist(hybrid_results, article_limit)
+            if not selected_articles:
+                candidate_warnings.append("article_shortlist_empty")
+            else:
+                article_where = _combine_where(where, {"source": {"$in": selected_articles}})
+                second_stage: list[list[dict]] = []
+                second_stage_pairs: list[tuple[str, list[dict]]] = []
+                for q in queries:
+                    res = hybrid_retriever.search(
+                        query=q, top_k=min(1000, max(100, top_k * article_limit)), alpha=alpha,
+                        bm25_top_n=min(1000, max(100, top_k * article_limit)),
+                        semantic_top_n=min(1000, max(100, top_k * article_limit)),
+                        where=article_where, where_document=where_document,
+                    )
+                    search_states.append(hybrid_retriever.last_status)
+                    if res:
+                        second_stage.append(res)
+                        second_stage_pairs.append((q, res))
+                if second_stage:
+                    hybrid_results = (second_stage[0] if len(second_stage) == 1
+                                      else _multiquery_rrf_fuse(second_stage))
+
+        matched_queries_by_id: dict[str, list[str]] = {}
+        reference_pairs = per_query_pairs
+        if retrieval_strategy == "articles_then_passages" and 'second_stage_pairs' in locals() and second_stage_pairs:
+            reference_pairs = second_stage_pairs
+        for q, results in reference_pairs:
+            for hit in results:
+                matched_queries_by_id.setdefault(hit["id"], []).append(q)
+
+        if preferred_section_types:
+            hybrid_results.sort(
+                key=lambda hit: not _matched_section(hit.get("metadata", {}), preferred_section_types)
+            )
+            candidate_warnings.append(
+                "section_preference_heuristic: final results group requested sections first; "
+                "rerank scores are preserved within each group and other sections remain eligible"
+            )
+        # Reserve enough diverse candidates before imposing the reranking budget.
+        # Fill remaining slots in fusion order so Cohere still has alternatives.
+        if max_per_document:
+            selected, selected_ids, counts = [], set(), {}
+            for hit in hybrid_results:
+                source = hit['metadata'].get('source', hit['metadata'].get('filename', 'unknown'))
+                if counts.get(source, 0) < max_per_document:
+                    selected.append(hit)
+                    selected_ids.add(hit['id'])
+                    counts[source] = counts.get(source, 0) + 1
+                if len(selected) >= top_k:
+                    break
+            selected.extend(hit for hit in hybrid_results if hit['id'] not in selected_ids)
+            allowed_ids = {hit['id'] for hit in selected[:100]}
+            hybrid_results = [hit for hit in hybrid_results if hit['id'] in allowed_ids]
+        else:
+            hybrid_results = hybrid_results[:100]
 
         if not hybrid_results:
             return "No results found for your search."
@@ -466,23 +596,43 @@ def _perform_search_hybrid(
         # 2. Prepare for reranking
         documents_for_rerank = [r['text'] for r in hybrid_results]
         metadatas = [r['metadata'] for r in hybrid_results]
+        rerank_documents = []
+        for text, metadata in zip(documents_for_rerank, metadatas):
+            header = []
+            if metadata.get("title"):
+                header.append(f"Title: {metadata['title']}")
+            if metadata.get("doi"):
+                header.append(f"DOI: {metadata['doi']}")
+            if metadata.get("source"):
+                header.append(f"Source: {metadata['source']}")
+            if metadata.get("section_path") or metadata.get("section"):
+                header.append(f"Section: {metadata.get('section_path') or metadata.get('section')}")
+            rerank_documents.append("\n".join(header + ["", text]))
 
         # 3. Rerank with Cohere v4.0 Pro
         reranking = "cohere"
-        warnings = []
+        warnings = candidate_warnings
         try:
             client = init_cohere_client()
             if client is None:
                 raise RuntimeError("Cohere not configured")
             rerank_results = client.rerank(
-                model="rerank-v4.0-pro", query=query, documents=documents_for_rerank,
-                top_n=len(documents_for_rerank) if max_per_document else top_k)
+                model="rerank-v4.0-pro", query=query, documents=rerank_documents,
+                top_n=len(documents_for_rerank) if max_per_document else min(top_k, len(documents_for_rerank)))
         except Exception:
             logging.warning("Reranking unavailable; returning fusion ranking", exc_info=True)
             reranking = "unavailable"
             warnings.append("reranking_unavailable: results use retrieval fusion scores")
             rerank_results = SimpleNamespace(results=[SimpleNamespace(index=i, relevance_score=None)
                                                       for i in range(len(hybrid_results))])
+
+        ordered_rerank_results = list(rerank_results.results)
+        if preferred_section_types:
+            ordered_rerank_results.sort(
+                key=lambda result: not _matched_section(
+                    metadatas[result.index], preferred_section_types
+                )
+            )
 
         # 4. Normalize output controls (presentation-only; retrieval/rerank unchanged)
         output_format = (format or "compact").strip().lower()
@@ -512,7 +662,7 @@ def _perform_search_hybrid(
         # 5. Materialize ranked hits once, then format them (ensures same hits across formats)
         ranked_hits: list[dict] = []
         source_counts = {}
-        for result in rerank_results.results:
+        for result in ordered_rerank_results:
             idx = result.index
             metadata = metadatas[idx]
 
@@ -540,6 +690,7 @@ def _perform_search_hybrid(
                 "total_chunks": total_chunks,
                 "text": documents_for_rerank[idx] if idx < len(documents_for_rerank) else "",
                 "metadata": metadata,
+                "matched_queries": matched_queries_by_id.get(doc_id, []),
             })
             if len(ranked_hits) >= top_k:
                 break
@@ -550,9 +701,12 @@ def _perform_search_hybrid(
                 "schema_version": 1, "query": query, "queries": queries,
                 "index_revision": (collection.metadata or {}).get("ragdoc_revision"),
                 "retrieval": search_states, "reranking": reranking, "warnings": warnings,
+                "retrieval_strategy": retrieval_strategy,
+                "selected_articles": selected_articles,
                 "score_note": "Scores rank relevance; they are not probabilities of scientific truth.",
                 "hits": [{"chunk_id": h['id'], "provenance": provenance(h['metadata']),
                           "excerpt": h['text'][:preview_chars], "excerpt_truncated": len(h['text']) > preview_chars,
+                          "matched_queries": h["matched_queries"],
                           "scores": {"rerank": h['rerank_score'], "fusion": h['fusion_score']}}
                          for h in ranked_hits],
             }
@@ -668,7 +822,7 @@ def semantic_search_hybrid(
     context_window: int | None = None,
 ) -> str:
     """
-    Hybrid search with BM25 + Vector + Cohere v3.5 reranking.
+    Hybrid search with persistent lexical + vector retrieval and Cohere v4.0 Pro reranking.
 
     Args:
         query: Search query about the indexed knowledge base.
@@ -972,7 +1126,9 @@ def search_evidence(query: str, top_k: int = 10, alpha: float = 0.5,
                     sources: list[str] | None = None, year_from: int | None = None,
                     year_to: int | None = None, collection: str | None = None,
                     multi_query: bool = False, max_per_document: int = 2,
-                    preview_chars: int = 1200) -> SearchResponse:
+                    preview_chars: int = 1200, section_types: list[str] | None = None,
+                    section_mode: str = "strict", subqueries: list[str] | None = None,
+                    retrieval_strategy: str = "passages", article_limit: int = 8) -> SearchResponse:
     """Find scientific passages with structured citations and explicit search status.
 
     Excerpts may be truncated: use get_passage before quoting. Unknown bibliography
@@ -992,14 +1148,35 @@ def search_evidence(query: str, top_k: int = 10, alpha: float = 0.5,
         filters.append({"year": {"$lte": year_to}})
     if collection is not None:
         filters.append({"collection": collection})
+    normalized_section_types: list[str] = []
+    if section_types is not None:
+        normalized_section_types = list(dict.fromkeys(item.strip().casefold() for item in section_types))
+        unknown = sorted(set(normalized_section_types) - set(SECTION_TYPES))
+        if not normalized_section_types or unknown:
+            raise ToolError(
+                f"section_types must use known values {list(SECTION_TYPES)}; unknown={unknown}"
+            )
+        if section_mode not in {"strict", "prefer"}:
+            raise ToolError("section_mode must be strict or prefer")
+        if section_mode == "strict":
+            filters.append(_section_filter(normalized_section_types))
     where = {"$and": filters} if len(filters) > 1 else filters[0] if filters else None
-    return SearchResponse.model_validate(_perform_search_hybrid(
+    response = SearchResponse.model_validate(_perform_search_hybrid(
         query, top_k, alpha, where=where, multi_query=multi_query, format="structured",
-        preview_chars=preview_chars, max_per_document=max_per_document))
+        preview_chars=preview_chars, max_per_document=max_per_document,
+        subqueries=subqueries, retrieval_strategy=retrieval_strategy, article_limit=article_limit,
+        preferred_section_types=normalized_section_types if section_mode == "prefer" else None))
+    if normalized_section_types and section_mode == "strict":
+        response.warnings.append(
+            "strict_section_filter: passages with unknown, unclassified, or unenriched section metadata are excluded"
+        )
+    return response
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-def get_passage(chunk_id: str, expected_content_sha256: str | None = None) -> PassageResponse:
+def get_passage(chunk_id: str, expected_content_sha256: str | None = None,
+                context: str = "none", paragraphs_before: int = 1,
+                paragraphs_after: int = 1, max_context_chars: int = 8000) -> PassageResponse:
     """Read an untruncated indexed passage and verify its exact canonical location.
 
     Pass the content_sha256 from search_evidence to reject a changed document.
@@ -1014,8 +1191,17 @@ def get_passage(chunk_id: str, expected_content_sha256: str | None = None) -> Pa
     digest = meta.get('canonical_sha256')
     if expected_content_sha256 is not None and digest != expected_content_sha256:
         raise ToolError("Document version differs from the requested citation; search again")
+    if context not in {"none", "paragraphs", "section"}:
+        raise ToolError("context must be one of: none, paragraphs, section")
+    if (type(paragraphs_before) is not int or type(paragraphs_after) is not int
+            or not 0 <= paragraphs_before <= 10 or not 0 <= paragraphs_after <= 10):
+        raise ToolError("paragraph context counts must be integers in [0, 10]")
+    if type(max_context_chars) is not int or not 1 <= max_context_chars <= 50000:
+        raise ToolError("max_context_chars must be an integer in [1, 50000]")
     verified = False
     warnings = []
+    canonical = None
+    context_block = None
     if digest and meta.get('locator_status') == 'exact':
         try:
             canonical = Library(LIBRARY_PATH).read(digest)
@@ -1026,9 +1212,16 @@ def get_passage(chunk_id: str, expected_content_sha256: str | None = None) -> Pa
             warnings.append("canonical_snapshot_unavailable_or_corrupt")
     if not verified:
         warnings.append("canonical_location_not_verified")
+        if context != "none":
+            warnings.append("canonical_context_unavailable")
+    elif context != "none":
+        context_block = bounded_context(
+            canonical, start, end, mode=context, paragraphs_before=paragraphs_before,
+            paragraphs_after=paragraphs_after, max_chars=max_context_chars,
+        )
     _assert_revision(collection)
     return PassageResponse(chunk_id=chunk_id, provenance=provenance(meta), text=text,
-                           canonical_verified=verified, warnings=warnings)
+                           canonical_verified=verified, warnings=warnings, context=context_block)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -1064,6 +1257,28 @@ def read_document(source: str, offset: int = 0, limit: int = 16000,
             "total_chars": len(text), "canonical_verified": True}
 
 
+def _document_catalogue(collection):
+    """Cache one row per source only when the writer supplies a revision."""
+    global _catalogue_cache
+    revision = (collection.metadata or {}).get('ragdoc_revision')
+    with _catalogue_lock:
+        if (revision is not None and _catalogue_cache is not None
+                and _catalogue_cache[0] is chroma_client
+                and _catalogue_cache[1:3] == (COLLECTION_NAME, revision)):
+            _assert_revision(collection)
+            return _catalogue_cache[3]
+        data = read_collection(collection, include=["metadatas"])
+        papers = {}
+        for meta in data['metadatas']:
+            source = meta.get('source', meta.get('filename', 'unknown'))
+            if source not in papers:
+                papers[source] = provenance(meta)
+        rows = tuple(papers[source] for source in sorted(papers))
+        _assert_revision(collection)
+        _catalogue_cache = (chroma_client, COLLECTION_NAME, revision, rows) if revision is not None else None
+        return rows
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 def search_documents(query: str = "", year_from: int | None = None, year_to: int | None = None,
                      offset: int = 0, limit: int = 25) -> dict:
@@ -1076,10 +1291,8 @@ def search_documents(query: str = "", year_from: int | None = None, year_to: int
     if year_from is not None and year_to is not None and year_from > year_to:
         raise ToolError("year_from must be <= year_to")
     collection = _ready_collection()
-    data = read_collection(collection, include=["metadatas"])
     papers = {}
-    for meta in data['metadatas']:
-        p = provenance(meta)
+    for p in _document_catalogue(collection):
         source = p['source']
         if source in papers:
             continue
@@ -1088,23 +1301,52 @@ def search_documents(query: str = "", year_from: int | None = None, year_to: int
             continue
         if year_to is not None and (year is None or year > year_to):
             continue
-        haystack = json.dumps({"source": source, **p['bibliography']}, ensure_ascii=False).casefold()
-        if all(term in haystack for term in query.casefold().split()):
+        bibliography = p['bibliography']
+        values = [source, bibliography['title'], bibliography['doi'], *(bibliography['authors'] or [])]
+        haystack = _normalize_query_text(' '.join(value for value in values if value)).casefold()
+        if all(term in haystack for term in _normalize_query_text(query).casefold().split()):
             papers[source] = {"source": source, "document_id": p['document_id'],
-                              "content_sha256": p['content_sha256'], "bibliography": p['bibliography']}
+                              "content_sha256": p['content_sha256'], "bibliography": dict(p['bibliography'])}
     ranked = [papers[key] for key in sorted(papers)]
     _assert_revision(collection)
     return {"documents": ranked[offset:offset + limit], "total": len(ranked),
             "next_offset": offset + limit if offset + limit < len(ranked) else None}
 
 
-@mcp.tool(annotations={"readOnlyHint": True})
-def audit_library() -> dict:
-    """Report incomplete ingestion, missing canonical snapshots and candidate duplicates.
+def _audit_page(items: list[dict], offset: int, limit: int) -> dict:
+    if offset < 0 or not 1 <= limit <= 100:
+        raise ToolError("offset must be >= 0 and limit in [1, 100]")
+    return {
+        "items": items[offset:offset + limit],
+        "total": len(items),
+        "offset": offset,
+        "limit": limit,
+        "next_offset": offset + limit if offset + limit < len(items) else None,
+    }
 
+
+def _count_by(items: list[dict], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        value = str(item.get(key) or "unknown")
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def audit_library(view: str = "summary", offset: int = 0, limit: int = 50) -> dict:
+    """Audit library integrity with bounded output.
+
+    ``summary`` is compact and is the correct first call. Use the paginated views
+    ``findings``, ``duplicates`` or ``events`` only when their details are needed.
     Candidate duplicates share DOI or canonical content hash; they are not deleted.
-    The local ingestion journal is unavailable when not shared with the indexer.
+    The event view contains the latest local journal event per source, not the full
+    ingestion history.
     """
+    if view not in {"summary", "findings", "duplicates", "events"}:
+        raise ToolError("view must be summary, findings, duplicates or events")
+    if offset < 0 or not 1 <= limit <= 100:
+        raise ToolError("offset must be >= 0 and limit in [1, 100]")
     init_chroma_client()
     collection = chroma_client.get_collection(name=COLLECTION_NAME)
     data = read_collection(collection, include=["metadatas"])
@@ -1136,16 +1378,171 @@ def audit_library() -> dict:
         if bibliography.get('doi'):
             doi = re.sub(r'^https?://(?:dx\.)?doi.org/', '', bibliography['doi'].strip(), flags=re.I).casefold()
             duplicate_keys.setdefault('doi:' + doi, set()).add(source)
+    candidate_duplicate_groups = [{"key": key, "sources": sorted(sources)}
+                                  for key, sources in sorted(duplicate_keys.items()) if len(sources) > 1]
+    candidate_duplicate_pairs = [
+        {
+            "key": group["key"],
+            "sources": [group["sources"][0], source],
+            "group_size": len(group["sources"]),
+        }
+        for group in candidate_duplicate_groups
+        for source in group["sources"][1:]
+    ]
+    ingestion_events = Library(LIBRARY_PATH).latest_events()
     metadata = collection.metadata or {}
     _assert_revision(collection, require_ready=False)
-    return {"documents": len(papers), "chunks": len(data['ids']),
-            "index_revision": metadata.get('ragdoc_revision'),
-            "write_state": metadata.get('ragdoc_write_state', 'legacy'),
-            "repairing": metadata.get('ragdoc_repairing', False), "findings": findings,
-            "candidate_duplicates": [{"key": key, "sources": sorted(sources)}
-                                     for key, sources in duplicate_keys.items() if len(sources) > 1],
-            "ingestion_events": Library(LIBRARY_PATH).latest_events(),
-            "journal_scope": "local indexer storage; must be shared with this MCP server"}
+    result = {
+        "documents": len(papers),
+        "chunks": len(data['ids']),
+        "index_revision": metadata.get('ragdoc_revision'),
+        "write_state": metadata.get('ragdoc_write_state', 'legacy'),
+        "repairing": metadata.get('ragdoc_repairing', False),
+        "finding_count": len(findings),
+        "findings_by_issue": _count_by(findings, "issue"),
+        "candidate_duplicate_group_count": len(candidate_duplicate_groups),
+        "candidate_duplicate_pair_count": len(candidate_duplicate_pairs),
+        "latest_ingestion_event_count": len(ingestion_events),
+        "latest_ingestion_status_counts": _count_by(ingestion_events, "status"),
+        "journal_scope": "latest event per source in local indexer storage; not full history",
+        "view": view,
+    }
+    if view != "summary":
+        detail_items = {
+            "findings": findings,
+            "duplicates": candidate_duplicate_pairs,
+            "events": ingestion_events,
+        }[view]
+        result.update(_audit_page(detail_items, offset, limit))
+    return result
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def audit_citation_readiness(status: str = "", offset: int = 0, limit: int = 50) -> dict:
+    """Audit whether indexed passages can support verified page citations.
+
+    A DOI identifies a work but does not verify a page. A passage is page-verifiable
+    only when its canonical snapshot is readable, its locator is exact and its page
+    range is valid. Results are paginated and may be filtered by returned status.
+    """
+    if offset < 0 or not 1 <= limit <= 100:
+        raise ToolError("offset must be >= 0 and limit in [1, 100]")
+    allowed_statuses = {
+        "fully_page_verifiable",
+        "partially_page_verifiable",
+        "canonical_text_only",
+        "unverified_legacy",
+        "canonical_unavailable_or_corrupt",
+        "mixed_document_versions",
+    }
+    if status and status not in allowed_statuses:
+        raise ToolError("unknown citation readiness status")
+
+    init_chroma_client()
+    collection = chroma_client.get_collection(name=COLLECTION_NAME)
+    data = read_collection(collection, include=["documents", "metadatas"])
+    papers: dict[str, list[tuple[dict, str]]] = {}
+    for meta, text in zip(data["metadatas"], data["documents"]):
+        source = meta.get("source", meta.get("filename", "unknown"))
+        papers.setdefault(source, []).append((meta, text))
+
+    library = Library(LIBRARY_PATH)
+    snapshot_contents: dict[str, str | None] = {}
+    rows = []
+    total_page_verified_chunks = 0
+    for source, entries in sorted(papers.items()):
+        metas = [meta for meta, _text in entries]
+        digest_values = {meta.get("canonical_sha256") for meta in metas}
+        digests = {digest for digest in digest_values if digest}
+        mixed_document_versions = len(digest_values) > 1
+        canonical_verified = False
+        canonical = None
+        if len(digests) == 1 and not mixed_document_versions:
+            digest = next(iter(digests))
+            if digest not in snapshot_contents:
+                try:
+                    snapshot_contents[digest] = library.read(digest)
+                except (OSError, ValueError):
+                    snapshot_contents[digest] = None
+            canonical = snapshot_contents[digest]
+            canonical_verified = canonical is not None
+
+        location_verified = []
+        for meta, indexed_text in entries:
+            start, end = meta.get("char_start"), meta.get("char_end")
+            location_verified.append(
+                canonical is not None
+                and meta.get("locator_status") == "exact"
+                and type(start) is int
+                and type(end) is int
+                and 0 <= start < end <= len(canonical)
+                and canonical[start:end] == indexed_text
+            )
+        exact_chunks = sum(location_verified)
+        page_located_chunks = sum(
+            type(meta.get("page_start")) is int
+            and type(meta.get("page_end")) is int
+            and 1 <= meta["page_start"] <= meta["page_end"]
+            for meta in metas
+        )
+        page_verified_chunks = sum(
+            verified
+            and type(meta.get("page_start")) is int
+            and type(meta.get("page_end")) is int
+            and 1 <= meta["page_start"] <= meta["page_end"]
+            for (meta, _indexed_text), verified in zip(entries, location_verified)
+        )
+        total_page_verified_chunks += page_verified_chunks
+
+        if mixed_document_versions:
+            readiness = "mixed_document_versions"
+        elif not digests:
+            readiness = "unverified_legacy"
+        elif not canonical_verified:
+            readiness = "canonical_unavailable_or_corrupt"
+        elif page_verified_chunks == len(metas):
+            readiness = "fully_page_verifiable"
+        elif page_verified_chunks:
+            readiness = "partially_page_verifiable"
+        else:
+            readiness = "canonical_text_only"
+
+        first = metas[0]
+        rows.append({
+            "source": source,
+            "document_id": first.get("document_id"),
+            "bibliography": provenance(first)["bibliography"],
+            "status": readiness,
+            "chunks": len(metas),
+            "canonical_verified": canonical_verified,
+            "exact_locator_chunks": exact_chunks,
+            "page_located_chunks": page_located_chunks,
+            "page_verified_chunks": page_verified_chunks,
+            "page_coverage": round(page_verified_chunks / len(metas), 4),
+        })
+
+    status_counts = _count_by(rows, "status")
+    filtered = [row for row in rows if not status or row["status"] == status]
+    metadata = collection.metadata or {}
+    _assert_revision(collection, require_ready=False)
+    return {
+        "documents": len(rows),
+        "chunks": len(data["ids"]),
+        "index_revision": metadata.get("ragdoc_revision"),
+        "status_counts": status_counts,
+        "page_verified_chunks": total_page_verified_chunks,
+        "page_verified_chunk_coverage": round(
+            total_page_verified_chunks / len(data["ids"]), 4
+        ) if data["ids"] else 0.0,
+        "criteria": {
+            "canonical_snapshot_readable": True,
+            "locator_status": "exact",
+            "valid_page_range_required": True,
+            "doi_alone_is_sufficient": False,
+        },
+        "status_filter": status or None,
+        **_audit_page(filtered, offset, limit),
+    }
 
 
 @mcp.tool()
@@ -1210,12 +1607,94 @@ def get_indexation_status() -> str:
         raise ToolError(str(e)) from e
 
 
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_runtime_status() -> dict:
+    """Check installed capabilities and connection settings without opening the database or calling APIs."""
+    return {**runtime_status(), "connection": {
+        "requested_mode": os.getenv("RAGDOC_CHROMA_MODE", "auto"),
+        "active_mode": _connection_mode, "local_path": str(ACTIVE_DB_PATH),
+        "host": os.getenv("RAGDOC_CHROMA_HOST", "localhost"),
+        "port": os.getenv("RAGDOC_CHROMA_PORT", "8000"),
+        "collection": COLLECTION_NAME}, "embedding_model": EMBEDDING_MODEL}
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def find_document_artifacts(query: str = "", source: str | None = None,
+                            artifact_type: str | None = None, label: str | None = None,
+                            limit: int = 20) -> dict:
+    """Find extracted tables and figures by exact label or their textual content.
+
+    For requests such as "Table 2 in Ren et al.", first resolve the article source,
+    then pass source and label="Table 2". Query searches captions and table bodies.
+    """
+    if not 1 <= limit <= 100:
+        raise ToolError("limit must be in [1, 100]")
+    if artifact_type is not None and artifact_type not in {"table", "image", "chart"}:
+        raise ToolError("artifact_type must be table, image or chart")
+    try:
+        rows = ArtifactIndex(ARTIFACTS_PATH).search(
+            query=query, source=source, kind=artifact_type, label=label, limit=limit
+        )
+    except Exception as error:
+        raise ToolError(f"Artifact search failed: {error}") from error
+    for row in rows:
+        row.pop("image_path", None)
+    return {"artifacts": rows, "total": len(rows)}
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_artifact(artifact_id: str) -> dict:
+    """Read one extracted table or figure with its caption, page and structured body."""
+    row = ArtifactIndex(ARTIFACTS_PATH).get(artifact_id)
+    if row is None:
+        raise ToolError("Artifact not found")
+    row.pop("image_path", None)
+    return row
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_artifact_image(artifact_id: str) -> Image:
+    """Return the original MinerU image for one table or figure."""
+    row = ArtifactIndex(ARTIFACTS_PATH).get(artifact_id)
+    if row is None or not row.get("image_path"):
+        raise ToolError("Artifact image is unavailable")
+    return Image(path=row["image_path"])
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_server_status() -> dict:
+    """Return the model and revision actually served by this MCP process."""
+    collection = _ready_collection()
+    metadata = dict(collection.metadata or {})
+    lexical = PersistentLexicalIndex(LEXICAL_INDEX_PATH).status(
+        metadata.get("ragdoc_revision"), collection.count()
+    )
+    return {
+        "configured_embedding_model": EMBEDDING_MODEL,
+        "collection_embedding_model": metadata.get("embedding_model"),
+        "index_revision": metadata.get("ragdoc_revision"),
+        "write_state": metadata.get("ragdoc_write_state", "legacy"),
+        "repairing": bool(metadata.get("ragdoc_repairing", False)),
+        "connection_mode": _connection_mode,
+        "collection": COLLECTION_NAME,
+        "lexical_index": lexical,
+        "reranking_model": "rerank-v4.0-pro",
+    }
+
+
 def main():
     """Entry point for CLI execution"""
     parser = argparse.ArgumentParser(description="Ragdoc MCP Server")
+    parser.add_argument("--check-runtime", action="store_true", help="Print offline capability diagnostics and exit")
     parser.add_argument("--mode", choices=["hybrid", "contextualized"], 
                         help="Override operation mode")
     args, unknown = parser.parse_known_args()
+    if args.check_runtime:
+        status = get_runtime_status()
+        print(json.dumps(status, indent=2))
+        raise SystemExit(1 if status['issues'] else 0)
+    for issue in runtime_status()['issues']:
+        logging.warning("Runtime capability: %s", issue)
 
     # If mode is passed via CLI, warn user it might not persist for MCP stdio
     if args.mode:
