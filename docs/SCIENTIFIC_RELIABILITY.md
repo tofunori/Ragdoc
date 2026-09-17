@@ -8,9 +8,15 @@ It does not annotate the existing library or demonstrate retrieval gains on it.
 
 Keep a backup of the existing Chroma database and Markdown sources before a first
 production migration. Install the updated requirements in an isolated environment.
-The implementation is tested with FastMCP 2.14.7, Chroma 1.5.9 and Chonkie 1.7.0.
-The semantic chunker's model still needs its existing optional dependencies and
-model download; tests do not download models or call paid APIs.
+The committed `uv.lock` defines a reproducible dependency set. Use an isolated
+Python 3.12 environment (`uv sync --locked --python 3.12 --extra dev`), install NLTK
+stopwords into `.venv/nltk_data`, set `NLTK_DATA` to that directory, and run
+`uv run --locked python src/server.py --check-runtime` as in the
+[installation guide](../INSTALLATION.md#prepare-an-isolated-environment).
+The offline diagnostic verifies that the Voyage SDK exposes `contextualized_embed`
+and that advanced tokenization is available; it does not call either external API.
+The current indexer uses deterministic token chunking. Its tokenizer assets may
+need downloading before first use; tests do not download models or call paid APIs.
 
 `RAGDOC_LIBRARY_DIR` selects the canonical store. By default it is
 `<Chroma parent>/ragdoc_library/<collection name>`. Both the indexer and MCP reader
@@ -21,11 +27,31 @@ records ingestion attempts. A successful journal event does not replace the inde
 integrity checks. The canonical snapshots include complete article text: treat
 them with the same access and copyright controls as the original library.
 
-Run the normal incremental indexer to migrate legacy articles. An unchanged
-legacy article is reindexed once because its pipeline/provenance metadata differ.
+For a collection already tagged with the configured embedding model, run the normal
+incremental indexer to backfill provenance. Unchanged legacy articles without a
+metadata sidecar are skipped; a deliberate `--force --source paper.md` run may be
+needed to backfill a reviewed source. Back up first and expect embedding costs.
+Articles with sidecars are reindexed when their pipeline/provenance metadata differ.
+A collection with a missing
+or different model tag is refused; use a separately planned model migration into a
+new collection instead (see [installation](../INSTALLATION.md#configuration)).
 It still incurs embedding costs. Existing tools remain available; a legacy full
 document read explicitly warns that overlapping chunks are reconstructed.
 Canonical reads require a migrated article and a matching snapshot.
+
+Section enrichment is a separate, embedding-preserving migration. First inspect
+the proposed coverage, then apply it while all other writers are stopped:
+
+```sh
+uv run --locked python scripts/enrich_section_metadata.py
+uv run --locked python scripts/enrich_section_metadata.py --apply
+```
+
+The migration keeps chunk IDs, text and vectors unchanged, derives hierarchical
+section metadata only for exact canonical locators, verifies every rewritten
+source and synchronizes the revision-pinned lexical index. It leaves ambiguous
+locations unresolved. Repeat `--source paper.md` to migrate a reviewed subset
+before the complete collection.
 
 ## Ingestion behavior
 
@@ -77,8 +103,11 @@ representation and a sidecar with parser version and exact page spans for
 unambiguous text. A page span is a Unicode-character interval `[start,end)` in the
 canonical Markdown, tied to its `content_sha256`, with a one-based PDF page number.
 Pages are not necessarily the printed journal page numbers. Figure and table
-structure is preserved in the raw export, but dedicated figure/table readers are
-not implemented. LlamaParse conversion currently leaves page spans empty.
+structure is preserved in the raw Docling export. Ragdrop's Mistral/MinerU
+converters can additionally produce artifact manifests; after `index_artifacts.py`,
+MCP tools `find_document_artifacts`, `get_artifact` and `get_artifact_image` read those
+indexed artifacts. A raw Docling export is not automatically an artifact manifest.
+LlamaParse conversion currently leaves page spans empty.
 
 Chunk locations are assigned only when their text matches an unambiguous exact
 substring. Transformations during chunking can leave a locator unresolved.
@@ -91,11 +120,13 @@ pipeline does not claim a comprehensive PDF extraction quality assessment.
 
 | Tool | Contract |
 |---|---|
-| `search_evidence` | Typed hits, bibliography, positions, excerpt truncation, index revision, channel state and reranking status. Optional source/year/collection filters. Default at most two hits per source. |
-| `get_passage` | Full indexed passage and verification against its canonical substring. Supply `expected_content_sha256` from the search result to pin a version. |
+| `search_evidence` | Typed hits, bibliography, positions, excerpt truncation, index revision, channel state and reranking status. Optional source/year/collection/section filters, explicit subqueries and an opt-in article-first strategy. Default at most two hits per source. |
+| `get_passage` | Full indexed passage and verification against its canonical substring. Supply `expected_content_sha256` from the search result to pin a version. Optional paragraph or section context is read directly from the canonical snapshot. |
 | `read_document` | Canonical Markdown with bounded character pagination; follow `next_offset` and pin the returned hash. |
 | `search_documents` | Paginated catalogue search over supplied title/authors/DOI and filenames, with year bounds. |
-| `audit_library` | Ingestion failures, write/repair state, incomplete chunks, mixed versions, missing snapshots, incomplete bibliography and candidate duplicates. |
+| `audit_library` | Compact integrity summary by default. Paginated `findings`, `duplicates`, and latest-per-source `events` views expose details without overflowing MCP clients. The event view is not a complete ingestion history. |
+| `audit_citation_readiness` | Paginated per-document audit of readable canonical snapshots, exact passage locators and valid PDF page ranges. A DOI alone never marks a passage page-verifiable. |
+| `get_runtime_status` | Offline dependency/capability checks, configured key presence and requested/active Chroma connection. No database opening or API calls. |
 
 `search_evidence` preserves null rerank scores when Cohere is unavailable and
 returns fusion-ranked candidates with a warning. Missing/failing embeddings use
@@ -104,13 +135,42 @@ the MCP may still call Cohere for reranking if configured. Scores are rankings,
 not probabilities of truth. Absence of hits does not establish absence from the
 scientific literature. Tool errors are sent as MCP execution errors.
 
-BM25 excludes candidates without lexical token overlap (rather than discarding
-all nonpositive scores). The first hybrid search builds BM25 synchronously and
-rebuilds after an index revision change. This prioritizes consistent retrieval;
-first-search latency on a large production corpus remains to be measured. Builds
-and searches are serialized within a retriever. Bulk Chroma reads use batches of
-500 rows to stay below backend SQL parameter limits. Catalogue/audit calls still
-scan all metadata; bounded batches do not make those full scans constant-time.
+Section filters use normalized categories (`abstract`, `introduction`, `methods`,
+`results`, `discussion`, `conclusion`, `references`, `supplementary`, and
+`acknowledgements`). `section_mode=strict` excludes unknown or unmatched sections;
+`prefer` keeps them eligible and reports that the preference is heuristic. A
+section category describes where text occurs, not whether a claim is original,
+true, or supported by the article's data.
+
+`retrieval_strategy=articles_then_passages` first aggregates passage evidence by
+source using at most three contributions per article, then searches within a
+bounded article shortlist. Explicit `subqueries` are fused with the original
+question and each hit reports which queries retrieved it. These options improve
+coverage mechanisms but are not claims of better scientific recall until the
+reviewed benchmark demonstrates a gain.
+
+Lexical retrieval uses a revision-pinned SQLite FTS5 sidecar. Its fielded BM25
+weights body, title, authors, identifiers and source separately; identifier-like
+queries prefer catalogue identifiers over incidental citations in article bodies.
+Candidate generation admits at most ten passages per source and excludes macOS
+`._` sidecars, preventing a long article from occupying the complete lexical pool.
+The sidecar is rebuilt atomically when its schema, revision or passage count differs
+from Chroma, and is synchronized after incremental writes. Builds read Chroma in
+batches of 500 rows to stay below backend SQL parameter limits. The catalogue scans
+metadata once per revision and retains one record per document. Revisionless legacy
+indexes are not cached, and active writes still block catalogue reads. Audit calls
+continue to scan the complete metadata set and verify canonical snapshots.
+
+The public search limit is 100 hits. Source diversity can trigger larger retrieval
+pools up to 1,000 candidates per query; the reranking input remains bounded to 100.
+If the expansion cap prevents filling the requested number of diverse hits, the
+response reports `candidate_limit_reached`. Successful query embeddings are cached
+in memory (128 queries per retriever), including across expansion attempts.
+
+Both the server and indexer use `RAGDOC_CHROMA_MODE`: `persistent` never probes an
+HTTP server, `http` never falls back to disk, and `auto` retains the legacy HTTP-first
+behavior. Set `RAGDOC_CHROMA_HOST` and `RAGDOC_CHROMA_PORT` for HTTP connections.
+Changing these settings requires starting a new server process.
 
 ## Evaluation
 
@@ -121,6 +181,8 @@ question against the actual library and add its judgment keyed by question ID:
 ```json
 {
   "reviewed": true,
+  "review_provenance": "human",
+  "reviewer": "your reviewer identifier",
   "answerable": true,
   "sources": ["paper.md"],
   "chunks": ["an_actual_chunk_id_returned_by_search"],
@@ -128,35 +190,47 @@ question against the actual library and add its judgment keyed by question ID:
 }
 ```
 
-For a reviewed question without an answer in this corpus, set `answerable=false`,
-both lists empty, and `content_sha256_by_source={}`. Include genuine negative cases;
-do not infer answerability merely because a search found nothing. Maintain separate
-development and held-out questions before tuning retrieval parameters.
+For a reviewed question without canonical evidence in this corpus, set
+`answerable=false`, both lists empty, and `content_sha256_by_source={}`. Record
+`corpus_status=present_but_unverifiable` when a relevant legacy document exists but
+cannot provide a canonical passage, or `not_established_after_targeted_search` when
+targeted review found no qualifying passage. Neither status establishes that the
+scientific answer is negative. Maintain separate development and blind questions
+before tuning retrieval parameters.
 
-Offline validation:
+Offline validation (assistant drafts remain invalid for official scoring):
 
 ```sh
-python scripts/benchmark_scientific.py tests/test_datasets/scientific_questions_draft.json --validate-only
+uv run --locked python scripts/benchmark_scientific.py tests/test_datasets/scientific_questions_draft.json --validate-only
 ```
 
 Scoring is refused until every question is reviewed. A run uses the actual MCP
 search and passage tools and thus may incur embedding and reranking API costs:
 
 ```sh
-python scripts/benchmark_scientific.py reviewed_questions.json --output benchmark.json
+uv run --locked python scripts/benchmark_scientific.py reviewed_questions.json --output benchmark.json
 ```
 
 The runner checks pinned source versions and the index revision, measures article
 and passage recall against the annotated sets, first relevant rank and canonical
-verification. It reports candidate returns for unanswerable questions separately;
+verification. It reports candidate returns when canonical evidence is unavailable;
 it does not measure generated-answer factuality or provide calibrated abstention.
 Retrieval channel and fallback state are recorded to expose degraded runs.
 The old self-retrieval dataset remains a separate recognition regression test.
 
+### Review status and provisional diagnostics
+
+Official scoring requires human-reviewed judgments, reviewer provenance and source
+SHA-256 pins. Assistant-selected evidence can be inspected in a provisional run
+using `--provisional-assistant`; that status must remain visible in any report.
+An evaluation set exposed during tuning is not a blind test. Use a fresh unseen
+set for an independent final estimate. This repository does not claim a measured
+general retrieval-quality score from a private corpus.
+
 ## Local verification
 
 ```sh
-python -m pytest -q tests/unit/test_library_reliability.py tests/test_rag_metrics.py
+uv run --locked python -m pytest -q tests/unit tests/test_rag_metrics.py
 ```
 
 These tests use synthetic articles, simulated failures, a real in-process FastMCP
