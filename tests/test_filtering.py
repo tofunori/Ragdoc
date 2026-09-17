@@ -32,7 +32,7 @@ def test_search_by_source_single():
         server.init_clients()
 
         # Search only in 1982_RGSP.md
-        result = server.search_by_source.fn(
+        result = server.search_by_source(
             query="glacier albedo measurements",
             sources=["1982_RGSP.md"],
             top_k=3
@@ -59,7 +59,7 @@ def test_search_by_source_multiple():
     print("=" * 80)
 
     try:
-        result = server.search_by_source.fn(
+        result = server.search_by_source(
             query="snow albedo",
             sources=["1982_RGSP.md", "A Model for the Spectral Albedo of Snow. I Pure Snow.md"],
             top_k=5
@@ -148,7 +148,7 @@ def test_backward_compatibility():
     print("=" * 80)
 
     try:
-        result = server.semantic_search_hybrid.fn(
+        result = server.semantic_search_hybrid(
             query="glacier mass balance",
             top_k=3
         )

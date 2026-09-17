@@ -4,7 +4,7 @@
 embedding:
   # Default model for general documents
   default:
-    name: "voyage-context-3"
+    name: "voyage-context-4"
     dimensions: 1024
     context_window: 32000  # tokens
     max_batch_size: 25  # chunks per contextualized call

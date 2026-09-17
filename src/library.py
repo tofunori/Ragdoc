@@ -9,6 +9,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .document_structure import parse_sections, section_metadata
+
 
 def sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -32,11 +34,17 @@ def read_sidecar(path: Path) -> dict:
     spans = data.get("page_spans", [])
     if not isinstance(spans, list):
         raise ValueError("page_spans must be a list")
+    previous_end = -1
+    previous_page = 0
     for span in spans:
         if not isinstance(span, dict) or any(type(span.get(k)) is not int for k in ("start", "end", "page")):
             raise ValueError("Page spans require integer start, end and page")
         if not 0 <= span["start"] < span["end"] or span["page"] < 1:
             raise ValueError("Invalid page span")
+        if span["start"] < previous_end or span["page"] < previous_page:
+            raise ValueError("Page spans must be ordered and non-overlapping")
+        previous_end = span["end"]
+        previous_page = span["page"]
     return data
 
 
@@ -96,7 +104,8 @@ class Library:
 def document_metadata(path: Path, content: str, sidecar: dict) -> dict:
     """Only supplied bibliography is treated as known; a filename is not a title."""
     bibliographic = {k: sidecar[k] for k in
-                     ("title", "authors", "year", "doi", "version", "source_pdf", "collection") if k in sidecar}
+                     ("title", "authors", "year", "doi", "version", "source_pdf", "collection",
+                      "zotero_item_key", "zotero_attachment_key") if k in sidecar}
     metadata = {
         "document_id": sha256("source:" + path.name),
         "canonical_sha256": sha256(content),
@@ -116,8 +125,8 @@ def document_metadata(path: Path, content: str, sidecar: dict) -> dict:
 
 def locate_chunks(content: str, texts: list[str], sidecar: dict) -> list[dict]:
     """Locate exact text only. Do not invent page numbers for legacy Markdown."""
-    headings = [(m.start(), m.group(1).strip()) for m in re.finditer(r"(?m)^#{1,6}\s+(.+)$", content)]
     pages = sidecar.get("page_spans", []) if sidecar.get("content_sha256") == sha256(content) else []
+    sections = parse_sections(content)
     cursor = 0
     locations = []
     for text in texts:
@@ -127,9 +136,7 @@ def locate_chunks(content: str, texts: list[str], sidecar: dict) -> list[dict]:
         if start >= 0:
             end = start + len(text)
             location.update(locator_status="exact", char_start=start, char_end=end)
-            section = next((title for pos, title in reversed(headings) if pos <= start), None)
-            if section:
-                location["section"] = section
+            location.update(section_metadata(content, start, end, sections))
             starts = [s["page"] for s in pages if s["start"] <= start < s["end"] <= len(content)]
             ends = [s["page"] for s in pages if 0 <= s["start"] <= end - 1 < s["end"] <= len(content)]
             if len(set(starts)) == len(set(ends)) == 1 and starts[0] <= ends[0]:
@@ -162,7 +169,14 @@ def provenance(metadata: dict) -> dict:
         "source": metadata.get("source", metadata.get("filename")),
         "content_sha256": metadata.get("canonical_sha256"),
         "bibliography": {k: bibliographic.get(k) for k in ("title", "authors", "year", "doi", "version")},
-        "location": {k: metadata.get(k) for k in ("section", "page_start", "page_end", "char_start", "char_end")},
+        "location": {
+            **{k: metadata.get(k) for k in (
+                "section", "section_id", "section_level", "section_path", "section_start", "section_end",
+                "page_start", "page_end", "char_start", "char_end", "structure_version"
+            )},
+            "section_types": json.loads(metadata.get("section_types_json", "[]")),
+            "section_overlap": bool(metadata.get("section_overlap", False)),
+        },
         "locator_status": metadata.get("locator_status", "unavailable"),
         "source_pdf": bibliographic.get("source_pdf"),
         "completeness": metadata.get("completeness", "not_assessed"),
