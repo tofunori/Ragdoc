@@ -1,10 +1,20 @@
 # Ragdoc + Ragdrop
 
-**Review scientific PDFs on your Mac. Search the resulting library with traceable passages through MCP.**
+**Search your own scientific papers from Claude, Codex or another MCP-compatible assistant.**
 
-Ragdrop is the macOS application for importing PDFs, comparing extracted text with
-its source, and approving documents for indexing. Ragdoc is the backend that stores
-the library and exposes search, document reading and evidence tools to MCP clients.
+**Ragdoc** is a server for the **Model Context Protocol (MCP)**, a standard way for
+assistants to call external tools. Once connected, your assistant can use Ragdoc to
+search the articles in your personal literature library, read their content and
+retrieve supporting passages with source context and provenance information.
+
+**Ragdrop** is the companion macOS application that prepares that library: import
+PDFs from Finder or Zotero, compare extracted text with the original, then approve
+documents for indexing. Ragdoc searches the articles you have added to this library;
+you ask questions through your connected assistant.
+
+For example: “Which papers in my library compare field measurements with satellite
+estimates?” Then: “Show me the source passages describing their limitations.”
+Traceable passages help you check an answer; they do not guarantee scientific accuracy.
 
 ![Ragdrop in light mode: PDF and Zotero import actions above a synthetic example library](docs/assets/ragdrop/home-light.png)
 
@@ -46,14 +56,23 @@ indexing; successful indexing does not certify its scientific accuracy.*
 Ragdrop offers **light, dark and system** appearance under **Réglages → Apparence**.
 See [screenshot provenance and reproduction](docs/assets/ragdrop/README.md).
 
+**Prepare your library with Ragdrop**
+
 ```mermaid
 flowchart LR
     A[PDF / Zotero] --> B[OCR conversion]
     B --> C[Human review in Ragdrop]
-    C -->|Approve and add| D[Markdown + metadata + artifacts]
-    D --> E[Ragdoc index + canonical snapshots]
-    E --> F[Lexical + vector search]
-    F --> G[MCP evidence and document tools]
+    C -->|Approve and add| D[Your indexed article library]
+```
+
+**Search it from your assistant**
+
+```mermaid
+flowchart LR
+    A[Claude / Codex / compatible client] -->|MCP request| B[Ragdoc server]
+    B -->|Search and read| C[Your indexed article library]
+    C -->|Passages and provenance| B
+    B -->|MCP results| A
 ```
 
 ## Try it
