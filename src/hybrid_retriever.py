@@ -283,24 +283,17 @@ class HybridRetriever:
         """Use the persistent FTS sidecar, retaining in-memory BM25 for small tests."""
         if self.lexical_index is not None:
             try:
-                exact_source = (
-                    where.get("source")
-                    if isinstance(where, dict) and set(where) == {"source"}
-                    else None
-                )
                 results, payload = self.lexical_index.search(
                     query,
                     top_n=top_n,
                     revision=self._revision,
                     chunk_count=self.collection.count(),
-                    source=exact_source,
+                    where=where,
                 )
-                if where is not None or where_document is not None:
+                if where_document is not None:
                     filtered = []
                     for doc_id, score, _ in results:
                         text, metadata = payload[doc_id]
-                        if where is not None and not self._match_where(metadata, where):
-                            continue
                         if where_document is not None and not self._match_where_document(text, where_document):
                             continue
                         filtered.append((doc_id, score, len(filtered)))

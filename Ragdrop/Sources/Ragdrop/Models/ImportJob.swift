@@ -1,6 +1,6 @@
 import Foundation
 
-struct ImportMetadata: Equatable, Sendable {
+struct ImportMetadata: Codable, Equatable, Sendable {
     let title: String
     let authors: [String]
     let year: Int?
@@ -9,7 +9,7 @@ struct ImportMetadata: Equatable, Sendable {
     let zoteroAttachmentKey: String?
 }
 
-enum ImportStage: String, Sendable {
+enum ImportStage: String, Codable, Sendable {
     case queued
     case checkingDuplicate
     case converting
@@ -27,7 +27,7 @@ enum ImportStage: String, Sendable {
         switch self {
         case .queued: "En attente"
         case .checkingDuplicate: "Recherche de doublon"
-        case .converting: "Conversion MinerU"
+        case .converting: "Conversion du PDF"
         case .awaitingReview: "À vérifier"
         case .readyForIndexing: "Approuvé"
         case .transferring: "Transfert vers le NAS"
@@ -72,9 +72,24 @@ enum ImportStage: String, Sendable {
             false
         }
     }
+
+    var progressFraction: Double? {
+        switch self {
+        case .queued: 0
+        case .checkingDuplicate: 0.04
+        case .converting: 0.12
+        case .awaitingReview: 0.30
+        case .readyForIndexing: 0.35
+        case .transferring: 0.40
+        case .indexing: 0.66
+        case .verifying: 0.88
+        case .completed, .duplicate, .rejected: 1
+        case .failed: nil
+        }
+    }
 }
 
-struct ImportJob: Identifiable, Equatable, Sendable {
+struct ImportJob: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let fileURL: URL
     var stage: ImportStage
@@ -87,6 +102,8 @@ struct ImportJob: Identifiable, Equatable, Sendable {
     var chunkCount: Int?
     var fingerprint: String?
     var metadata: ImportMetadata?
+    var errorDetails: String?
+    var progressHighWater = 0.0
 
     init(fileURL: URL, metadata: ImportMetadata? = nil) {
         id = UUID()
@@ -99,5 +116,15 @@ struct ImportJob: Identifiable, Equatable, Sendable {
 
     var displayName: String {
         fileURL.deletingPathExtension().lastPathComponent
+    }
+
+    var overallProgress: Double {
+        max(progressHighWater, stage.progressFraction ?? progressHighWater)
+    }
+
+    mutating func recordProgress(for stage: ImportStage) {
+        if let progress = stage.progressFraction {
+            progressHighWater = max(progressHighWater, progress)
+        }
     }
 }

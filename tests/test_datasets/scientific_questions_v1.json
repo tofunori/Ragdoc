@@ -1,0 +1,309 @@
+{
+  "name": "Scientific library questions v1 — annotation in progress",
+  "strategy": "scientific_questions",
+  "status": "annotation_in_progress",
+  "note": "The 35 development questions and 15 heldout-labelled questions are fixed, but the latter were exposed during candidate preparation and an initial baseline. They form a locked non-blind evaluation split, not a final blind test. Candidate packets and assistant adjudication are not human-reviewed gold judgments.",
+  "judgments": {},
+  "questions": [
+    {
+      "id": "q01",
+      "query": "Quelles études distinguent l'effet du carbone noir de celui des poussières sur l'albédo de la neige ?",
+      "split": "development",
+      "lexical_query": "black carbon mineral dust effects snow albedo"
+    },
+    {
+      "id": "q02",
+      "query": "Quelles mesures de terrain relient les dépôts issus des feux à l'albédo des glaciers ?",
+      "split": "development",
+      "lexical_query": "wildfire deposition glacier field measurements albedo"
+    },
+    {
+      "id": "q03",
+      "query": "Quels articles mesurent la persistance des impuretés après leur dépôt sur un glacier ?",
+      "split": "development",
+      "lexical_query": "persistence light absorbing impurities deposition glacier snow ice"
+    },
+    {
+      "id": "q04",
+      "query": "Quelles études rapportent une absence d'effet détectable des feux sur l'albédo ?",
+      "split": "heldout",
+      "lexical_query": "wildfire no detectable effect glacier snow albedo"
+    },
+    {
+      "id": "q05",
+      "query": "Comment les études distinguent-elles fumée atmosphérique et impuretés déposées à la surface ?",
+      "split": "development",
+      "lexical_query": "atmospheric smoke surface deposited impurities glacier remote sensing"
+    },
+    {
+      "id": "q06",
+      "query": "Quelles hypothèses relient la taille des grains à l'albédo spectral de la neige ?",
+      "split": "development",
+      "lexical_query": "snow grain size spectral albedo specific surface area"
+    },
+    {
+      "id": "q07",
+      "query": "Dans quelles conditions la surface sous-jacente modifie-t-elle l'albédo d'une couche de neige ?",
+      "split": "development",
+      "lexical_query": "underlying surface snow layer albedo optical thickness"
+    },
+    {
+      "id": "q08",
+      "query": "Comment la forme des grains influence-t-elle les modèles d'albédo de la neige ?",
+      "split": "development",
+      "lexical_query": "snow grain shape albedo radiative transfer model"
+    },
+    {
+      "id": "q09",
+      "query": "Quels articles comparent les effets des algues et des particules minérales sur la glace ?",
+      "split": "heldout",
+      "lexical_query": "glacier ice algae mineral particles albedo comparison"
+    },
+    {
+      "id": "q10",
+      "query": "Quelles différences sont documentées entre neige fraîche, névé et glace nue pour l'absorption solaire ?",
+      "split": "development",
+      "lexical_query": "fresh snow firn bare ice solar absorption albedo"
+    },
+    {
+      "id": "q11",
+      "query": "Quelles validations de l'albédo MODIS ont été réalisées directement sur des glaciers ?",
+      "split": "development",
+      "lexical_query": "MODIS albedo validation glacier field measurements"
+    },
+    {
+      "id": "q12",
+      "query": "Quelles limites de correction atmosphérique sont rapportées en présence d'aérosols importants ?",
+      "split": "development",
+      "lexical_query": "atmospheric correction high aerosol optical depth surface reflectance limitations"
+    },
+    {
+      "id": "q13",
+      "query": "Quelles études évaluent le biais lié aux pixels mixtes glacier-roche dans l'albédo satellitaire ?",
+      "split": "heldout",
+      "lexical_query": "mixed pixels glacier rock satellite albedo bias"
+    },
+    {
+      "id": "q14",
+      "query": "Comment les ombres topographiques sont-elles traitées dans les mesures satellitaires d'albédo ?",
+      "split": "development",
+      "lexical_query": "topographic shadows correction satellite glacier albedo"
+    },
+    {
+      "id": "q15",
+      "query": "Quelles différences méthodologiques séparent albédo à ciel noir et albédo à ciel blanc ?",
+      "split": "development",
+      "lexical_query": "black sky white sky albedo methodology"
+    },
+    {
+      "id": "q16",
+      "query": "Quelles études quantifient le biais d'échantillonnage lié aux jours sans nuages ?",
+      "split": "development",
+      "lexical_query": "cloud free sampling bias glacier albedo trends"
+    },
+    {
+      "id": "q17",
+      "query": "Quels critères de qualité sont appliqués aux pixels de neige dans les études MODIS ?",
+      "split": "development",
+      "lexical_query": "MODIS snow pixel quality criteria flags"
+    },
+    {
+      "id": "q18",
+      "query": "Comment la conversion d'albédo spectral en albédo large bande est-elle validée ?",
+      "split": "heldout",
+      "lexical_query": "spectral broadband albedo conversion validation snow glacier"
+    },
+    {
+      "id": "q19",
+      "query": "Quels articles comparent l'albédo dérivé de Landsat et de MODIS sur la même zone ?",
+      "split": "development",
+      "lexical_query": "Landsat MODIS glacier albedo comparison"
+    },
+    {
+      "id": "q20",
+      "query": "Quelles études évaluent la représentativité spatiale d'une station d'albédo sur un glacier ?",
+      "split": "development",
+      "lexical_query": "spatial representativeness albedo station glacier"
+    },
+    {
+      "id": "q21",
+      "query": "Comment les études séparent-elles les effets de la température, des précipitations et des impuretés ?",
+      "split": "development",
+      "lexical_query": "temperature precipitation impurities separate effects glacier albedo"
+    },
+    {
+      "id": "q22",
+      "query": "Quels modèles hiérarchiques ont été utilisés pour analyser l'albédo de plusieurs glaciers ?",
+      "split": "development",
+      "lexical_query": "hierarchical model multiple glaciers albedo"
+    },
+    {
+      "id": "q23",
+      "query": "Comment l'autocorrélation temporelle est-elle prise en compte dans les tendances d'albédo ?",
+      "split": "heldout",
+      "lexical_query": "temporal autocorrelation glacier albedo trend"
+    },
+    {
+      "id": "q24",
+      "query": "Quelles études testent la sensibilité des tendances d'albédo au seuil de couverture spatiale ?",
+      "split": "development",
+      "lexical_query": "glacier albedo trend spatial coverage threshold sensitivity"
+    },
+    {
+      "id": "q25",
+      "query": "Comment les données d'albédo manquantes sont-elles traitées et quelles limites sont reconnues ?",
+      "split": "development",
+      "lexical_query": "missing albedo data treatment cloud gaps glacier"
+    },
+    {
+      "id": "q26",
+      "query": "Quelles méthodes de séparation pluie-neige utilisent une transition progressive avec la température ?",
+      "split": "development",
+      "lexical_query": "rain snow partition gradual temperature transition method"
+    },
+    {
+      "id": "q27",
+      "query": "Quels seuils de température sont utilisés pour distinguer pluie et neige, avec leurs unités et limites ?",
+      "split": "development",
+      "lexical_query": "rain snow temperature threshold units limitations"
+    },
+    {
+      "id": "q28",
+      "query": "Comment les études corrigent-elles les biais de précipitation des réanalyses en terrain glaciaire ?",
+      "split": "heldout",
+      "lexical_query": "reanalysis precipitation bias correction glacier mountains"
+    },
+    {
+      "id": "q29",
+      "query": "Quelles méthodes extrapolent le vent d'une réanalyse vers un glacier montagneux ?",
+      "split": "development",
+      "lexical_query": "reanalysis wind downscaling mountain glacier"
+    },
+    {
+      "id": "q30",
+      "query": "Dans quels cas un minimum de vitesse du vent est-il imposé dans un bilan d'énergie de surface ?",
+      "split": "development",
+      "lexical_query": "minimum wind speed threshold surface energy balance glacier"
+    },
+    {
+      "id": "q31",
+      "query": "Quelle relation est utilisée entre albédo, rayonnement incident et énergie solaire absorbée ?",
+      "split": "development",
+      "lexical_query": "absorbed shortwave radiation albedo equation incoming solar"
+    },
+    {
+      "id": "q32",
+      "query": "Quels articles quantifient la sensibilité de la fonte à une variation absolue d'albédo de 0,01 ?",
+      "split": "development",
+      "lexical_query": "melt sensitivity absolute albedo change 0.01"
+    },
+    {
+      "id": "q33",
+      "query": "Quelles unités et conventions de signe sont utilisées pour les flux turbulents de surface ?",
+      "split": "development",
+      "lexical_query": "turbulent heat flux units sign convention glacier surface energy balance"
+    },
+    {
+      "id": "q34",
+      "query": "Comment la rugosité aérodynamique est-elle estimée pour la neige et la glace ?",
+      "split": "heldout",
+      "lexical_query": "aerodynamic roughness snow ice glacier estimate"
+    },
+    {
+      "id": "q35",
+      "query": "Quelles études évaluent les corrections de stabilité atmosphérique au-dessus des glaciers ?",
+      "split": "development",
+      "lexical_query": "atmospheric stability correction glacier turbulent flux"
+    },
+    {
+      "id": "q36",
+      "query": "Quelles observations distinguent le lessivage des impuretés et leur concentration pendant la fonte ?",
+      "split": "development",
+      "lexical_query": "impurity washout concentration melting snow glacier observations"
+    },
+    {
+      "id": "q37",
+      "query": "Quels mécanismes expliquent des réponses différentes de l'albédo à une chute de neige estivale ?",
+      "split": "development",
+      "lexical_query": "summer snowfall glacier albedo response mechanisms"
+    },
+    {
+      "id": "q38",
+      "query": "Quelles études comparent directement des années avec et sans feux importants ?",
+      "split": "development",
+      "lexical_query": "compare wildfire and non wildfire years glacier albedo"
+    },
+    {
+      "id": "q39",
+      "query": "Quelles limites empêchent d'attribuer une anomalie d'albédo aux feux à partir d'une simple corrélation ?",
+      "split": "heldout",
+      "lexical_query": "wildfire attribution albedo anomaly correlation limitations"
+    },
+    {
+      "id": "q40",
+      "query": "Quels articles examinent des effets retardés des feux au cours des saisons suivantes ?",
+      "split": "development",
+      "lexical_query": "lagged wildfire effects following seasons glacier albedo"
+    },
+    {
+      "id": "q41",
+      "query": "Which field studies distinguish black carbon deposition from atmospheric smoke over glaciers?",
+      "split": "development",
+      "lexical_query": "field studies black carbon deposition atmospheric smoke glaciers"
+    },
+    {
+      "id": "q42",
+      "query": "What evidence supports long-term retention of light-absorbing particles in glacier ice?",
+      "split": "heldout",
+      "lexical_query": "long term retention light absorbing particles glacier ice evidence"
+    },
+    {
+      "id": "q43",
+      "query": "How do published methods account for cloud-related sampling bias in glacier albedo trends?",
+      "split": "development",
+      "lexical_query": "cloud sampling bias glacier albedo trends methods"
+    },
+    {
+      "id": "q44",
+      "query": "Which assumptions limit the transfer of snow albedo models to bare glacier ice?",
+      "split": "development",
+      "lexical_query": "snow albedo model transfer bare glacier ice assumptions limitations"
+    },
+    {
+      "id": "q45",
+      "query": "Which studies provide uncertainty estimates for the conversion of albedo change into melt energy?",
+      "split": "heldout",
+      "lexical_query": "uncertainty albedo change conversion melt energy"
+    },
+    {
+      "id": "q46",
+      "query": "Existe-t-il dans cette bibliothèque une mesure directe de dépôts d'un feu identifié sur un glacier identifié ?",
+      "split": "heldout",
+      "lexical_query": "direct deposition identified wildfire identified glacier measurement"
+    },
+    {
+      "id": "q47",
+      "query": "La bibliothèque contient-elle une validation indépendante des concentrations d'impuretés pour chaque année étudiée ?",
+      "split": "heldout",
+      "lexical_query": "independent validation impurity concentrations every year glacier study"
+    },
+    {
+      "id": "q48",
+      "query": "Un article de la bibliothèque démontre-t-il un effet universel de même amplitude des feux sur tous les glaciers ?",
+      "split": "heldout",
+      "lexical_query": "universal same magnitude wildfire effect all glaciers"
+    },
+    {
+      "id": "q49",
+      "query": "Quels articles fournissent les données nécessaires pour reproduire intégralement leurs calculs d'albédo ?",
+      "split": "heldout",
+      "lexical_query": "reproducible glacier albedo calculations data code"
+    },
+    {
+      "id": "q50",
+      "query": "Quels résultats contradictoires sur l'effet des impuretés peuvent être rapprochés en comparant leurs conditions de mesure ?",
+      "split": "heldout",
+      "lexical_query": "contradictory impurity effects measurement conditions snow ice albedo"
+    }
+  ]
+}

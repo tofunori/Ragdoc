@@ -16,7 +16,7 @@ struct DropZoneView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(isTargeted ? "Déposez les PDF" : "Glissez vos PDF ici")
                     .font(.headline)
-                Text("Détection des doublons, conversion MinerU et aperçu Markdown.")
+                Text("Détection des doublons, conversion Mistral OCR et aperçu Markdown.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

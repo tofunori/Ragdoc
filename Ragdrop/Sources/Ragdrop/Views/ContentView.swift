@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var showingImporter = false
     @State private var showingZotero = false
     @State private var previewJob: ImportJob?
+    @State private var errorJob: ImportJob?
 
     var body: some View {
         VStack(spacing: 12) {
@@ -48,6 +49,9 @@ struct ContentView: View {
                     previewJob = nil
                 }
             )
+        }
+        .sheet(item: $errorJob) { job in
+            ErrorDetailView(job: job)
         }
         .sheet(isPresented: $showingZotero) {
             ZoteroImportView { documents in
@@ -92,9 +96,14 @@ struct ContentView: View {
         } else {
             List {
                 ForEach(store.jobs) { job in
-                    QueueRowView(job: job) {
-                        previewJob = job
-                    }
+                    QueueRowView(
+                        job: job,
+                        onPreview: { previewJob = job },
+                        onRetry: { store.retry(job.id) },
+                        onShowError: { errorJob = job },
+                        onRemove: { store.remove(job.id) },
+                        canRemove: !store.isRunning
+                    )
                 }
                 .onDelete(perform: store.removeJobs)
             }
@@ -114,6 +123,9 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
             Spacer()
+            if store.canCancelConversion {
+                Button("Annuler", role: .cancel, action: store.cancelConversion)
+            }
             if store.jobs.contains(where: { [.completed, .duplicate, .rejected].contains($0.stage) }) && !store.isRunning {
                 Button("Effacer les terminés", action: store.clearCompleted)
             }

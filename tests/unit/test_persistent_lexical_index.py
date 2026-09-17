@@ -150,3 +150,67 @@ def test_lexical_candidates_are_diverse_and_skip_macos_sidecars(tmp_path):
     assert sources.count("dominant.md") <= 10
     assert len(set(sources)) >= 11
     assert "._Finder-sidecar.md" not in sources
+
+
+def test_lexical_filters_are_applied_before_candidate_limit(tmp_path):
+    collection = Collection()
+    collection.rows = [
+        (f"method-{index}", "snow evidence", {
+            "source": f"method-{index}.md", "section_is_methods": True,
+            "section_is_results": False, "year": 2010,
+        })
+        for index in range(600)
+    ]
+    collection.rows.append(("target", "snow evidence", {
+        "source": "target.md", "section_is_methods": False,
+        "section_is_results": True, "year": 2024,
+    }))
+    index = PersistentLexicalIndex(tmp_path / "lexical.sqlite3")
+    index.rebuild(collection)
+
+    results, _ = index.search(
+        "snow", top_n=5, revision="r1", chunk_count=601,
+        where={"$and": [
+            {"source": {"$in": ["target.md", "missing.md"]}},
+            {"year": {"$gte": 2020}},
+            {"section_is_results": True},
+        ]},
+    )
+    assert [row[0] for row in results] == ["target"]
+
+
+def test_exact_source_search_is_not_capped_and_legacy_fields_remain_filterable(tmp_path):
+    collection = Collection()
+    collection.rows = [
+        (f"chunk-{index}", "snow", {"source": "paper.md", "chunk_index": index})
+        for index in range(15)
+    ]
+    index = PersistentLexicalIndex(tmp_path / "lexical.sqlite3")
+    index.rebuild(collection)
+
+    all_results, _ = index.search(
+        "snow", top_n=20, revision="r1", chunk_count=15,
+        where={"source": "paper.md"},
+    )
+    selected, _ = index.search(
+        "snow", top_n=20, revision="r1", chunk_count=15,
+        where={"chunk_index": {"$gte": 12}},
+    )
+    assert len(all_results) == 15
+    assert {row[0] for row in selected} == {"chunk-12", "chunk-13", "chunk-14"}
+
+
+def test_negative_filter_includes_rows_with_missing_metadata_like_chroma(tmp_path):
+    collection = Collection()
+    collection.rows = [
+        ("missing", "snow", {"source": "missing.md"}),
+        ("old", "snow", {"source": "old.md", "year": 2020}),
+        ("new", "snow", {"source": "new.md", "year": 2024}),
+    ]
+    index = PersistentLexicalIndex(tmp_path / "lexical.sqlite3")
+    index.rebuild(collection)
+    results, _ = index.search(
+        "snow", top_n=10, revision="r1", chunk_count=3,
+        where={"year": {"$ne": 2020}},
+    )
+    assert {row[0] for row in results} == {"missing", "new"}

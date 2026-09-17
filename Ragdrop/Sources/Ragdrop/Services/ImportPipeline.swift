@@ -1,4 +1,5 @@
 import CryptoKit
+import Darwin
 import Foundation
 
 struct PipelineConfiguration: Sendable {
@@ -6,22 +7,79 @@ struct PipelineConfiguration: Sendable {
     let nasHost: String
     let remoteRoot: String
 
+    enum ConverterKind: String, CaseIterable, Identifiable, Sendable {
+        case mistral
+        case mineru
+        case custom
+
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .mistral: "Mistral OCR"
+            case .mineru: "MinerU (secours)"
+            case .custom: "Personnalisé"
+            }
+        }
+        var commandLabel: String {
+            switch self {
+            case .mistral: "Mistral OCR"
+            case .mineru: "MinerU"
+            case .custom: "Le convertisseur PDF"
+            }
+        }
+        var parser: String {
+            switch self {
+            case .mistral: "mistral-ocr"
+            case .mineru: "mineru"
+            case .custom: "custom"
+            }
+        }
+        var parserVersion: String {
+            switch self {
+            case .mistral: "mistral-ocr-latest"
+            case .mineru: "api-v4-pipeline"
+            case .custom: "external"
+            }
+        }
+        var maximumBytes: Int? {
+            switch self {
+            case .mistral: 512 * 1024 * 1024
+            case .mineru: 200 * 1024 * 1024
+            case .custom: nil
+            }
+        }
+        var timeout: TimeInterval {
+            self == .mistral ? 30 * 60 : 90 * 60
+        }
+    }
+
     static var defaultConverterPath: String {
+        defaultMistralConverterPath
+    }
+
+    static var defaultMistralConverterPath: String {
+        converterPath(named: "ragdrop_mistral_convert.py", skillCandidates: [])
+    }
+
+    static var defaultMinerUConverterPath: String {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let bundled = Bundle.main.resourceURL?.appendingPathComponent("ragdrop_mineru_convert.py")
+        return converterPath(named: "ragdrop_mineru_convert.py", skillCandidates: [
+            home.appendingPathComponent(".codex/skills/mineru-pdf/mineru_convert.py"),
+            home.appendingPathComponent(".Codex/skills/mineru-pdf/mineru_convert.py"),
+            home.appendingPathComponent(".agents/skills/mineru-pdf/mineru_convert.py")
+        ])
+    }
+
+    private static func converterPath(named filename: String, skillCandidates: [URL]) -> String {
+        let bundled = Bundle.main.resourceURL?.appendingPathComponent(filename)
         let project = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("scripts/ragdrop_mineru_convert.py")
-        let candidates = [
-            bundled,
-            project,
-            home.appendingPathComponent(".codex/skills/mineru-pdf/mineru_convert.py"),
-            home.appendingPathComponent(".Codex/skills/mineru-pdf/mineru_convert.py"),
-            home.appendingPathComponent(".agents/skills/mineru-pdf/mineru_convert.py")
-        ].compactMap { $0 }
+            .deletingLastPathComponent()
+            .appendingPathComponent("scripts/\(filename)")
+        let candidates = ([bundled, project].compactMap { $0 }) + skillCandidates
         return candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) })?.path
             ?? candidates[0].path
     }
@@ -30,9 +88,11 @@ struct PipelineConfiguration: Sendable {
         let defaults = UserDefaults.standard
         let savedConverter = defaults.string(forKey: "converterPath")?.nonEmpty
         let converter: String
-        if savedConverter.map(isLegacyConverterPath) == true {
+        if defaults.integer(forKey: "converterMigrationVersion") < 2,
+           savedConverter == nil || savedConverter.map(isLegacyConverterPath) == true {
             converter = defaultConverterPath
             defaults.set(converter, forKey: "converterPath")
+            defaults.set(2, forKey: "converterMigrationVersion")
         } else {
             converter = savedConverter ?? defaultConverterPath
         }
@@ -44,7 +104,17 @@ struct PipelineConfiguration: Sendable {
 
     static func isLegacyConverterPath(_ path: String) -> Bool {
         path.hasSuffix("/skills/mineru-pdf/mineru_convert.py")
+            || path.hasSuffix("/ragdrop_mineru_convert.py")
     }
+
+    static func converterKind(for path: String) -> ConverterKind {
+        let name = URL(fileURLWithPath: path).lastPathComponent.lowercased()
+        if name.contains("mistral") { return .mistral }
+        if name.contains("mineru") { return .mineru }
+        return .custom
+    }
+
+    var converterKind: ConverterKind { Self.converterKind(for: converterPath) }
 
     func validate() throws {
         guard nasHost.range(of: "^[A-Za-z0-9._-]+$", options: .regularExpression) != nil else {
@@ -67,33 +137,84 @@ struct ConversionArtifact: Sendable {
 
 enum PipelineError: LocalizedError, Sendable {
     case invalidPDF
-    case oversizedPDF
+    case oversizedPDF(provider: String, limitMB: Int)
     case missingConverter(String)
-    case missingToken
+    case missingCredential(String)
     case invalidConfiguration(String)
     case invalidRemoteFilename
-    case missingOutput
+    case missingOutput(String)
+    case timedOut(command: String, minutes: Int)
+    case cancelled
     case processFailed(command: String, details: String)
     case verificationFailed
 
     var errorDescription: String? {
         switch self {
         case .invalidPDF: "Le fichier sélectionné n’est pas un PDF lisible."
-        case .oversizedPDF: "MinerU limite les fichiers à 200 Mo."
-        case .missingConverter(let path): "Convertisseur MinerU introuvable : \(path)"
-        case .missingToken: "Jeton MinerU absent de ~/.mineru_token."
+        case .oversizedPDF(let provider, let limit): "\(provider) limite les fichiers à \(limit) Mo."
+        case .missingConverter(let path): "Convertisseur PDF introuvable : \(path)"
+        case .missingCredential(let message): message
         case .invalidConfiguration(let message): message
         case .invalidRemoteFilename: "Le nom du Markdown distant est invalide."
-        case .missingOutput: "MinerU n’a produit aucun fichier Markdown."
-        case .processFailed(let command, let details): "\(command) a échoué. \(details)"
+        case .missingOutput(let provider): "\(provider) n’a produit aucun fichier Markdown."
+        case .timedOut(let command, let minutes):
+            "\(command) a été arrêté après \(minutes) minutes. Vous pouvez relancer ce PDF."
+        case .cancelled: "Conversion annulée. Vous pouvez relancer ce PDF."
+        case .processFailed(let command, let details):
+            "\(command) a échoué. \(Self.lastUsefulLine(in: details))"
         case .verificationFailed: "Ragdoc ne retrouve pas le document après l’indexation."
         }
+    }
+
+    var diagnosticDetails: String? {
+        if case .processFailed(_, let details) = self { return details }
+        return nil
+    }
+
+    private static func lastUsefulLine(in details: String) -> String {
+        details.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .last(where: { !$0.isEmpty }) ?? "Erreur inconnue."
     }
 }
 
 private struct ProcessResult: Sendable {
     let output: String
     let error: String
+}
+
+private final class ProcessController: @unchecked Sendable {
+    private let lock = NSLock()
+    private var process: Process?
+    private var cancelled = false
+
+    func attach(_ process: Process) {
+        lock.lock()
+        self.process = process
+        let shouldCancel = cancelled
+        lock.unlock()
+        if shouldCancel, process.isRunning { process.terminate() }
+    }
+
+    func detach() {
+        lock.lock()
+        process = nil
+        lock.unlock()
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        let running = process
+        lock.unlock()
+        if running?.isRunning == true { running?.terminate() }
+    }
+
+    var wasCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
 }
 
 struct ImportPipeline: Sendable {
@@ -123,16 +244,28 @@ struct ImportPipeline: Sendable {
               FileManager.default.isReadableFile(atPath: pdfURL.path) else {
             throw PipelineError.invalidPDF
         }
+        let converterKind = configuration.converterKind
         let values = try pdfURL.resourceValues(forKeys: [.fileSizeKey])
-        if let size = values.fileSize, size > 200 * 1024 * 1024 {
-            throw PipelineError.oversizedPDF
+        if let maximumBytes = converterKind.maximumBytes,
+           let size = values.fileSize, size > maximumBytes {
+            throw PipelineError.oversizedPDF(
+                provider: converterKind.commandLabel,
+                limitMB: maximumBytes / 1024 / 1024
+            )
         }
         guard FileManager.default.fileExists(atPath: configuration.converterPath) else {
             throw PipelineError.missingConverter(configuration.converterPath)
         }
-        let token = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".mineru_token")
-        guard FileManager.default.fileExists(atPath: token.path) else {
-            throw PipelineError.missingToken
+        if converterKind == .mistral, !MistralCredentialStore.isConfigured {
+            throw PipelineError.missingCredential(
+                "Clé Mistral absente. Ajoutez-la dans Réglages > Mistral OCR."
+            )
+        }
+        if converterKind == .mineru {
+            let token = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".mineru_token")
+            guard FileManager.default.fileExists(atPath: token.path) else {
+                throw PipelineError.missingCredential("Jeton MinerU absent de ~/.mineru_token.")
+            }
         }
 
         let hashPrefix = String(fingerprint.prefix(12))
@@ -145,11 +278,12 @@ struct ImportPipeline: Sendable {
         _ = try await run(
             executable: "/usr/bin/env",
             arguments: ["python3", configuration.converterPath, pdfURL.path, outputName],
-            label: "MinerU"
+            label: converterKind.commandLabel,
+            timeout: converterKind.timeout
         )
         guard FileManager.default.fileExists(atPath: markdownURL.path),
               (try markdownURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 0 else {
-            throw PipelineError.missingOutput
+            throw PipelineError.missingOutput(converterKind.commandLabel)
         }
         let artifactBundleURL = URL(fileURLWithPath: "/tmp", isDirectory: true)
             .appendingPathComponent("\(outputName).ragdoc-artifacts", isDirectory: true)
@@ -171,7 +305,9 @@ struct ImportPipeline: Sendable {
             markdownURL: markdownURL,
             fingerprint: fingerprint,
             manifestURL: manifestURL,
-            metadata: metadata
+            metadata: metadata,
+            parser: converterKind.parser,
+            parserVersion: converterKind.parserVersion
         )
         return ConversionArtifact(
             sourceURL: pdfURL,
@@ -243,7 +379,9 @@ struct ImportPipeline: Sendable {
         markdownURL: URL,
         fingerprint: String,
         manifestURL: URL,
-        metadata: ImportMetadata?
+        metadata: ImportMetadata?,
+        parser: String,
+        parserVersion: String
     ) throws {
         let markdown = try Data(contentsOf: markdownURL)
         let contentHash = SHA256.hash(data: markdown).map { String(format: "%02x", $0) }.joined()
@@ -265,8 +403,8 @@ struct ImportPipeline: Sendable {
         var sidecar: [String: Any] = [
             "version": metadata == nil ? "finder-pdf" : "zotero-pdf",
             "source_pdf": pdfURL.path,
-            "parser": "mineru",
-            "parser_version": "api-v4-pipeline",
+            "parser": parser,
+            "parser_version": parserVersion,
             "completeness": "not_assessed",
             "pdf_sha256": fingerprint,
             "parsed_pdf_sha256": fingerprint,
@@ -361,51 +499,95 @@ struct ImportPipeline: Sendable {
         executable: String,
         arguments: [String],
         standardInput: URL? = nil,
-        label: String
+        label: String,
+        timeout: TimeInterval? = nil
     ) async throws -> ProcessResult {
-        try await Task.detached(priority: .userInitiated) {
-            let fileManager = FileManager.default
-            let temporary = fileManager.temporaryDirectory
-            let outputURL = temporary.appendingPathComponent("ragdrop-\(UUID().uuidString).out")
-            let errorURL = temporary.appendingPathComponent("ragdrop-\(UUID().uuidString).err")
-            fileManager.createFile(atPath: outputURL.path, contents: nil)
-            fileManager.createFile(atPath: errorURL.path, contents: nil)
-            defer {
-                try? fileManager.removeItem(at: outputURL)
-                try? fileManager.removeItem(at: errorURL)
-            }
+        let controller = ProcessController()
+        return try await withTaskCancellationHandler {
+            try await Task.detached(priority: .userInitiated) {
+                let fileManager = FileManager.default
+                let temporary = fileManager.temporaryDirectory
+                let outputURL = temporary.appendingPathComponent("ragdrop-\(UUID().uuidString).out")
+                let errorURL = temporary.appendingPathComponent("ragdrop-\(UUID().uuidString).err")
+                fileManager.createFile(atPath: outputURL.path, contents: nil)
+                fileManager.createFile(atPath: errorURL.path, contents: nil)
+                defer {
+                    try? fileManager.removeItem(at: outputURL)
+                    try? fileManager.removeItem(at: errorURL)
+                }
 
-            let outputHandle = try FileHandle(forWritingTo: outputURL)
-            let errorHandle = try FileHandle(forWritingTo: errorURL)
-            let inputHandle = try standardInput.map { try FileHandle(forReadingFrom: $0) }
-            defer {
-                try? outputHandle.close()
-                try? errorHandle.close()
-                try? inputHandle?.close()
-            }
+                let outputHandle = try FileHandle(forWritingTo: outputURL)
+                let errorHandle = try FileHandle(forWritingTo: errorURL)
+                let inputHandle = try standardInput.map { try FileHandle(forReadingFrom: $0) }
+                defer {
+                    try? outputHandle.close()
+                    try? errorHandle.close()
+                    try? inputHandle?.close()
+                }
 
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: executable)
-            process.arguments = arguments
-            process.standardOutput = outputHandle
-            process.standardError = errorHandle
-            process.standardInput = inputHandle
-            var environment = ProcessInfo.processInfo.environment
-            environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-            process.environment = environment
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: executable)
+                process.arguments = arguments
+                process.standardOutput = outputHandle
+                process.standardError = errorHandle
+                process.standardInput = inputHandle
+                var environment = ProcessInfo.processInfo.environment
+                environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+                process.environment = environment
 
-            try process.run()
-            process.waitUntilExit()
-            try? outputHandle.synchronize()
-            try? errorHandle.synchronize()
-            let output = String(decoding: (try? Data(contentsOf: outputURL)) ?? Data(), as: UTF8.self)
-            let error = String(decoding: (try? Data(contentsOf: errorURL)) ?? Data(), as: UTF8.self)
-            guard process.terminationStatus == 0 else {
-                let details = String((error.isEmpty ? output : error).suffix(1_500))
-                throw PipelineError.processFailed(command: label, details: details)
-            }
-            return ProcessResult(output: output, error: error)
-        }.value
+                try process.run()
+                controller.attach(process)
+                defer { controller.detach() }
+                let deadline = timeout.map { Date().addingTimeInterval($0) }
+                var didTimeOut = false
+                while process.isRunning {
+                    if controller.wasCancelled { break }
+                    if let deadline, Date() >= deadline {
+                        didTimeOut = true
+                        process.terminate()
+                        break
+                    }
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+                if process.isRunning {
+                    let grace = Date().addingTimeInterval(3)
+                    while process.isRunning, Date() < grace {
+                        try? await Task.sleep(for: .milliseconds(50))
+                    }
+                }
+                if process.isRunning {
+                    let killResult = kill(process.processIdentifier, SIGKILL)
+                    let killError = killResult == 0 ? nil : String(cString: strerror(errno))
+                    let killGrace = Date().addingTimeInterval(3)
+                    while process.isRunning, Date() < killGrace {
+                        try? await Task.sleep(for: .milliseconds(50))
+                    }
+                    if process.isRunning {
+                        let reason = killError.map { "SIGKILL a échoué : \($0)" }
+                            ?? "Le processus est resté actif après SIGKILL."
+                        throw PipelineError.processFailed(
+                            command: label,
+                            details: "\(reason) Vous pouvez relancer ce PDF."
+                        )
+                    }
+                }
+                try? outputHandle.synchronize()
+                try? errorHandle.synchronize()
+                let output = String(decoding: (try? Data(contentsOf: outputURL)) ?? Data(), as: UTF8.self)
+                let error = String(decoding: (try? Data(contentsOf: errorURL)) ?? Data(), as: UTF8.self)
+                if controller.wasCancelled { throw CancellationError() }
+                if didTimeOut, let timeout {
+                    throw PipelineError.timedOut(command: label, minutes: max(1, Int(timeout / 60)))
+                }
+                guard process.terminationStatus == 0 else {
+                    let details = String((error.isEmpty ? output : error).suffix(8_000))
+                    throw PipelineError.processFailed(command: label, details: details)
+                }
+                return ProcessResult(output: output, error: error)
+            }.value
+        } onCancel: {
+            controller.cancel()
+        }
     }
 }
 

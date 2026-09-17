@@ -1,0 +1,48 @@
+{
+  "manifest_version": "0.3",
+  "name": "ragdoc",
+  "display_name": "Ragdoc",
+  "version": "1.0.0",
+  "description": "Recherche structurée et vérifiable dans une bibliothèque d’articles scientifiques.",
+  "long_description": "Ragdoc relie Claude à une bibliothèque scientifique indexée et fournit des outils de recherche, de lecture de passages et de restitution du contexte des sections.",
+  "author": {
+    "name": "Ragdoc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tofunori/Ragdoc.git"
+  },
+  "documentation": "https://github.com/tofunori/Ragdoc",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "node_modules/mcp-remote/dist/proxy.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/node_modules/mcp-remote/dist/proxy.js",
+        "http://rorqual.tail02163.ts.net:8484/mcp",
+        "--allow-http",
+        "--transport",
+        "http-only"
+      ]
+    }
+  },
+  "tools_generated": true,
+  "keywords": [
+    "research",
+    "scientific literature",
+    "RAG",
+    "MCP"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": [
+      "darwin"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

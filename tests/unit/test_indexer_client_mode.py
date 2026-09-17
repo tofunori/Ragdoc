@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.index_incremental import open_chroma_client
+from scripts.index_incremental import open_chroma_client, remove_empty_chunks
 
 
 class FakeHttp:
@@ -71,3 +71,16 @@ def test_mcp_rejects_collection_with_different_embedding_model(monkeypatch):
 
     with pytest.raises(RuntimeError, match="Embedding model mismatch"):
         server.init_retriever()
+
+
+def test_empty_parser_chunks_are_removed_before_embedding():
+    class Chunk:
+        def __init__(self, text, token_count):
+            self.text = text
+            self.token_count = token_count
+
+    chunks = [Chunk("scientific text", 2), Chunk("", 1024), Chunk(" \n", 8)]
+
+    filtered = remove_empty_chunks(chunks)
+
+    assert [chunk.text for chunk in filtered] == ["scientific text"]

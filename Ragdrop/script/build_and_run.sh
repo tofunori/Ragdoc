@@ -23,6 +23,7 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$ROOT_DIR/Assets/RagdropIcon.icns" "$APP_RESOURCES/RagdropIcon.icns"
+cp "$ROOT_DIR/../scripts/ragdrop_mistral_convert.py" "$APP_RESOURCES/ragdrop_mistral_convert.py"
 cp "$ROOT_DIR/../scripts/ragdrop_mineru_convert.py" "$APP_RESOURCES/ragdrop_mineru_convert.py"
 chmod +x "$APP_BINARY"
 
@@ -40,9 +41,9 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.2</string>
+  <string>0.3</string>
   <key>CFBundleVersion</key>
-  <string>22</string>
+  <string>23</string>
   <key>CFBundleIconFile</key>
   <string>RagdropIcon</string>
   <key>CFBundlePackageType</key>

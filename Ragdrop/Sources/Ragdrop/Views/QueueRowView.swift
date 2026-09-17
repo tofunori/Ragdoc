@@ -3,10 +3,14 @@ import SwiftUI
 struct QueueRowView: View {
     let job: ImportJob
     var onPreview: (() -> Void)?
+    var onRetry: (() -> Void)?
+    var onShowError: (() -> Void)?
+    var onRemove: (() -> Void)?
+    var canRemove = true
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: job.stage.symbol)
+            Image(systemName: hasRecoverableError ? "exclamationmark.triangle.fill" : job.stage.symbol)
                 .font(.title3)
                 .foregroundStyle(stageColor)
                 .frame(width: 24)
@@ -17,7 +21,7 @@ struct QueueRowView: View {
                     .lineLimit(1)
                 Text(job.detail)
                     .font(.caption)
-                    .foregroundStyle(job.stage == .failed ? Color.red : Color.secondary)
+                    .foregroundStyle(hasRecoverableError || job.stage == .failed ? Color.red : Color.secondary)
                     .lineLimit(2)
             }
             Spacer(minLength: 12)
@@ -26,7 +30,21 @@ struct QueueRowView: View {
                     .labelStyle(.iconOnly)
                     .help("Prévisualiser le Markdown")
             }
-            Text(job.stage.title)
+            if job.errorDetails != nil {
+                Button("Détails", systemImage: "info.circle", action: { onShowError?() })
+                    .labelStyle(.iconOnly)
+                    .help("Afficher le détail de l’erreur")
+            }
+            if job.stage == .failed {
+                Button("Relancer", systemImage: "arrow.clockwise", action: { onRetry?() })
+                    .labelStyle(.iconOnly)
+                    .help("Relancer ce PDF")
+            }
+            Button("Retirer", systemImage: "trash", role: .destructive, action: { onRemove?() })
+                .labelStyle(.iconOnly)
+                .help("Retirer de la file sans supprimer l’article de Ragdoc")
+                .disabled(!canRemove)
+            Text(hasRecoverableError ? "À reprendre" : job.stage.title)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(stageColor)
         }
@@ -34,15 +52,22 @@ struct QueueRowView: View {
     }
 
     private var stageColor: Color {
-        switch job.stage {
-        case .completed: .green
-        case .awaitingReview: .orange
-        case .readyForIndexing: .green
-        case .duplicate: .orange
-        case .rejected: .secondary
-        case .failed: .red
-        case .queued: .secondary
-        default: .accentColor
+        if hasRecoverableError {
+            return .red
         }
+        switch job.stage {
+        case .completed: return .green
+        case .awaitingReview: return .orange
+        case .readyForIndexing: return .green
+        case .duplicate: return .orange
+        case .rejected: return .secondary
+        case .failed: return .red
+        case .queued: return .secondary
+        default: return .accentColor
+        }
+    }
+
+    private var hasRecoverableError: Bool {
+        job.errorDetails != nil && job.stage == .readyForIndexing
     }
 }

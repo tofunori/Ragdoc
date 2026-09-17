@@ -26,7 +26,7 @@ struct MarkdownPreviewView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(job.displayName).font(.headline)
-                    Text("Résultat produit par MinerU")
+                    Text("Résultat produit par le convertisseur PDF")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

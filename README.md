@@ -21,6 +21,7 @@ measured by the new draft benchmark.
 ## 🚀 Key Features
 
 -   **Contextualized Search**: Powered by **Voyage Context 4** with 1024-dimensional contextualized embeddings.
+-   **Structure-aware Evidence**: Filter or prefer article sections, then read verified canonical paragraph or section context.
 -   **Smart Batching**: Robust handling of massive documents (700k+ tokens) with automatic batching and timeout management.
 -   **Professional TUI**: New `ragdoc-menu.py` interface with arrow navigation and real-time indexing feedback.
 -   **Evaluation System**: Comprehensive RAG metrics (Recall, Precision, MRR, NDCG) with automated benchmarking.

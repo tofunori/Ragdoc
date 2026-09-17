@@ -5,7 +5,7 @@ struct BatchProgressView: View {
     let message: String
 
     private let pipeline: [(ImportStage, String, String)] = [
-        (.converting, "MinerU", "doc.text.magnifyingglass"),
+        (.converting, "Mistral", "doc.text.magnifyingglass"),
         (.transferring, "NAS", "arrow.up.circle"),
         (.indexing, "Indexation", "square.stack.3d.up"),
         (.verifying, "Vérification", "checkmark.shield")
@@ -93,6 +93,11 @@ struct BatchProgressView: View {
         if focusJob.stage == .completed { return .complete }
         guard let current = pipeline.firstIndex(where: { $0.0 == focusJob.stage }),
               let target = pipeline.firstIndex(where: { $0.0 == stage }) else {
+            if focusJob.stage == .readyForIndexing || focusJob.stage == .awaitingReview,
+               let targetProgress = stage.progressFraction,
+               targetProgress < focusJob.overallProgress {
+                return .complete
+            }
             return .pending
         }
         if target < current { return .complete }
@@ -123,17 +128,7 @@ struct BatchProgressView: View {
     }
 
     private func phaseProgress(_ job: ImportJob) -> Double {
-        switch job.stage {
-        case .queued: 0
-        case .checkingDuplicate: 0.04
-        case .converting: 0.12
-        case .awaitingReview: 0.30
-        case .readyForIndexing: 0.35
-        case .transferring: 0.40
-        case .indexing: 0.66
-        case .verifying: 0.88
-        case .completed, .duplicate, .rejected, .failed: 1
-        }
+        job.overallProgress
     }
 
     private var progressLabel: String {
@@ -151,6 +146,12 @@ struct BatchProgressView: View {
         let review = jobs.filter { $0.stage == .awaitingReview }.count
         let approved = jobs.filter { $0.stage == .readyForIndexing }.count
         if review > 0 { return "\(review) Markdown à vérifier avant l’envoi" }
+        let indexingRetries = jobs.filter {
+            $0.stage == .readyForIndexing && $0.detail.hasPrefix("Indexation à reprendre")
+        }.count
+        if indexingRetries > 0 {
+            return "Indexation à reprendre pour \(indexingRetries) PDF"
+        }
         if approved > 0 { return "\(approved) PDF approuvés, prêts pour Ragdoc" }
         if waiting > 0 { return "\(waiting) PDF prêts · lancez l’analyse du lot" }
         return progressLabel

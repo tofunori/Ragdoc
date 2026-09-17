@@ -104,6 +104,72 @@ def _lexical_row(chunk_id: str, source: str, document: str, metadata: dict | Non
     )
 
 
+def _sql_filter(where: dict | None) -> tuple[str, list[object]]:
+    """Compile the supported Chroma filter subset to parameterized SQLite SQL."""
+    if where is None:
+        return "1", []
+    if not isinstance(where, dict) or not where:
+        raise ValueError("where must be a nonempty filter object")
+    if "$and" in where or "$or" in where:
+        if len(where) != 1:
+            raise ValueError("Logical filters cannot contain sibling fields")
+        operator = "$and" if "$and" in where else "$or"
+        clauses = where[operator]
+        if not isinstance(clauses, list) or not clauses:
+            raise ValueError(f"{operator} requires a nonempty list")
+        compiled = [_sql_filter(clause) for clause in clauses]
+        joiner = " AND " if operator == "$and" else " OR "
+        return "(" + joiner.join(fragment for fragment, _ in compiled) + ")", [
+            parameter for _, parameters in compiled for parameter in parameters
+        ]
+    if len(where) != 1:
+        return _sql_filter({"$and": [{key: value} for key, value in where.items()]})
+
+    field, condition = next(iter(where.items()))
+    if not isinstance(field, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", field):
+        raise ValueError(f"Unsupported lexical filter field: {field}")
+    expression = "source" if field == "source" else f"json_extract(metadata_json, '$.{field}')"
+    if not isinstance(condition, dict):
+        return f"{expression} = ?", [condition]
+    if len(condition) != 1:
+        raise ValueError("Filter operator object must contain exactly one operator")
+    operator, target = next(iter(condition.items()))
+    sql_operators = {"$eq": "=", "$ne": "!=", "$gt": ">", "$gte": ">=", "$lt": "<", "$lte": "<="}
+    if operator in {"$ne"}:
+        return f"({expression} IS NULL OR {expression} != ?)", [target]
+    if operator in sql_operators:
+        return f"{expression} {sql_operators[operator]} ?", [target]
+    if operator in {"$in", "$nin"}:
+        if not isinstance(target, list) or not target:
+            raise ValueError(f"{operator} requires a nonempty list")
+        placeholders = ", ".join("?" for _ in target)
+        if operator == "$in":
+            return f"{expression} IN ({placeholders})", list(target)
+        return f"({expression} IS NULL OR {expression} NOT IN ({placeholders}))", list(target)
+    raise ValueError(f"Unsupported lexical filter operator: {operator}")
+
+
+def _single_source(where: dict | None) -> str | None:
+    if not isinstance(where, dict):
+        return None
+    if "source" in where and len(where) == 1:
+        condition = where["source"]
+        if isinstance(condition, str):
+            return condition
+        if isinstance(condition, dict) and len(condition) == 1:
+            if isinstance(condition.get("$eq"), str):
+                return condition["$eq"]
+            values = condition.get("$in")
+            if isinstance(values, list) and len(values) == 1 and isinstance(values[0], str):
+                return values[0]
+    clauses = where.get("$and")
+    if isinstance(clauses, list):
+        sources = {source for clause in clauses if (source := _single_source(clause)) is not None}
+        if len(sources) == 1:
+            return next(iter(sources))
+    return None
+
+
 class PersistentLexicalIndex:
     """Small connection-per-operation wrapper around an atomic FTS5 sidecar."""
 
@@ -152,10 +218,11 @@ class PersistentLexicalIndex:
         except (OSError, sqlite3.Error) as error:
             return {"ready": False, "reason": f"unreadable: {error}", "path": str(self.path)}
 
-    def rebuild(self, collection) -> dict:
+    def rebuild(self, collection, *, allow_repairing: bool = False) -> dict:
         metadata = dict(collection.metadata or {})
         revision = metadata.get("ragdoc_revision")
-        if metadata.get("ragdoc_write_state", "ready") != "ready" or metadata.get("ragdoc_repairing", False):
+        if (metadata.get("ragdoc_write_state", "ready") != "ready"
+                or (metadata.get("ragdoc_repairing", False) and not allow_repairing)):
             raise RuntimeError("Cannot build lexical index from a non-ready collection")
         if revision is None:
             raise RuntimeError("Cannot build lexical index without a collection revision")
@@ -203,7 +270,7 @@ class PersistentLexicalIndex:
                 fresh = dict(collection.metadata or {})
                 if (fresh.get("ragdoc_revision") != revision
                         or fresh.get("ragdoc_write_state", "ready") != "ready"
-                        or fresh.get("ragdoc_repairing", False)):
+                        or (fresh.get("ragdoc_repairing", False) and not allow_repairing)):
                     raise RuntimeError("Collection changed during lexical index build")
                 if inserted != collection.count():
                     raise RuntimeError(f"Lexical index count mismatch: {inserted} != {collection.count()}")
@@ -219,15 +286,17 @@ class PersistentLexicalIndex:
             temporary.unlink(missing_ok=True)
         return self.status(revision, inserted)
 
-    def sync_sources(self, collection, sources: set[str], previous_revision: object) -> dict:
+    def sync_sources(self, collection, sources: set[str], previous_revision: object,
+                     allow_repairing: bool = False) -> dict:
         """Update changed sources, rebuilding if the prior sidecar was not exact."""
         previous = self.status(previous_revision)
         if not previous.get("ready"):
-            return self.rebuild(collection)
+            return self.rebuild(collection, allow_repairing=allow_repairing)
 
         metadata = dict(collection.metadata or {})
         revision = metadata.get("ragdoc_revision")
-        if metadata.get("ragdoc_write_state", "ready") != "ready" or revision is None:
+        if (metadata.get("ragdoc_write_state", "ready") != "ready" or revision is None
+                or (metadata.get("ragdoc_repairing", False) and not allow_repairing)):
             raise RuntimeError("Cannot synchronize lexical index from a non-ready collection")
         with sqlite3.connect(self.path, timeout=30) as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -260,14 +329,14 @@ class PersistentLexicalIndex:
             indexed = connection.execute("SELECT COUNT(*) FROM passages").fetchone()[0]
             if indexed != collection.count():
                 connection.rollback()
-                return self.rebuild(collection)
+                return self.rebuild(collection, allow_repairing=allow_repairing)
             connection.execute("UPDATE state SET value = ? WHERE key = 'revision'", (str(revision),))
             connection.execute("UPDATE state SET value = ? WHERE key = 'chunks'", (str(indexed),))
             connection.commit()
         return self.status(revision, collection.count())
 
     def search(self, query: str, *, top_n: int, revision: object, chunk_count: int,
-               source: str | None = None) -> tuple[list[tuple[str, float, int]], dict]:
+               where: dict | None = None) -> tuple[list[tuple[str, float, int]], dict]:
         state = self.status(revision, chunk_count)
         if not state.get("ready"):
             raise RuntimeError(f"Lexical index unavailable: {state.get('reason')}")
@@ -275,16 +344,13 @@ class PersistentLexicalIndex:
         if not expression:
             return [], {}
         candidate_limit = min(max(top_n * 20, 500), 5000)
+        filter_sql, filter_parameters = _sql_filter(where)
         sql = (
             "SELECT chunk_id, source, document, metadata_json, rank "
-            "FROM passages WHERE passages MATCH ?"
+            "FROM passages WHERE passages MATCH ? AND source NOT GLOB '._*' "
+            f"AND {filter_sql}"
         )
-        parameters: list[object] = [expression]
-        if source is not None:
-            sql += " AND source = ?"
-            parameters.append(source)
-        else:
-            sql += " AND source NOT GLOB '._*'"
+        parameters: list[object] = [expression, *filter_parameters]
         sql += " ORDER BY rank LIMIT ?"
         parameters.append(candidate_limit)
         with sqlite3.connect(f"file:{self.path}?mode=ro", uri=True, timeout=5) as connection:
@@ -292,8 +358,9 @@ class PersistentLexicalIndex:
         results = []
         payload = {}
         source_counts: dict[str, int] = {}
+        exact_source = _single_source(where)
         for chunk_id, row_source, document, metadata_json, score in rows:
-            if source is None and source_counts.get(row_source, 0) >= _MAX_CHUNKS_PER_SOURCE:
+            if exact_source is None and source_counts.get(row_source, 0) >= _MAX_CHUNKS_PER_SOURCE:
                 continue
             source_counts[row_source] = source_counts.get(row_source, 0) + 1
             results.append((chunk_id, -float(score), len(results)))

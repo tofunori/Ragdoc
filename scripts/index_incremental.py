@@ -174,7 +174,9 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
             )
             return result.results[0].embeddings
         except Exception as e:
-            raise RuntimeError("Voyage embedding request failed") from e
+            raise RuntimeError(
+                f"Voyage embedding request failed: {type(e).__name__}: {e}"
+            ) from e
     else:
         print(f"      ⚠️ GROS DOCUMENT ({len(chunk_texts)} chunks) -> Découpage en sections")
         all_embeddings = []
@@ -208,12 +210,21 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
                 all_embeddings.extend(batch_embeddings)
                 
             except Exception as e:
-                raise RuntimeError(f"Voyage embedding batch {current_idx}-{end_idx} failed") from e
+                raise RuntimeError(
+                    f"Voyage embedding batch {current_idx}-{end_idx} failed: "
+                    f"{type(e).__name__}: {e}"
+                ) from e
             
             # Avancer
             current_idx = end_idx
             
         return all_embeddings
+
+
+def remove_empty_chunks(chunks):
+    """Discard parser artifacts that contain no indexable text."""
+    return [chunk for chunk in chunks
+            if isinstance(getattr(chunk, "text", None), str) and chunk.text.strip()]
 
 
 def index_incremental(force_reindex: bool = False,
@@ -389,7 +400,11 @@ def index_incremental(force_reindex: bool = False,
                     chunk_size=CHUNK_SIZE_TOKENS,
                     chunk_overlap=CHUNK_OVERLAP_TOKENS
                 )
-                chunks = token_chunker.chunk(content)
+                raw_chunks = token_chunker.chunk(content)
+                chunks = remove_empty_chunks(raw_chunks)
+                removed_empty = len(raw_chunks) - len(chunks)
+                if removed_empty:
+                    print(f"      INFO {removed_empty} passage(s) vide(s) ignore(s)")
                 
                 # Extraire textes
                 chunk_texts = [chunk.text for chunk in chunks]

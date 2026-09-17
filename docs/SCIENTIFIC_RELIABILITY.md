@@ -31,6 +31,20 @@ It still incurs embedding costs. Existing tools remain available; a legacy full
 document read explicitly warns that overlapping chunks are reconstructed.
 Canonical reads require a migrated article and a matching snapshot.
 
+Section enrichment is a separate, embedding-preserving migration. First inspect
+the proposed coverage, then apply it while all other writers are stopped:
+
+```sh
+uv run --locked python scripts/enrich_section_metadata.py
+uv run --locked python scripts/enrich_section_metadata.py --apply
+```
+
+The migration keeps chunk IDs, text and vectors unchanged, derives hierarchical
+section metadata only for exact canonical locators, verifies every rewritten
+source and synchronizes the revision-pinned lexical index. It leaves ambiguous
+locations unresolved. Repeat `--source paper.md` to migrate a reviewed subset
+before the complete collection.
+
 ## Ingestion behavior
 
 The indexer validates UTF-8, rejects conversions marked partial, stores the new
@@ -95,11 +109,12 @@ pipeline does not claim a comprehensive PDF extraction quality assessment.
 
 | Tool | Contract |
 |---|---|
-| `search_evidence` | Typed hits, bibliography, positions, excerpt truncation, index revision, channel state and reranking status. Optional source/year/collection filters. Default at most two hits per source. |
-| `get_passage` | Full indexed passage and verification against its canonical substring. Supply `expected_content_sha256` from the search result to pin a version. |
+| `search_evidence` | Typed hits, bibliography, positions, excerpt truncation, index revision, channel state and reranking status. Optional source/year/collection/section filters, explicit subqueries and an opt-in article-first strategy. Default at most two hits per source. |
+| `get_passage` | Full indexed passage and verification against its canonical substring. Supply `expected_content_sha256` from the search result to pin a version. Optional paragraph or section context is read directly from the canonical snapshot. |
 | `read_document` | Canonical Markdown with bounded character pagination; follow `next_offset` and pin the returned hash. |
 | `search_documents` | Paginated catalogue search over supplied title/authors/DOI and filenames, with year bounds. |
-| `audit_library` | Ingestion failures, write/repair state, incomplete chunks, mixed versions, missing snapshots, incomplete bibliography and candidate duplicates. |
+| `audit_library` | Compact integrity summary by default. Paginated `findings`, `duplicates`, and latest-per-source `events` views expose details without overflowing MCP clients. The event view is not a complete ingestion history. |
+| `audit_citation_readiness` | Paginated per-document audit of readable canonical snapshots, exact passage locators and valid PDF page ranges. A DOI alone never marks a passage page-verifiable. |
 | `get_runtime_status` | Offline dependency/capability checks, configured key presence and requested/active Chroma connection. No database opening or API calls. |
 
 `search_evidence` preserves null rerank scores when Cohere is unavailable and
@@ -108,6 +123,20 @@ local lexical retrieval when available. `alpha=0` does not call the embedding AP
 the MCP may still call Cohere for reranking if configured. Scores are rankings,
 not probabilities of truth. Absence of hits does not establish absence from the
 scientific literature. Tool errors are sent as MCP execution errors.
+
+Section filters use normalized categories (`abstract`, `introduction`, `methods`,
+`results`, `discussion`, `conclusion`, `references`, `supplementary`, and
+`acknowledgements`). `section_mode=strict` excludes unknown or unmatched sections;
+`prefer` keeps them eligible and reports that the preference is heuristic. A
+section category describes where text occurs, not whether a claim is original,
+true, or supported by the article's data.
+
+`retrieval_strategy=articles_then_passages` first aggregates passage evidence by
+source using at most three contributions per article, then searches within a
+bounded article shortlist. Explicit `subqueries` are fused with the original
+question and each hit reports which queries retrieved it. These options improve
+coverage mechanisms but are not claims of better scientific recall until the
+reviewed benchmark demonstrates a gain.
 
 Lexical retrieval uses a revision-pinned SQLite FTS5 sidecar. Its fielded BM25
 weights body, title, authors, identifiers and source separately; identifier-like
@@ -148,12 +177,15 @@ question against the actual library and add its judgment keyed by question ID:
 }
 ```
 
-For a reviewed question without an answer in this corpus, set `answerable=false`,
-both lists empty, and `content_sha256_by_source={}`. Include genuine negative cases;
-do not infer answerability merely because a search found nothing. Maintain separate
-development and held-out questions before tuning retrieval parameters.
+For a reviewed question without canonical evidence in this corpus, set
+`answerable=false`, both lists empty, and `content_sha256_by_source={}`. Record
+`corpus_status=present_but_unverifiable` when a relevant legacy document exists but
+cannot provide a canonical passage, or `not_established_after_targeted_search` when
+targeted review found no qualifying passage. Neither status establishes that the
+scientific answer is negative. Maintain separate development and blind questions
+before tuning retrieval parameters.
 
-Offline validation:
+Offline validation (assistant drafts remain invalid for official scoring):
 
 ```sh
 python scripts/benchmark_scientific.py tests/test_datasets/scientific_questions_draft.json --validate-only
@@ -168,10 +200,82 @@ python scripts/benchmark_scientific.py reviewed_questions.json --output benchmar
 
 The runner checks pinned source versions and the index revision, measures article
 and passage recall against the annotated sets, first relevant rank and canonical
-verification. It reports candidate returns for unanswerable questions separately;
+verification. It reports candidate returns when canonical evidence is unavailable;
 it does not measure generated-answer factuality or provide calibrated abstention.
 Retrieval channel and fallback state are recorded to expose degraded runs.
 The old self-retrieval dataset remains a separate recognition regression test.
+
+### Assisted annotation workflow
+
+`tests/test_datasets/scientific_questions_v1.json` contains 35 development questions
+and 15 questions labelled `heldout`. The latter were already exposed during
+candidate preparation and an initial all-question baseline, so they are a locked
+non-blind evaluation split rather than a final blind test. A fresh unseen question
+set is required for an independent final estimate. Its English `lexical_query`
+fields are recorded query aids, not gold answers.
+
+Build candidate packets from the production MCP through three retrieval channels:
+
+```sh
+python scripts/prepare_scientific_annotations.py \
+  tests/test_datasets/scientific_questions_v1.json \
+  --url "$RAGDOC_MCP_URL" \
+  --output-dir output/benchmarks/scientific_annotation_v1 \
+  --top-k 20 --max-passages 20
+```
+
+After recording proposed chunk selections, verify and pin them while generating a
+human-readable checklist:
+
+```sh
+python scripts/materialize_scientific_review.py \
+  tests/test_datasets/scientific_questions_v1.json \
+  output/benchmarks/scientific_annotation_v1/assistant_selections.json \
+  --url "$RAGDOC_MCP_URL" \
+  --dataset-output output/benchmarks/scientific_annotation_v1/scientific_questions_v1_assistant_draft.json \
+  --review-output output/benchmarks/scientific_annotation_v1/HUMAN_REVIEW.md
+```
+
+Materialization verifies every selected chunk against its canonical snapshot and
+pins the source SHA-256, but deliberately writes `reviewed=false`. The benchmark
+therefore still refuses to score until a human has checked all 50 decisions.
+Assistant selections can be run only with `--provisional-assistant`; the resulting
+file is explicitly labelled `provisional_assistant_adjudicated` and cannot be
+mistaken for the official human-reviewed score.
+
+```sh
+python scripts/benchmark_scientific.py \
+  output/benchmarks/scientific_annotation_v1/scientific_questions_v1_assistant_draft.json \
+  --provisional-assistant --url "$RAGDOC_MCP_URL" --split development \
+  --use-lexical-query --output provisional-development.json
+```
+
+The remote runner accepts `--url`, `--split`, the existing retrieval strategies,
+and either automatic multi-query expansion or a recorded English lexical subquery.
+Those two expansion modes are alternatives because the MCP contract does not allow
+`multi_query` and explicit `subqueries` in the same call.
+
+### Provisional diagnostic (2026-09-16)
+
+An assistant-adjudicated diagnostic was run against index revision
+`7afa4f95a63e44bcb0bd192494b49093`. It is not a human-reviewed benchmark result.
+At top 10, the simple French-query baseline reached 31.3% mean article recall and
+17.2% mean exact-passage recall on the development split. A recorded English
+lexical subquery improved these to 75.0% and 48.4%, respectively. Automatic
+multi-query expansion reached 37.5% and 20.3%; article-then-passage retrieval with
+the lexical subquery reached 56.3% and 39.1%.
+
+After development comparison, the lexical-subquery configuration was applied to
+the locked non-blind evaluation split. It reached 54.5% mean article recall, 40.9%
+mean exact-passage recall, and a 44.7% canonical-verification rate among returned
+passages. These
+numbers expose real work remaining: multilingual query formulation and legacy
+duplicates materially affect retrieval. Candidate returns when no canonical
+evidence was established do not measure abstention or scientific answerability;
+generated-answer and abstention evaluation remains a separate end-to-end task.
+Because the selected relevant passages came from the same candidate-generating
+configurations being compared, recall is measured against a small adjudicated set,
+not exhaustive relevance across the library.
 
 ## Local verification
 

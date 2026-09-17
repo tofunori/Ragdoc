@@ -11,7 +11,7 @@ enum MarkdownPreviewError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unreadable: "Le Markdown produit par MinerU est illisible."
+        case .unreadable: "Le Markdown produit par le convertisseur est illisible."
         case .conversionFailed(let details): "Le rendu Markdown a échoué. \(details)"
         }
     }
