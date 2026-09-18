@@ -1,5 +1,9 @@
 # Ragdoc + Ragdrop
 
+![Ragdoc + Ragdrop — Your scientific library. Connected.](docs/assets/banner.png)
+
+[Get started](docs/README.md) · [macOS app](Ragdrop/README.md) · [Release 1.8.0](https://github.com/tofunori/Ragdoc/releases/tag/v1.8.0) · [Contribute](CONTRIBUTING.md)
+
 **Search your own scientific papers from Claude, Codex or another MCP-compatible assistant.**
 
 **Ragdoc** is a server for the **Model Context Protocol (MCP)**, a standard way for
@@ -18,9 +22,8 @@ Traceable passages help you check an answer; they do not guarantee scientific ac
 
 ![Ragdrop in light mode: PDF and Zotero import actions above a synthetic example library](docs/assets/ragdrop/home-light.png)
 
-*Actual Ragdrop interface, shown with original synthetic examples. The current app
-uses French labels. The demonstration controls along the bottom are not part of
-the normal app.*
+*Actual English interface with original synthetic examples. The demonstration
+controls along the bottom are not part of the normal app.*
 
 ## What you can do
 
@@ -53,7 +56,7 @@ indexing; successful indexing does not certify its scientific accuracy.*
 
 </details>
 
-Ragdrop offers **light, dark and system** appearance under **Réglages → Apparence**.
+Ragdrop offers **light, dark and system** appearance under **Settings → Appearance**.
 See [screenshot provenance and reproduction](docs/assets/ragdrop/README.md).
 
 **Prepare your library with Ragdrop**
@@ -81,12 +84,12 @@ flowchart LR
 |---|---|
 | Explore the macOS interface without a backend or API keys | [Build the isolated synthetic demo](Ragdrop/README.md#try-the-interface) |
 | Build Ragdrop and connect your own backend | [macOS application guide](Ragdrop/README.md) |
-| Run the search backend or connect an MCP client | [Backend installation](INSTALLATION.md) |
+| Run the search backend or connect an MCP client | [Backend installation](docs/installation.md) |
 | Understand provenance, migration and evaluation | [Scientific reliability guide](docs/SCIENTIFIC_RELIABILITY.md) |
 
-**This is currently a source-build project, not a one-click installation.** Ragdrop
+**Backend setup is required for real imports.** Ragdrop
 requires macOS 14 or later and Swift 6.2 to build. Real imports need a configured
-SSH-accessible Linux backend and an OCR service credential. Build from source; a notarized macOS download is not available yet. The demo works without those services.
+SSH-accessible Linux backend and an OCR service credential. The [release](https://github.com/tofunori/Ragdoc/releases/tag/v1.8.0) includes an Apple silicon development build, signed ad hoc and not notarized. Building from source remains available. The demo works without those services.
 
 ## What runs where
 
@@ -104,7 +107,7 @@ its own model and data handling are separate from Ragdoc.
 Lexical retrieval and canonical reads can run locally once the library is indexed.
 With `alpha=0`, search skips Voyage; to avoid reranking API calls, leave Cohere
 unconfigured too. Building a new vector index uses Voyage. Model identifiers and
-configuration are described in the [backend guide](INSTALLATION.md#configuration).
+configuration are described in the [backend guide](docs/installation.md#configuration).
 Storage and indexes stay on your infrastructure; OCR, embeddings and optional
 reranking use the services listed above.
 

@@ -6,8 +6,8 @@ enum HistoryServiceError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .commandFailed(let details): "La lecture de Ragdoc a échoué. \(details)"
-        case .invalidResponse: "Ragdoc a renvoyé un historique illisible."
+        case .commandFailed(let details): "Reading Ragdoc failed. \(details)"
+        case .invalidResponse: "Ragdoc returned unreadable library data."
         }
     }
 }
@@ -26,10 +26,10 @@ struct RagdocHistoryService: Sendable {
             con.execute('PRAGMA query_only=ON')
             con.execute('BEGIN')
             collection=con.execute('SELECT id FROM collections WHERE name=?',('ragdoc_contextualized_v1',)).fetchone()
-            if not collection: raise RuntimeError('Collection Ragdoc introuvable')
+            if not collection: raise RuntimeError('Ragdoc collection not found')
             collection_id=collection[0]
             state={r[0]:(r[1] if r[1] is not None else r[2] if r[2] is not None else r[3] if r[3] is not None else bool(r[4])) for r in con.execute("SELECT key,str_value,int_value,float_value,bool_value FROM collection_metadata WHERE collection_id=? AND key IN ('ragdoc_revision','ragdoc_write_state','ragdoc_repairing')",(collection_id,))}
-            if state.get('ragdoc_write_state','ready')!='ready' or state.get('ragdoc_repairing',False): raise RuntimeError('Indexation Ragdoc en cours; réessayez dans un instant.')
+            if state.get('ragdoc_write_state','ready')!='ready' or state.get('ragdoc_repairing',False): raise RuntimeError('Ragdoc indexing in progress; try again shortly.')
             query='''
             WITH item AS (
              SELECT em.id,

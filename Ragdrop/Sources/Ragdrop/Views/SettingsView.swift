@@ -22,62 +22,62 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            PageHeading(title: "Réglages", subtitle: "Conversion, accès et destination de vos articles.")
-            if isIsolated { InlineNotice(text: "Validation isolée · aucune clé réelle n’est lue ou modifiée.") }
+            PageHeading(title: "Settings", subtitle: "Conversion, access and destination for your articles.")
+            if isIsolated { InlineNotice(text: "Isolated demo · no real key is read or changed.") }
             Form {
-            Section("Apparence") {
-                Picker("Thème", selection: $appearanceMode) {
+            Section("Appearance") {
+                Picker("Theme", selection: $appearanceMode) {
                     ForEach(RagdropAppearance.allCases) { appearance in
                         Text(appearance.title).tag(appearance.rawValue)
                     }
                 }.pickerStyle(.segmented)
             }
 
-            Section("Nouveaux articles Zotero") {
-                Toggle("Surveiller Zotero", isOn: Binding(get: { monitor.isEnabled }, set: { monitor.setEnabled($0) }))
-                Text("Signaler les nouveaux PDF locaux, sans import automatique.")
+            Section("New Zotero articles") {
+                Toggle("Monitor Zotero", isOn: Binding(get: { monitor.isEnabled }, set: { monitor.setEnabled($0) }))
+                Text("Report new local PDFs without importing automatically.")
                     .font(.callout).foregroundStyle(RagdropTheme.secondary)
-                DisclosureGroup("Fonctionnement") {
-                    Text("Pendant que Ragdrop fonctionne, vérification toutes les 5 minutes via l’API locale de Zotero. Zotero doit être ouverte.")
-                    Text("À l’activation, les PDF déjà présents servent de référence et ne déclenchent pas d’alerte. Utilisez Depuis Zotero pour les examiner. Les éléments sans PDF local seront pris en compte lorsqu’un PDF sera disponible.")
+                DisclosureGroup("How it works") {
+                    Text("While Ragdrop runs, it checks Zotero’s local API every 5 minutes. Zotero must be open.")
+                    Text("When enabled, existing PDFs form a baseline and do not trigger alerts. Use From Zotero to review them. Items without a local PDF will be checked once a PDF is available.")
                 }.font(.callout).foregroundStyle(RagdropTheme.secondary)
                 if monitor.isEnabled {
                     Text(monitor.statusText).font(.caption).foregroundStyle(RagdropTheme.secondary)
                     if let error = monitor.errorMessage { Text(error).font(.caption).foregroundStyle(RagdropTheme.warning) }
                     HStack {
-                        if let date = monitor.lastLocalCheck { Text("Dernière lecture : \(date.formatted(date: .omitted, time: .shortened))").font(.caption) }
+                        if let date = monitor.lastLocalCheck { Text("Last check: \(date.formatted(date: .omitted, time: .shortened))").font(.caption) }
                         Spacer()
-                        Button("Vérifier maintenant") { monitor.checkNow() }.disabled(monitor.isChecking || isIsolated)
+                        Button("Check now") { monitor.checkNow() }.disabled(monitor.isChecking || isIsolated)
                     }
                 }
             }
 
-            Section("Conversion du PDF") {
+            Section("PDF conversion") {
                 Picker("Service", selection: providerBinding) {
                     ForEach(PipelineConfiguration.ConverterKind.allCases) { provider in
                         Text(provider.title).tag(provider)
                     }
                 }
-                Text("Mistral OCR est le service principal. MinerU reste disponible comme solution de secours.")
+                Text("Mistral OCR is the main provider. MinerU is available as a fallback.")
                     .font(.caption)
                     .foregroundStyle(RagdropTheme.secondary)
             }
             Section("Mistral OCR") {
-                LabeledContent("Clé API") {
+                LabeledContent("API key") {
                     Label(
-                        credentialConfigured ? "Configurée" : "Absente",
+                        credentialConfigured ? "Configured" : "Missing",
                         systemImage: credentialConfigured ? "checkmark.circle" : "exclamationmark.triangle"
                     )
                     .foregroundStyle(credentialConfigured ? RagdropTheme.success : RagdropTheme.warning)
                 }
-                SecureField("Nouvelle clé Mistral", text: $newAPIKey)
+                SecureField("New Mistral key", text: $newAPIKey)
                     .textFieldStyle(.roundedBorder)
                 HStack {
-                    Link("Créer une clé…", destination: URL(string: "https://console.mistral.ai/api-keys")!)
+                    Link("Create a key…", destination: URL(string: "https://console.mistral.ai/api-keys")!)
                     Spacer()
-                    Button("Supprimer") { deleteCredential() }
+                    Button("Delete") { deleteCredential() }
                         .disabled(isIsolated || !hasStoredCredential)
-                    Button("Enregistrer") { saveCredential() }
+                    Button("Save") { saveCredential() }
                         .buttonStyle(RagdropPrimaryButtonStyle())
                         .disabled(newAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
@@ -85,18 +85,18 @@ struct SettingsView: View {
                     Text(credentialMessage).font(.caption).foregroundStyle(RagdropTheme.secondary)
                 }
             }
-            Section("MinerU — secours") {
-                LabeledContent("Jeton") {
-                    Label(tokenExists ? "Détecté" : "Absent", systemImage: tokenExists ? "checkmark.circle" : "exclamationmark.triangle")
+            Section("MinerU — fallback") {
+                LabeledContent("Token") {
+                    Label(tokenExists ? "Detected" : "Missing", systemImage: tokenExists ? "checkmark.circle" : "exclamationmark.triangle")
                         .foregroundStyle(tokenExists ? RagdropTheme.success : RagdropTheme.warning)
                 }
             }
-            DisclosureGroup("Réglages avancés") {
-                TextField("Convertisseur", text: $converterPath)
+            DisclosureGroup("Advanced settings") {
+                TextField("Converter", text: $converterPath)
             }
-            Section("Ragdoc sur le NAS") {
-                TextField("Hôte SSH", text: $nasHost)
-                TextField("Dossier", text: $remoteRoot)
+            Section("Ragdoc on your server") {
+                TextField("SSH host", text: $nasHost)
+                TextField("Directory", text: $remoteRoot)
             }
         }
         .formStyle(.grouped)
@@ -126,12 +126,12 @@ struct SettingsView: View {
     }
 
     private func saveCredential() {
-        guard !isIsolated else { newAPIKey = ""; credentialMessage = "Enregistrement simulé. Aucune clé conservée."; return }
+        guard !isIsolated else { newAPIKey = ""; credentialMessage = "Simulated save. No key stored."; return }
         do {
             try MistralCredentialStore.save(newAPIKey)
             newAPIKey = ""
             credentialConfigured = true
-            credentialMessage = "Clé enregistrée dans le trousseau macOS."
+            credentialMessage = "Key saved to macOS Keychain."
         } catch {
             credentialMessage = error.localizedDescription
         }
@@ -143,8 +143,8 @@ struct SettingsView: View {
             try MistralCredentialStore.delete()
             credentialConfigured = MistralCredentialStore.isConfigured
             credentialMessage = credentialConfigured
-                ? "Une clé externe est encore configurée."
-                : "Clé supprimée du trousseau macOS."
+                ? "An external key is still configured."
+                : "Key removed from macOS Keychain."
         } catch {
             credentialMessage = error.localizedDescription
         }

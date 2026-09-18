@@ -8,15 +8,15 @@ struct RagdocStatusView: View {
         VStack(alignment: .leading, spacing: 22) {
             header
             if let error = store.errorMessage, store.snapshot != nil {
-                InlineNotice(text: "Dernier diagnostic conservé. Actualisation échouée : \(error)", symbol: "exclamationmark.triangle", isError: true)
+                InlineNotice(text: "Showing the last diagnostic. Refresh failed: \(error)", symbol: "exclamationmark.triangle", isError: true)
             }
 
             if store.isChecking && store.snapshot == nil {
                 VStack(spacing: 12) {
                     ProgressView()
-                    Text("Test du serveur MCP et d’une recherche réelle…")
+                    Text("Testing the MCP server and a live search…")
                         .foregroundStyle(RagdropTheme.secondary)
-                    Text("Cette vérification peut prendre une dizaine de secondes.")
+                    Text("This check may take around ten seconds.")
                         .font(.caption)
                         .foregroundStyle(RagdropTheme.secondary)
                 }
@@ -25,14 +25,14 @@ struct RagdocStatusView: View {
                 statusContent(snapshot)
             } else if let error = store.errorMessage {
                 ContentUnavailableView(
-                    "Ragdoc est inaccessible",
+                    "Ragdoc is unreachable",
                     systemImage: "externaldrive.badge.xmark",
                     description: Text(error)
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ContentUnavailableView("État non vérifié", systemImage: "externaldrive",
-                                       description: Text("Lancez un diagnostic pour vérifier le serveur et la recherche."))
+                ContentUnavailableView("Status not checked", systemImage: "externaldrive",
+                                       description: Text("Run a diagnostic to check the server and search."))
             }
         }
         .padding(RagdropTheme.pagePadding)
@@ -46,13 +46,13 @@ struct RagdocStatusView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("État de Ragdoc")
+                Text("Ragdoc status")
                     .font(RagdropTheme.title)
-                Text("Diagnostic du MCP actif sur le NAS")
+                Text("Diagnostic of the MCP server on your backend")
                     .foregroundStyle(RagdropTheme.secondary)
             }
             Spacer()
-            Button("Revérifier", systemImage: "arrow.clockwise") {
+            Button("Check again", systemImage: "arrow.clockwise") {
                 Task { await store.refresh() }
             }
             .disabled(store.isChecking)
@@ -66,10 +66,10 @@ struct RagdocStatusView: View {
                     .font(.system(size: 38))
                     .foregroundStyle(snapshot.isHealthy ? RagdropTheme.success : RagdropTheme.warning)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(snapshot.isHealthy ? "Ragdoc fonctionne correctement" : "Ragdoc demande votre attention")
+                    Text(snapshot.isHealthy ? "Ragdoc is working" : "Ragdoc needs attention")
                         .font(.title2.bold())
                     Text(snapshot.isHealthy
-                         ? "Le serveur, la collection et la recherche ont répondu."
+                         ? "The server, collection and search responded."
                          : statusExplanation(snapshot))
                         .foregroundStyle(RagdropTheme.secondary)
                 }
@@ -81,24 +81,24 @@ struct RagdocStatusView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 statusCard(
-                    title: "Service MCP",
+                    title: "MCP service",
                     symbol: "network",
                     healthy: snapshot.mcpError == nil && snapshot.listenerCount == 1 && snapshot.missingTools.isEmpty,
-                    primary: snapshot.mcpError == nil ? "\(snapshot.tools.count) outils disponibles" : "Connexion échouée",
-                    secondary: "\(snapshot.listenerCount) service réseau sur le port 8484"
+                    primary: snapshot.mcpError == nil ? "\(snapshot.tools.count) \(snapshot.tools.count == 1 ? "tool" : "tools") available" : "Connection failed",
+                    secondary: "\(snapshot.listenerCount) network \(snapshot.listenerCount == 1 ? "listener" : "listeners") on port 8484"
                 )
                 statusCard(
-                    title: "Base canonique",
+                    title: "Canonical database",
                     symbol: "externaldrive.fill",
                     healthy: snapshot.writeState == "ready" && !snapshot.repairing,
-                    primary: "\(snapshot.documents.formatted()) documents",
-                    secondary: "\(snapshot.chunks.formatted()) passages · état \(snapshot.writeState)"
+                    primary: "\(snapshot.documents.formatted()) \(snapshot.documents == 1 ? "document" : "documents")",
+                    secondary: "\(snapshot.chunks.formatted()) \(snapshot.chunks == 1 ? "passage" : "passages") · state \(snapshot.writeState)"
                 )
                 statusCard(
-                    title: "Recherche réelle",
+                    title: "Live search",
                     symbol: "magnifyingglass.circle.fill",
                     healthy: snapshot.searchOK && snapshot.lexicalReady && snapshot.rerankingModel == "rerank-v4.0-pro",
-                    primary: snapshot.searchOK ? "Recherche hybride réussie" : "Recherche échouée",
+                    primary: snapshot.searchOK ? "Hybrid search succeeded" : "Search failed",
                     secondary: searchSummary(snapshot)
                 )
                 statusCard(
@@ -113,14 +113,14 @@ struct RagdocStatusView: View {
             Spacer()
             HStack {
                 if let revision = snapshot.revision {
-                    Text("Révision \(revision.prefix(12))")
+                    Text("Revision \(revision.prefix(12))")
                 }
                 Spacer()
                 if store.isChecking {
                     ProgressView().controlSize(.small)
-                    Text("Vérification…")
+                    Text("Checking…")
                 } else if let checked = store.lastChecked {
-                    Text("Vérifié à \(checked.formatted(date: .omitted, time: .shortened))")
+                    Text("Checked at \(checked.formatted(date: .omitted, time: .shortened))")
                 }
             }
             .font(.caption)
@@ -157,20 +157,20 @@ struct RagdocStatusView: View {
 
     private func statusExplanation(_ snapshot: RagdocStatusSnapshot) -> String {
         if let error = snapshot.mcpError, !error.isEmpty { return error }
-        if snapshot.listenerCount != 1 { return "Le service réseau MCP n’est pas disponible normalement." }
-        if snapshot.writeState != "ready" || snapshot.repairing { return "La base est en cours d’écriture ou de réparation." }
-        if !snapshot.missingTools.isEmpty { return "Des outils MCP requis sont absents." }
-        if !snapshot.searchOK { return "Le serveur répond, mais la recherche test a échoué." }
-        if !snapshot.lexicalReady { return "L’index lexical persistant n’est pas prêt." }
-        if snapshot.rerankingModel != "rerank-v4.0-pro" { return "Le modèle de reranking attendu n’est pas actif." }
-        return "Le diagnostic est incomplet."
+        if snapshot.listenerCount != 1 { return "The MCP network service is not available as expected." }
+        if snapshot.writeState != "ready" || snapshot.repairing { return "The database is being written or repaired." }
+        if !snapshot.missingTools.isEmpty { return "Required MCP tools are missing." }
+        if !snapshot.searchOK { return "The server responded, but the test search failed." }
+        if !snapshot.lexicalReady { return "The persistent lexical index is not ready." }
+        if snapshot.rerankingModel != "rerank-v4.0-pro" { return "The expected reranking model is not active." }
+        return "The diagnostic is incomplete."
     }
 
     private func searchSummary(_ snapshot: RagdocStatusSnapshot) -> String {
-        let model = snapshot.rerankingModel ?? "reranking inconnu"
+        let model = snapshot.rerankingModel ?? "unknown reranking"
         let latency = snapshot.latencySeconds.map {
             "\($0.formatted(.number.precision(.fractionLength(1)))) s"
-        } ?? "temps inconnu"
-        return "Lexical + sémantique · \(model) · \(latency)"
+        } ?? "unknown time"
+        return "Lexical + semantic · \(model) · \(latency)"
     }
 }

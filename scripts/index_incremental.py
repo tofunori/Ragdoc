@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Indexation incrémentale intelligente avec détection des modifications.
+Incremental indexing intelligente avec détection des modifications.
 
 Fonctionnalités:
 - Ajoute les nouveaux documents
@@ -11,7 +11,7 @@ Fonctionnalités:
 
 Usage:
     python index_incremental.py                  # Indexation normale
-    python index_incremental.py --force          # Forcer réindexation complète
+    python index_incremental.py --force          # Force reindexing complète
     python index_incremental.py --delete-missing # Supprimer docs absents
 """
 
@@ -78,7 +78,7 @@ class HybridModelProcessor:
         return {
             "model": self.model_name,
             "method": "contextualized",
-            "reason": f"Embeddings contextualisés ({self.model_name})"
+            "reason": f"Contextualized embeddings ({self.model_name})"
         }
 
     def process_contextualized(self, chunk_texts: List[str]) -> List[List[float]]:
@@ -91,7 +91,7 @@ class HybridModelProcessor:
             )
             return result.results[0].embeddings
         except Exception as e:
-            print(f"         ERREUR CRITIQUE API Voyage: {e}")
+            print(f"         CRITICAL Voyage API ERROR: {e}")
             return []
 
     def process_with_strategy(self, chunk_texts: List[str]) -> Tuple[str, List[List[float]], dict]:
@@ -165,7 +165,7 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
     
     if total_tokens < SAFE_TOKEN_LIMIT:
         # Cas standard : tout passe d'un coup
-        print(f"      Traitement standard ({total_tokens:,} tokens)")
+        print(f"      Standard processing ({total_tokens:,} tokens)")
         try:
             result = voyage_client.contextualized_embed(
                 inputs=[chunk_texts],
@@ -178,7 +178,7 @@ def process_embeddings_with_limit_check(voyage_client, chunk_texts, model, chunk
                 f"Voyage embedding request failed: {type(e).__name__}: {e}"
             ) from e
     else:
-        print(f"      ⚠️ GROS DOCUMENT ({len(chunk_texts)} chunks) -> Découpage en sections")
+        print(f"      ⚠️ LARGE DOCUMENT ({len(chunk_texts)} chunks) -> Splitting into sections")
         all_embeddings = []
         
         # 25 x 1024 tokens stays below the 30k safety budget while avoiding
@@ -230,7 +230,7 @@ def remove_empty_chunks(chunks):
 def index_incremental(force_reindex: bool = False,
                       delete_missing: bool = False,
                       sources: Optional[List[str]] = None) -> dict:
-    """Indexation incrémentale simplifiée."""
+    """Incremental indexing simplifiée."""
 
     if not VOYAGE_API_KEY:
         raise RuntimeError("VOYAGE_API_KEY is required for indexing")
@@ -239,28 +239,28 @@ def index_incremental(force_reindex: bool = False,
     lock_file = CHROMA_DB_PATH.parent / ".indexing.lock"
     lock_handle = acquire_lock(lock_file)
     if not lock_handle:
-        print("\n[ERREUR] Un processus d'indexation est deja en cours!")
+        print("\n[ERROR] Another indexing process is already running!")
         sys.exit(1)
 
     try:
         print("\n" + "=" * 70)
-        print(f"INDEXATION RAGDOC - {EMBEDDING_MODEL}")
+        print(f"RAGDOC INDEXING - {EMBEDDING_MODEL}")
         print("=" * 70)
 
         # Initialiser Voyage
-        print("\n[1/5] Connexion a Voyage AI...")
+        print("\n[1/5] Connecting to Voyage AI...")
         voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
-        print("   OK Voyage AI connecte")
+        print("   OK Voyage AI connected")
 
         # Connecter Chroma
-        print("\n[2/5] Connexion à Chroma...")
+        print("\n[2/5] Connecting to Chroma...")
         client, chroma_connection_mode = open_chroma_client(chromadb, CHROMA_DB_PATH)
         if chroma_connection_mode == "persistent-forced":
-            print(f"   [INFO] Mode local force (PersistentClient): {CHROMA_DB_PATH}")
+            print(f"   [INFO] Explicit local mode (PersistentClient): {CHROMA_DB_PATH}")
         elif chroma_connection_mode == "http":
-            print("   [OK] Connecte au serveur ChromaDB (localhost:8000)")
+            print("   [OK] Connected to ChromaDB server (localhost:8000)")
         else:
-            print("   [INFO] Mode local (PersistentClient)")
+            print("   [INFO] Local mode (PersistentClient)")
 
         collection = client.get_or_create_collection(
             name=COLLECTION_NAME,
@@ -281,10 +281,10 @@ def index_incremental(force_reindex: bool = False,
             raise RuntimeError("Interrupted index write detected. Inspect ingestion status and repair with --force.")
         if repairing:
             update_collection_state(collection, ragdoc_repairing=True)
-        print(f"   OK Collection '{COLLECTION_NAME}' chargee")
+        print(f"   OK Collection '{COLLECTION_NAME}' loaded")
 
         # Scanner les documents existants
-        print("\n[3/5] Analyse des documents existants...")
+        print("\n[3/5] Scanning existing documents...")
         existing_docs = read_collection(collection, include=["metadatas"])
         indexed_map: Dict[str, Dict] = {}
 
@@ -297,10 +297,10 @@ def index_incremental(force_reindex: bool = False,
                 indexed_map[source] = {'hash': doc_hash, 'chunk_ids': [], 'metadata': metadata}
             indexed_map[source]['chunk_ids'].append(chunk_id)
 
-        print(f"   OK {len(indexed_map)} documents indexes trouves")
+        print(f"   OK {len(indexed_map)} indexed documents found")
 
         # Scanner les fichiers markdown
-        print("\n[4/5] Scan du repertoire markdown...")
+        print("\n[4/5] Scanning Markdown directory...")
         all_markdown_files = sorted(list(MARKDOWN_DIR.glob("*.md")))
         markdown_files = all_markdown_files
         if sources:
@@ -310,9 +310,9 @@ def index_incremental(force_reindex: bool = False,
             if missing:
                 raise RuntimeError(f"Requested Markdown files missing: {', '.join(sorted(missing))}")
             markdown_files = [path for path in all_markdown_files if path.name in requested]
-            print(f"   OK {len(markdown_files)} fichiers cibles sur {len(all_markdown_files)}")
+            print(f"   OK {len(markdown_files)} target files out of {len(all_markdown_files)}")
         else:
-            print(f"   OK {len(markdown_files)} fichiers markdown trouves")
+            print(f"   OK {len(markdown_files)} Markdown files found")
         if not MARKDOWN_DIR.is_dir():
             raise RuntimeError("Markdown directory missing; refusing index cleanup")
         if repairing and set(indexed_map) - {p.name for p in all_markdown_files} and not delete_missing:
@@ -326,7 +326,7 @@ def index_incremental(force_reindex: bool = False,
             current_sources = {f.name for f in all_markdown_files}
             missing_sources = set(indexed_map.keys()) - current_sources
             if missing_sources:
-                print(f"\n   ATTENTION {len(missing_sources)} document(s) supprime(s) detecte(s)")
+                print(f"\n   WARNING {len(missing_sources)} missing document(s) detected")
                 for source in missing_sources:
                     chunk_ids = indexed_map[source]['chunk_ids']
                     bump_revision(collection, "writing")
@@ -334,7 +334,7 @@ def index_incremental(force_reindex: bool = False,
                     bump_revision(collection)
                     changed_sources.add(source)
                     library.record(source, "removed")
-                    print(f"      - Supprime: {source}")
+                    print(f"      - Removed: {source}")
                 del indexed_map
                 # Recharger map
                 existing_docs = read_collection(collection, include=["metadatas"])
@@ -345,8 +345,8 @@ def index_incremental(force_reindex: bool = False,
                         indexed_map[source] = {'hash': metadata.get('doc_hash'), 'chunk_ids': [], 'metadata': metadata}
                     indexed_map[source]['chunk_ids'].append(existing_docs['ids'][i])
 
-        # Indexation incrémentale
-        print("\n[5/5] Indexation incrémentale...\n")
+        # Incremental indexing
+        print("\n[5/5] Incremental indexing...\n")
 
         stats = {
             'new': 0,
@@ -391,7 +391,7 @@ def index_incremental(force_reindex: bool = False,
                 library.snapshot(content)
                 library.record(md_file.name, "preparing", provenance_meta['canonical_sha256'])
 
-                print(f"      Pipeline Chonkie déterministe (1024 tokens)...")
+                print(f"      Deterministic Chonkie pipeline (1024 tokens)...")
 
                 # Voyage contextualizes each group remotely. A second local embedding
                 # model added substantial CPU cost and made chunk boundaries non-reproducible.
@@ -404,7 +404,7 @@ def index_incremental(force_reindex: bool = False,
                 chunks = remove_empty_chunks(raw_chunks)
                 removed_empty = len(raw_chunks) - len(chunks)
                 if removed_empty:
-                    print(f"      INFO {removed_empty} passage(s) vide(s) ignore(s)")
+                    print(f"      INFO {removed_empty} empty passage(s) skipped")
                 
                 # Extraire textes
                 chunk_texts = [chunk.text for chunk in chunks]
@@ -478,18 +478,18 @@ def index_incremental(force_reindex: bool = False,
             except Exception as e:
                 stats['errors'] += 1
                 library.record(md_file.name, "failed", error=str(e))
-                print(f"   [{i:3d}/{len(markdown_files)}] ERREUR {md_file.name}: {str(e)}")
+                print(f"   [{i:3d}/{len(markdown_files)}] ERROR {md_file.name}: {str(e)}")
                 if isinstance(e, IndexRepairRequired):
                     raise
 
         # Résumé
         print("\n" + "=" * 70)
-        print("RÉSUMÉ DE L'INDEXATION:")
-        print(f"   Nouveaux documents:      {stats['new']:3d}")
-        print(f"   Documents modifiés:      {stats['modified']:3d}")
-        print(f"   Documents inchangés:     {stats['unchanged']:3d}")
-        print(f"   Erreurs:                 {stats['errors']:3d}")
-        print(f"   Chunks ajoutés/modifiés: {stats['total_chunks']:3d}")
+        print("INDEXING SUMMARY:")
+        print(f"   New documents:      {stats['new']:3d}")
+        print(f"   Modified documents:      {stats['modified']:3d}")
+        print(f"   Unchanged documents:     {stats['unchanged']:3d}")
+        print(f"   Errors:                 {stats['errors']:3d}")
+        print(f"   Added/modified chunks: {stats['total_chunks']:3d}")
         print("=" * 70 + "\n")
         if repairing and not stats['errors']:
             update_collection_state(collection, ragdoc_repairing=False)
@@ -499,8 +499,8 @@ def index_incremental(force_reindex: bool = False,
                 collection, changed_sources, initial_revision
             )
             print(
-                f"   Index lexical: {lexical_status['chunks']} passages, "
-                f"révision {str(lexical_status['revision'])[:12]}"
+                f"   Lexical index: {lexical_status['chunks']} passages, "
+                f"revision {str(lexical_status['revision'])[:12]}"
             )
         return stats
 
@@ -509,10 +509,10 @@ def index_incremental(force_reindex: bool = False,
 
 
 def main():
-    parser = argparse.ArgumentParser(description=f"Indexation RAGDOC ({EMBEDDING_MODEL})")
-    parser.add_argument('--force', action='store_true', help="Forcer réindexation")
-    parser.add_argument('--delete-missing', action='store_true', help="Nettoyer docs supprimés")
-    parser.add_argument('--source', action='append', help="Indexer seulement ce fichier Markdown (répétable)")
+    parser = argparse.ArgumentParser(description=f"Ragdoc indexing ({EMBEDDING_MODEL})")
+    parser.add_argument('--force', action='store_true', help="Force reindexing")
+    parser.add_argument('--delete-missing', action='store_true', help="Remove indexed documents whose source files are missing")
+    parser.add_argument('--source', action='append', help="Index only this Markdown file (repeatable)")
     args = parser.parse_args()
 
     try:
@@ -524,10 +524,10 @@ def main():
         if stats['errors']:
             sys.exit(1)
     except KeyboardInterrupt:
-        print("\n\nInterruption utilisateur.")
+        print("\n\nInterrupted by the user.")
         sys.exit(1)
     except Exception as e:
-        print(f"\nERREUR fatale: {str(e)}")
+        print(f"\nERROR fatal: {str(e)}")
         sys.exit(1)
 
 

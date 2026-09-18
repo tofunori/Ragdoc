@@ -23,7 +23,7 @@ struct BatchProgressView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Text("\(summary.added) / \(jobs.count) \(summary.added > 1 ? "articles ajoutés" : "article ajouté")")
+                Text(RagdropText.addedCount(summary.added, total: jobs.count))
                     .font(.system(size: 15, weight: .medium)).monospacedDigit().fixedSize()
             }
             HStack(alignment: .top, spacing: 10) {
@@ -55,28 +55,28 @@ struct BatchProgressView: View {
                     }
                     Spacer(minLength: 0)
                     if [.awaitingReview, .readyForIndexing].contains(job.stage), let onReview {
-                        Button("Réviser") { onReview(job) }.buttonStyle(RagdropSecondaryButtonStyle())
+                        Button("Review") { onReview(job) }.buttonStyle(RagdropSecondaryButtonStyle())
                     }
                     if job.errorDetails != nil, let onError {
-                        Button("Voir l’erreur") { onError(job) }.foregroundStyle(RagdropTheme.warning)
+                        Button("View error") { onError(job) }.foregroundStyle(RagdropTheme.warning)
                     }
                 }
             }
-            DisclosureGroup("Détails", isExpanded: $showingDetails) {
+            DisclosureGroup("Details", isExpanded: $showingDetails) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("\(summary.count(.queued)) en attente · \(summary.review) à réviser · \(summary.count(.readyForIndexing)) approuvés · \(summary.count(.duplicate)) doublons · \(summary.count(.rejected)) écartés")
+                    Text("Queued: \(summary.count(.queued)) · To review: \(summary.review) · Approved: \(summary.count(.readyForIndexing)) · Duplicates: \(summary.count(.duplicate)) · Rejected: \(summary.count(.rejected))")
                     Text(message)
                     if let job = presentation.focus {
-                        Text(job.detail)
-                        if let converter = job.converterName { Text("Conversion : \(converter)") }
+                        Text(job.displayDetail)
+                        if let converter = job.converterName { Text("Conversion: \(converter)") }
                         if job.stage.isActive {
                             TimelineView(.periodic(from: .now, by: 1)) { context in
-                                Text("\(max(0, Int(context.date.timeIntervalSince(job.stageStartedAt)))) s dans cet état · durée restante inconnue")
+                                Text("\(max(0, Int(context.date.timeIntervalSince(job.stageStartedAt)))) s in this state · remaining time unknown")
                                     .monospacedDigit()
                             }
                         }
                     }
-                    Text("Les segments suivent l’article affiché. Le compteur dénombre uniquement les ajouts contrôlés dans Ragdoc. L’indexation ne valide pas l’exactitude scientifique de l’extraction.")
+                    Text("Segments track the displayed article. The counter includes only verified additions to Ragdoc. Indexing does not validate the scientific accuracy of the extraction.")
                 }.font(.callout).foregroundStyle(RagdropTheme.secondary).padding(.top, 10)
             }.font(.body).foregroundStyle(RagdropTheme.secondary)
         }
@@ -91,8 +91,8 @@ struct BatchProgressView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
     private func stageDescription(_ phase: BatchPhase) -> String {
-        if presentation.phase == phase { return presentation.isWorking ? "en cours, durée inconnue" : "en attente" }
-        return presentation.hasPassed(phase) ? "franchie" : "non indiquée comme terminée"
+        if presentation.phase == phase { return presentation.isWorking ? "in progress, duration unknown" : "waiting" }
+        return presentation.hasPassed(phase) ? "passed" : "not marked complete"
     }
 }
 

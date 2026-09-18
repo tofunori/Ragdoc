@@ -17,13 +17,13 @@ struct ReviewArtifactView: View {
                 Spacer()
                 if let page = artifact.page {
                     Button("Page \(page)", action: onPage).disabled(!canNavigate)
-                        .help(canNavigate ? "Afficher cette page du PDF" : "Page déclarée par le convertisseur, lien non vérifié")
+                        .help(canNavigate ? "Show this PDF page" : "Page reported by the converter; link unverified")
                 }
             }
             if let thumbnail {
                 Image(decorative: thumbnail, scale: 1).resizable().scaledToFit().frame(maxHeight: 650)
             } else if imageFailed {
-                Label("Image indisponible", systemImage: "photo.badge.exclamationmark").foregroundStyle(RagdropTheme.secondary)
+                Label("Image unavailable", systemImage: "photo.badge.exclamationmark").foregroundStyle(RagdropTheme.secondary)
             }
             if !html.isEmpty {
                 HTMLPreviewWebView(html: html, baseURL: bundleURL).frame(height: 280)

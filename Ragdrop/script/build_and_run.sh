@@ -16,12 +16,13 @@ APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
 cd "$ROOT_DIR"
-swift build
-BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
+swift build -c release -Xswiftc -file-prefix-map -Xswiftc "$ROOT_DIR=Ragdrop"
+BUILD_BINARY="$(swift build -c release --show-bin-path)/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
+/usr/bin/strip -S -x "$APP_BINARY"
 cp "$ROOT_DIR/Assets/RagdropIcon.icns" "$APP_RESOURCES/RagdropIcon.icns"
 cp "$ROOT_DIR/../scripts/ragdrop_mistral_convert.py" "$APP_RESOURCES/ragdrop_mistral_convert.py"
 cp "$ROOT_DIR/../scripts/ragdrop_mineru_convert.py" "$APP_RESOURCES/ragdrop_mineru_convert.py"
@@ -41,12 +42,14 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.5</string>
+  <string>0.6</string>
   <key>CFBundleVersion</key>
-  <string>25</string>
+  <string>26</string>
   <key>CFBundleIconFile</key>
   <string>RagdropIcon</string>
-  <key>CFBundlePackageType</key>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+<key>CFBundleLocalizations</key><array><string>en</string></array>
+<key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>

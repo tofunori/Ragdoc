@@ -14,8 +14,8 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            PageHeading(title: reviewOnly ? "À vérifier" : "Importation",
-                        subtitle: reviewOnly ? "Comparez chaque extraction à son PDF original." : "Ajouter, vérifier, indexer.")
+            PageHeading(title: reviewOnly ? "To review" : "Import",
+                        subtitle: reviewOnly ? "Compare each extraction with its original PDF." : "Add, review, index.")
             if reviewOnly {
                 queue
                 footer
@@ -32,7 +32,7 @@ struct ContentView: View {
                         intake
                         BatchProgressView(jobs: store.jobs, message: store.message,
                                           onReview: { previewJob = $0 }, onError: { errorJob = $0 })
-                        DisclosureGroup("Tous les articles (\(store.jobs.count))", isExpanded: $showingQueue) {
+                        DisclosureGroup("All articles (\(store.jobs.count))", isExpanded: $showingQueue) {
                             queue.frame(height: min(360, max(100, CGFloat(store.jobs.count) * 76)))
                                 .padding(.top, 12)
                         }.font(.body).foregroundStyle(RagdropTheme.secondary)
@@ -108,9 +108,9 @@ struct ContentView: View {
     private var queue: some View {
         if visibleJobs.isEmpty {
             ContentUnavailableView(
-                reviewOnly ? "Aucune extraction à vérifier" : "Aucun PDF en attente",
+                reviewOnly ? "No extractions to review" : "No PDFs waiting",
                 systemImage: "tray",
-                description: Text("Vous pouvez ajouter un ou plusieurs articles à la fois.")
+                description: Text("You can add one or more articles at a time.")
             )
             .frame(maxHeight: .infinity)
         } else {
@@ -148,13 +148,13 @@ struct ContentView: View {
             }
             Spacer()
             if store.canCancelConversion {
-                Button("Annuler", role: .cancel, action: store.cancelConversion)
+                Button("Cancel", role: .cancel, action: store.cancelConversion)
             }
             if store.jobs.contains(where: { [.completed, .duplicate, .rejected].contains($0.stage) }) && !store.isRunning {
-                Button("Effacer les terminés", action: store.clearCompleted)
+                Button("Clear finished", action: store.clearCompleted)
             }
             if store.jobs.contains(where: { $0.stage == .awaitingReview }) && !store.isRunning {
-                Button("Tout approuver", action: store.approveAll)
+                Button("Approve all", action: store.approveAll)
             }
             Button(primaryButtonTitle) {
                 store.start()
@@ -168,9 +168,9 @@ struct ContentView: View {
     }
 
     private var primaryButtonTitle: String {
-        if store.isRunning { return "Traitement…" }
-        if store.jobs.contains(where: { $0.stage == .readyForIndexing }) { return "Ajouter les approuvés" }
+        if store.isRunning { return "Processing…" }
+        if store.jobs.contains(where: { $0.stage == .readyForIndexing }) { return "Add approved" }
         let count = store.jobs.filter { $0.stage == .queued || $0.stage == .failed }.count
-        return count > 0 ? "Lancer l’analyse de \(count) PDF" : "Analyser les PDF"
+        return count > 0 ? "Analyze \(RagdropText.pdfCount(count))" : "Analyze PDFs"
     }
 }

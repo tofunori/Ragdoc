@@ -5,11 +5,11 @@ enum WorkspaceSection: String, CaseIterable, Identifiable {
     var id: Self { self }
     var title: String {
         switch self {
-        case .home: "Accueil"
-        case .review: "À vérifier"
-        case .library: "Bibliothèque"
+        case .home: "Home"
+        case .review: "To review"
+        case .library: "Library"
         case .status: "Ragdoc · NAS"
-        case .settings: "Réglages"
+        case .settings: "Settings"
         }
     }
     var symbol: String {
@@ -42,7 +42,7 @@ struct WorkspaceView: View {
                 navigationButton(.review)
                 if !monitor.pendingDocuments.isEmpty {
                     Button { monitor.showingNewArticles = true } label: {
-                        Label("Zotero · \(monitor.pendingDocuments.count) \(monitor.pendingDocuments.count == 1 ? "nouveau" : "nouveaux")", systemImage: "tray.and.arrow.down")
+                        Label("Zotero · \(monitor.pendingDocuments.count) new", systemImage: "tray.and.arrow.down")
                             .font(.callout).foregroundStyle(RagdropTheme.link).padding(14)
                     }.buttonStyle(.plain).padding(.horizontal, 12)
                 }
@@ -96,21 +96,21 @@ struct WorkspaceView: View {
 
     private var workspaceHeader: some View {
         HStack(spacing: 10) {
-            Text("Espace de travail").foregroundStyle(RagdropTheme.secondary)
+            Text("Workspace").foregroundStyle(RagdropTheme.secondary)
             Spacer(minLength: 14)
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(RagdropTheme.secondary)
                 TextField("", text: $libraryQuery)
                     .overlay(alignment: .leading) {
                         if libraryQuery.isEmpty {
-                            Text("Rechercher dans vos articles…")
+                            Text("Search your articles…")
                                 .foregroundStyle(RagdropTheme.secondary)
                                 .allowsHitTesting(false)
                                 .accessibilityHidden(true)
                         }
                     }
                     .textFieldStyle(.plain)
-                    .accessibilityLabel("Rechercher dans la bibliothèque")
+                    .accessibilityLabel("Search the library")
                     .onChange(of: libraryQuery) { _, value in
                         if !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { section = .library }
                     }

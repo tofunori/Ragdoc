@@ -6,10 +6,10 @@ enum BatchPhase: Int, CaseIterable {
     var title: String {
         switch self {
         case .conversion: "Conversion"
-        case .review: "Révision"
-        case .transfer: "Transfert"
-        case .indexing: "Indexation"
-        case .verification: "Contrôle"
+        case .review: "Review"
+        case .transfer: "Transfer"
+        case .indexing: "Indexing"
+        case .verification: "Verification"
         }
     }
 }
@@ -43,39 +43,39 @@ struct BatchPresentation {
     }
     var isWorking: Bool { focus?.stage.isActive == true && focus?.errorDetails == nil }
     var headline: String {
-        guard let focus else { return "Aucun article en attente" }
-        if !isWorking && hasFailure { return "Traitement à reprendre" }
+        guard let focus else { return "No articles waiting" }
+        if !isWorking && hasFailure { return "Processing needs attention" }
         if terminal {
-            if allCompleted { return jobs.count == 1 ? "Article ajouté" : "Articles ajoutés" }
-            if jobs.allSatisfy({ $0.stage == .duplicate }) { return jobs.count == 1 ? "Doublon détecté" : "Doublons détectés" }
-            if jobs.allSatisfy({ $0.stage == .rejected }) { return jobs.count == 1 ? "Article écarté" : "Articles écartés" }
-            return "Lot terminé"
+            if allCompleted { return jobs.count == 1 ? "Article added" : "Articles added" }
+            if jobs.allSatisfy({ $0.stage == .duplicate }) { return jobs.count == 1 ? "Duplicate detected" : "Duplicates detected" }
+            if jobs.allSatisfy({ $0.stage == .rejected }) { return jobs.count == 1 ? "Article rejected" : "Articles rejected" }
+            return "Batch finished"
         }
         switch focus.stage {
-        case .queued: return "Prêt à démarrer"
-        case .checkingDuplicate: return "Recherche de doublon"
-        case .converting: return "Conversion en cours"
-        case .awaitingReview: return "Révision attendue"
-        case .readyForIndexing: return "Prêt pour l’ajout"
-        case .transferring: return "Transfert en cours"
-        case .indexing: return "Indexation en cours"
-        case .verifying: return "Contrôle en cours"
-        default: return "Traitement à reprendre"
+        case .queued: return "Ready to start"
+        case .checkingDuplicate: return "Checking for duplicates"
+        case .converting: return "Converting"
+        case .awaitingReview: return "Review needed"
+        case .readyForIndexing: return "Ready to add"
+        case .transferring: return "Transferring"
+        case .indexing: return "Indexing"
+        case .verifying: return "Verifying"
+        default: return "Processing needs attention"
         }
     }
     var subtitle: String {
         if let phase {
-            let step = "Étape \(phase.rawValue + 1) sur 5"
+            let step = "Step \(phase.rawValue + 1) of 5"
             switch focus?.stage {
-            case .queued, .readyForIndexing: return "\(step) · en attente de lancement"
-            case .awaitingReview: return "\(step) · votre validation est requise"
+            case .queued, .readyForIndexing: return "\(step) · waiting to start"
+            case .awaitingReview: return "\(step) · your review is required"
             default: return step
             }
         }
-        if hasFailure { return "Consultez les erreurs avant de relancer." }
-        if allCompleted { return "Passages retrouvés dans Ragdoc." }
-        if terminal { return "Aucun traitement restant." }
-        return "Ajoutez un PDF pour commencer."
+        if hasFailure { return "Check the errors before retrying." }
+        if allCompleted { return "Passages found in Ragdoc." }
+        if terminal { return "No processing remaining." }
+        return "Add a PDF to begin."
     }
     /// Completed segments refer only to the displayed article, never the whole mixed batch.
     func hasPassed(_ candidate: BatchPhase) -> Bool {
@@ -86,9 +86,9 @@ struct BatchPresentation {
     var context: String? {
         var parts: [String] = []
         if summary.review > 0 && focus?.stage != .awaitingReview {
-            parts.append("\(summary.review) à réviser")
+            parts.append("\(summary.review) to review")
         }
-        if hasFailure { parts.append("\(summary.errors) à reprendre") }
+        if hasFailure { parts.append("\(summary.errors) to retry") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }

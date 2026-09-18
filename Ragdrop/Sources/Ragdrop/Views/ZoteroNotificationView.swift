@@ -8,23 +8,23 @@ struct ZoteroNotificationView: View {
                 .font(.title3).foregroundStyle(RagdropTheme.link)
             VStack(alignment: .leading, spacing: 4) {
                 if monitor.errorMessage != nil {
-                    Text("Surveillance Zotero en attente de vérification").font(.callout.weight(.semibold))
-                    Text("Aucune nouveauté n’est annoncée sans contrôle. Consultez les réglages.")
+                    Text("Zotero monitoring awaiting verification").font(.callout.weight(.semibold))
+                    Text("New items are reported only after verification. Check settings.")
                         .font(.caption).foregroundStyle(RagdropTheme.secondary)
                 } else {
-                    Text("\(monitor.pendingDocuments.count) nouveau\(monitor.pendingDocuments.count > 1 ? "x" : "") PDF Zotero à examiner")
+                    Text("\(RagdropText.pdfCount(monitor.pendingDocuments.count)) from Zotero to review")
                         .font(.callout.weight(.semibold))
                     if let date = monitor.lastRagdocCheck {
-                        Text("Doublons contrôlés à \(date.formatted(date: .omitted, time: .shortened)) · aucun ajout automatique")
+                        Text("Duplicates checked at \(date.formatted(date: .omitted, time: .shortened)) · no automatic import")
                             .font(.caption).foregroundStyle(RagdropTheme.secondary)
                     }
                 }
             }
             Spacer(minLength: 8)
             if monitor.errorMessage == nil {
-                Button("Ignorer") { monitor.dismiss(Set(monitor.pendingDocuments.map(\.attachmentKey))) }
-                    .help("Ne plus annoncer ces PDF, même s’ils sont ajoutés sous une autre pièce jointe.")
-                Button("Voir les nouveaux articles") { monitor.showingNewArticles = true }
+                Button("Dismiss") { monitor.dismiss(Set(monitor.pendingDocuments.map(\.attachmentKey))) }
+                    .help("Do not report these PDFs again, even if added as another attachment.")
+                Button("View new articles") { monitor.showingNewArticles = true }
                     .buttonStyle(RagdropSecondaryButtonStyle())
             }
         }

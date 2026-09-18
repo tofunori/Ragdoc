@@ -11,7 +11,7 @@ final class ThemeValidationDelegate: NSObject, NSApplicationDelegate {
 struct ThemeDemoApp: App {
     @NSApplicationDelegateAdaptor(ThemeValidationDelegate.self) private var appDelegate
     var body: some Scene {
-        WindowGroup("Ragdrop — Clair & sombre · Validation") { ThemeDemoWorkspace() }
+        WindowGroup("Ragdrop — Light & dark · Demo") { ThemeDemoWorkspace() }
             .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1200, height: 900)
     }
@@ -28,8 +28,8 @@ private struct ThemeDemoWorkspace: View {
     @State private var section = WorkspaceSection.home
     @State private var fixtures: [ImportJob] = []
     @State private var sampleHistory: [HistoryDocument] = []
-    @State private var dataState = "Chargé"
-    @State private var batchState = "Aucun"
+    @State private var dataState = "Loaded"
+    @State private var batchState = "None"
     @State private var showReview = false
     @State private var showZotero = false
     @State private var showError = false
@@ -39,24 +39,24 @@ private struct ThemeDemoWorkspace: View {
         VStack(spacing: 0) {
             WorkspaceView(store: store, history: history, status: status, monitor: monitor, section: $section)
             HStack(spacing: 12) {
-                Label("DÉMONSTRATION · données synthétiques", systemImage: "testtube.2").font(.caption.weight(.semibold))
+                Label("DEMO · synthetic data", systemImage: "testtube.2").font(.caption.weight(.semibold))
                 Spacer()
-                Picker("État", selection: $dataState) {
-                    ForEach(["Chargé", "Vide", "Chargement", "Échec"], id: \.self) { Text($0) }
+                Picker("State", selection: $dataState) {
+                    ForEach(["Loaded", "Empty", "Loading", "Failed"], id: \.self) { Text($0) }
                 }.frame(width: 155)
-                Picker("Lot", selection: $batchState) {
-                    ForEach(["Aucun", "Conversion", "Révision", "Transfert", "Indexation", "Contrôle", "Erreur", "Doublons", "Terminé", "Mixte"], id: \.self) { Text($0) }
+                Picker("Batch", selection: $batchState) {
+                    ForEach(["None", "Conversion", "Review", "Transfer", "Indexing", "Verification", "Error", "Duplicates", "Finished", "Mixed"], id: \.self) { Text($0) }
                 }.frame(width: 160)
-                Button("Nouveauté Zotero") {
+                Button("New in Zotero") {
                     if var document = zotero.documents.last {
                         document.fingerprint = String(repeating: "a", count: 64)
                         document.fingerprintPrefix = String(repeating: "a", count: 12)
                         monitor.simulate([document])
                     }
                 }
-                Button("Révision") { showReview = true }.disabled(fixtures.isEmpty)
+                Button("Review") { showReview = true }.disabled(fixtures.isEmpty)
                 Button("Zotero") { showZotero = true }
-                Button("Erreur") { showError = true }.disabled(fixtures.isEmpty)
+                Button("Error") { showError = true }.disabled(fixtures.isEmpty)
             }.padding(10).background(RagdropTheme.raised)
             if let errorMessage { Text(errorMessage).foregroundStyle(.orange) }
         }
@@ -69,7 +69,7 @@ private struct ThemeDemoWorkspace: View {
         .sheet(isPresented: $showZotero) { ZoteroImportView(store: zotero) { _ in } }
         .sheet(isPresented: $showError) {
             if var job = fixtures.first {
-                let _ = { job.detail = "Conversion interrompue"; job.errorDetails = "Exemple synthétique : délai de réponse dépassé. Aucun traitement réel n’a été lancé." }()
+                let _ = { job.detail = "Conversion interrupted"; job.errorDetails = "Synthetic example: response timed out. No real processing was started." }()
                 ErrorDetailView(job: job)
             }
         }
@@ -79,12 +79,12 @@ private struct ThemeDemoWorkspace: View {
             do {
                 fixtures = try ReviewDemoFixtures.make()
                 sampleHistory = [
-                    HistoryDocument(source: "demo-1.md", title: "Démonstration — Albédo et impuretés de la neige", chunks: 14, indexedDate: "2026-09-17T14:30:00", doi: nil),
-                    HistoryDocument(source: "demo-2.md", title: "Démonstration — Méthodes de mesure sur glacier", chunks: 28, indexedDate: "2026-09-16T09:15:00", doi: nil),
-                    HistoryDocument(source: "demo-3.md", title: "Démonstration — Rayonnement et bilan d’énergie", chunks: 19, indexedDate: "2026-09-15T16:00:00", doi: nil)
+                    HistoryDocument(source: "demo-1.md", title: "Demo — Snow albedo and impurities", chunks: 14, indexedDate: "2026-09-17T14:30:00", doi: nil),
+                    HistoryDocument(source: "demo-2.md", title: "Demo — Glacier measurement methods", chunks: 28, indexedDate: "2026-09-16T09:15:00", doi: nil),
+                    HistoryDocument(source: "demo-3.md", title: "Demo — Radiation and energy balance", chunks: 19, indexedDate: "2026-09-15T16:00:00", doi: nil)
                 ]
                 zotero.documents = sampleHistory.enumerated().map { index, item in
-                    ZoteroPDF(attachmentKey: "DEMO\(index)", parentKey: nil, title: item.title, authorNames: ["Auteur de démonstration"], year: "2026", doi: nil,
+                    ZoteroPDF(attachmentKey: "DEMO\(index)", parentKey: nil, title: item.title, authorNames: ["Demo author"], year: "2026", doi: nil,
                               fileURL: fixtures[0].fileURL, dateAdded: item.indexedDate ?? "", isIndexed: index == 0)
                 }
                 applyDataState()
@@ -94,48 +94,48 @@ private struct ThemeDemoWorkspace: View {
 
     private func applyBatchState() {
         guard var job = fixtures.first else { return }
-        store.message = "État simulé · aucun traitement réel."
+        store.message = "Simulated state · no real processing."
         store.isRunning = false
-        job.metadata = ImportMetadata(title: "Démonstration — Albédo, poussières et carbone noir", authors: ["Auteurs de démonstration"], year: 2026, doi: nil, zoteroItemKey: nil, zoteroAttachmentKey: nil)
+        job.metadata = ImportMetadata(title: "Demo — Albedo, dust and black carbon", authors: ["Demo authors"], year: 2026, doi: nil, zoteroItemKey: nil, zoteroAttachmentKey: nil)
         job.converterName = "Mistral OCR"
         job.errorDetails = nil
         job.stageStartedAt = .now
         switch batchState {
-        case "Aucun": store.jobs = []; return
+        case "None": store.jobs = []; return
         case "Conversion": job.stage = .converting
-        case "Révision": job.stage = .awaitingReview
-        case "Transfert": job.stage = .transferring
-        case "Indexation": job.stage = .indexing
-        case "Contrôle": job.stage = .verifying
-        case "Erreur": job.stage = .readyForIndexing; job.errorDetails = "Indexation indisponible — erreur simulée."
-        case "Doublons": job.stage = .duplicate
-        case "Terminé": job.stage = .completed
-        case "Mixte":
+        case "Review": job.stage = .awaitingReview
+        case "Transfer": job.stage = .transferring
+        case "Indexing": job.stage = .indexing
+        case "Verification": job.stage = .verifying
+        case "Error": job.stage = .readyForIndexing; job.errorDetails = "Indexing unavailable — simulated error."
+        case "Duplicates": job.stage = .duplicate
+        case "Finished": job.stage = .completed
+        case "Mixed":
             job.stage = .converting
             var awaiting = ImportJob(fileURL: job.fileURL, metadata: job.metadata); awaiting.stage = .awaitingReview
-            var failed = ImportJob(fileURL: job.fileURL, metadata: job.metadata); failed.stage = .failed; failed.errorDetails = "Erreur simulée"
+            var failed = ImportJob(fileURL: job.fileURL, metadata: job.metadata); failed.stage = .failed; failed.errorDetails = "Simulated error"
             var completed = ImportJob(fileURL: job.fileURL, metadata: job.metadata); completed.stage = .completed
             store.jobs = [job, awaiting, failed, completed]; store.isRunning = true; return
         default: return
         }
-        job.detail = "Démonstration · " + job.stage.title
+        job.detail = "Demo · " + job.stage.title
         store.jobs = [job]
         store.isRunning = job.stage.isActive
     }
 
     private func applyDataState() {
-        history.documents = dataState == "Chargé" ? sampleHistory : []
+        history.documents = dataState == "Loaded" ? sampleHistory : []
         history.lastUpdated = .now
-        history.isLoading = dataState == "Chargement"
-        history.errorMessage = dataState == "Échec" ? "Serveur indisponible — exemple de validation." : nil
-        status.snapshot = dataState == "Chargé" ? RagdocStatusSnapshot(
+        history.isLoading = dataState == "Loading"
+        history.errorMessage = dataState == "Failed" ? "Server unavailable — demo example." : nil
+        status.snapshot = dataState == "Loaded" ? RagdocStatusSnapshot(
             tools: ["semantic_search_hybrid", "search_by_source", "list_documents", "get_document_content", "get_indexation_status", "get_server_status"],
             searchOK: true, mcpError: nil, latencySeconds: 0.8, documents: 3, chunks: 61,
             revision: "demo-synthetic", writeState: "ready", repairing: false, models: ["demo-model": 3], expectedModel: "demo-model",
             serverModel: "demo-model", serverRevision: "demo-synthetic", lexicalReady: true, rerankingModel: "rerank-v4.0-pro", listenerCount: 1, testSource: "demo-1.md") : nil
         status.lastChecked = .now
-        status.isChecking = dataState == "Chargement"
-        status.errorMessage = dataState == "Échec" ? "Connexion indisponible — exemple de validation." : nil
+        status.isChecking = dataState == "Loading"
+        status.errorMessage = dataState == "Failed" ? "Connection unavailable — demo example." : nil
     }
 }
 #endif

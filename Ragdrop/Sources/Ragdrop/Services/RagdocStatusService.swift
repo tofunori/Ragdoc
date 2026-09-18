@@ -6,8 +6,8 @@ enum RagdocStatusError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .commandFailed(let details): "Le diagnostic Ragdoc a échoué. \(details)"
-        case .invalidResponse: "Le diagnostic Ragdoc a renvoyé une réponse illisible."
+        case .commandFailed(let details): "The Ragdoc diagnostic failed. \(details)"
+        case .invalidResponse: "The Ragdoc diagnostic returned an unreadable response."
         }
     }
 }
@@ -27,7 +27,7 @@ struct RagdocStatusService: Sendable {
             con.execute('PRAGMA query_only=ON')
             con.execute('BEGIN')
             collection=con.execute('SELECT id FROM collections WHERE name=?',('ragdoc_contextualized_v1',)).fetchone()
-            if not collection: raise RuntimeError('Collection Ragdoc introuvable')
+            if not collection: raise RuntimeError('Ragdoc collection not found')
             collection_id=collection[0]
             def value(row):
                 return row[1] if row[1] is not None else row[2] if row[2] is not None else row[3] if row[3] is not None else bool(row[4])

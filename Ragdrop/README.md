@@ -2,8 +2,7 @@
 
 Ragdrop is the desktop intake and review application for [Ragdoc](../README.md).
 Import local or Zotero PDFs, compare extraction with the source, approve or reject
-it, then add approved documents to your search library. The interface currently
-uses French labels and supports light, dark and system appearance.
+it, then add approved documents to your search library. The interface is in English and supports light, dark and system appearance.
 
 ![PDF and extracted text side by side in the synthetic Ragdrop review](../docs/assets/ragdrop/review-light.png)
 
@@ -37,9 +36,11 @@ The explicit **`build` argument is important**: omitting it launches the app and
 stops an existing Ragdrop process. The `--verify` mode also launches it; it is not
 an offline check. The commands above do not install or launch the normal app.
 
-The bundle is signed locally with an ad-hoc signature. There is no notarized
-release/download supplied here. Build on the Mac where you intend to use it;
-installation into Applications is a separate manual step. SwiftPM has no external
+The [release](https://github.com/tofunori/Ragdoc/releases/tag/v1.8.0) includes an
+Apple silicon development build of Ragdrop 0.6. It is signed ad hoc, **not Developer
+ID signed or notarized**; macOS may block a downloaded copy. Building from source
+on your own Mac remains the supported alternative. Installation into Applications
+is a separate manual step. SwiftPM has no external
 Swift dependencies; the bundle includes the icon and Python converter scripts.
 
 ## Set up real imports
@@ -47,13 +48,13 @@ Swift dependencies; the bundle includes the icon and Python converter scripts.
 Ragdrop currently expects an SSH-accessible **Linux backend** with a specific
 layout. A NAS is one possible host. This setup is not automated by the app.
 
-1. Follow the [backend installation guide](../INSTALLATION.md#ragdrop-backend-layout)
+1. Follow the [backend installation guide](../docs/installation.md#ragdrop-backend-layout)
    for the required interpreter, collection, directories and local MCP listener.
 2. Configure an SSH alias such as `ragdoc-server` in `~/.ssh/config`, with a user,
    host and key appropriate to your server. Test it from Terminal first, accepting
    the host key deliberately and ensuring no password prompt is needed. The app's
    host field accepts an alias, not `user@host`.
-3. In **Réglages → Fonctionnement**, set **NAS** and **Dossier Ragdoc** to your own
+3. In **Settings → Ragdoc on your server**, set **SSH host** and **Directory** to your own
    alias and absolute backend root. `ragdoc-server` and `/srv/ragdoc` are example
    defaults, not a supplied service. Paths currently allow letters, numbers,
    underscores, hyphens, dots and slashes, but no spaces.
@@ -64,30 +65,30 @@ layout. A NAS is one possible host. This setup is not automated by the app.
    is a dedicated virtual environment whose `python3` you expose at a location on
    that PATH; do not overwrite an existing interpreter. Verify `import requests`
    with that exact interpreter. Python is not bundled with Ragdrop.
-5. Add a Mistral key in **Réglages → Mistral OCR**; the app saves it to the macOS
-   Keychain. Choose **MinerU (secours)** only if configured with your own
+5. Add a Mistral key in **Settings → Mistral OCR**; the app saves it to the macOS
+   Keychain. Choose **MinerU (fallback)** only if configured with your own
    `~/.mineru_token`. The MinerU converter also needs `curl` and either `qpdf` or the Python
    `pypdf` package to count pages for every PDF and split long PDFs. Both providers receive
    selected PDF content and may charge for processing.
 6. For Zotero import, run Zotero Desktop with its local API available on
    `127.0.0.1:23119`. PDF attachments must be downloaded and readable on this Mac.
    Ragdrop reads the library; it does not modify Zotero records. Optional
-   **Surveiller Zotero** monitoring is off by default and proposes new PDFs for
+   **Monitor Zotero** monitoring is off by default and proposes new PDFs for
    selection; it does not bypass review.
 
 ## Use the application
 
-1. Choose **Choisir des PDF**, drop files, or select attachments through
-   **Depuis Zotero**. Conversion can send PDF content to the selected OCR provider.
-2. Open **À vérifier**. Compare **PDF original** with **Rendu**, **Source**, and
-   **Tableaux et figures**. Linked pages are available only when file hashes and
+1. Choose **Choose PDFs**, drop files, or select attachments through
+   **From Zotero**. Conversion can send PDF content to the selected OCR provider.
+2. Open **To review**. Compare **Original PDF** with **Rendered**, **Source**, and
+   **Tables and figures**. Linked pages are available only when file hashes and
    conversion locators match; incomplete coverage is shown explicitly.
-3. **Approuver l’extraction** marks the document ready for indexing; **Écarter**
+3. **Approve extraction** marks the document ready for indexing; **Reject**
    rejects it. Approval and transfer are separate actions.
 4. Add the approved documents. Ragdrop transfers Markdown, metadata and artifacts,
    indexes the approved sources as a batch, then checks that each has stored
    passages. The counter advances after that check, not after OCR alone.
-5. Use **Bibliothèque** for the indexed catalogue. Semantic/evidence search is
+5. Use **Library** for the indexed catalogue. Semantic/evidence search is
    available through the Ragdoc MCP backend in your chosen client; the desktop
    search field filters the catalogue.
 
@@ -110,3 +111,7 @@ collection using a different embedding model; follow the migration guide first.
 OCR and page mapping need human inspection. Confirming indexed passages is not a
 scientific validation. Changing appearance may reload the extraction HTML and reset
 its scroll position; it does not rerun OCR. The original PDF keeps its own colors.
+
+App labels are English. Imported titles, article text, saved diagnostic logs and
+provider/operating-system error text retain their original language. Updating the
+interface does not translate scientific content or rewrite existing queue records.

@@ -17,6 +17,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>RagdropThemeValidation</string>
 <key>CFBundleIdentifier</key><string>com.tofunori.ragdrop.theme-validation</string>
 <key>CFBundleName</key><string>Ragdrop Theme Validation</string>
+<key>CFBundleDevelopmentRegion</key><string>en</string>
+<key>CFBundleLocalizations</key><array><string>en</string></array>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>RagdropIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>

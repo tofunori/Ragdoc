@@ -12,7 +12,7 @@ The committed `uv.lock` defines a reproducible dependency set. Use an isolated
 Python 3.12 environment (`uv sync --locked --python 3.12 --extra dev`), install NLTK
 stopwords into `.venv/nltk_data`, set `NLTK_DATA` to that directory, and run
 `uv run --locked python src/server.py --check-runtime` as in the
-[installation guide](../INSTALLATION.md#prepare-an-isolated-environment).
+[installation guide](installation.md#prepare-an-isolated-environment).
 The offline diagnostic verifies that the Voyage SDK exposes `contextualized_embed`
 and that advanced tokenization is available; it does not call either external API.
 The current indexer uses deterministic token chunking. Its tokenizer assets may
@@ -34,7 +34,7 @@ needed to backfill a reviewed source. Back up first and expect embedding costs.
 Articles with sidecars are reindexed when their pipeline/provenance metadata differ.
 A collection with a missing
 or different model tag is refused; use a separately planned model migration into a
-new collection instead (see [installation](../INSTALLATION.md#configuration)).
+new collection instead (see [installation](installation.md#configuration)).
 It still incurs embedding costs. Existing tools remain available; a legacy full
 document read explicitly warns that overlapping chunks are reconstructed.
 Canonical reads require a migrated article and a matching snapshot.

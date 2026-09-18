@@ -30,7 +30,7 @@ struct RagdropApp: App {
         .defaultSize(width: 1180, height: 860)
         .commands {
             CommandGroup(after: .newItem) {
-                Button("Importer des PDF…") {
+                Button("Import PDFs…") {
                     selectedSection = .home
                     store.showingFileImporter = true
                 }.keyboardShortcut("o", modifiers: .command)

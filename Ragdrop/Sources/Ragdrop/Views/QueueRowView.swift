@@ -20,31 +20,31 @@ struct QueueRowView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(job.metadata?.title.nonBlank ?? job.displayName).font(.body.weight(.medium))
                     .lineLimit(1)
-                Text(job.detail)
+                Text(job.displayDetail)
                     .font(.caption)
                     .foregroundStyle(hasRecoverableError || job.stage == .failed ? RagdropTheme.error : RagdropTheme.secondary)
                     .lineLimit(2)
             }
             Spacer(minLength: 12)
             if job.stage == .awaitingReview || job.stage == .readyForIndexing {
-                Button("Réviser", systemImage: "rectangle.split.2x1", action: { onPreview?() })
-                    .help("Comparer le PDF original et le texte extrait")
+                Button("Review", systemImage: "rectangle.split.2x1", action: { onPreview?() })
+                    .help("Compare the original PDF and extracted text")
             }
             if job.errorDetails != nil {
-                Button("Détails", systemImage: "info.circle", action: { onShowError?() })
+                Button("Details", systemImage: "info.circle", action: { onShowError?() })
                     .labelStyle(.iconOnly)
-                    .help("Afficher le détail de l’erreur")
+                    .help("Show error details")
             }
             if job.stage == .failed {
-                Button("Relancer", systemImage: "arrow.clockwise", action: { onRetry?() })
+                Button("Retry", systemImage: "arrow.clockwise", action: { onRetry?() })
                     .labelStyle(.iconOnly)
-                    .help("Relancer ce PDF")
+                    .help("Retry this PDF")
             }
-            Button("Retirer", systemImage: "trash", role: .destructive, action: { onRemove?() })
+            Button("Remove", systemImage: "trash", role: .destructive, action: { onRemove?() })
                 .labelStyle(.iconOnly)
-                .help("Retirer de la file sans supprimer l’article de Ragdoc")
+                .help("Remove from the queue without deleting the article from Ragdoc")
                 .disabled(!canRemove)
-            Text(hasRecoverableError ? "À reprendre" : job.stage.title)
+            Text(hasRecoverableError ? "Needs retry" : job.stage.title)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(stageColor)
         }

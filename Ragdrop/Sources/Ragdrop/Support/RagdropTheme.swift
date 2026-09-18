@@ -5,7 +5,7 @@ enum RagdropAppearance: String, CaseIterable, Identifiable {
     case light, dark, system
     var id: Self { self }
     var title: String {
-        switch self { case .light: "Clair"; case .dark: "Sombre"; case .system: "Système" }
+        switch self { case .light: "Light"; case .dark: "Dark"; case .system: "System" }
     }
     var colorScheme: ColorScheme? {
         switch self { case .light: .light; case .dark: .dark; case .system: nil }
@@ -77,6 +77,7 @@ struct RagdropSurface: ViewModifier {
             .foregroundStyle(RagdropTheme.text)
             .tint(RagdropTheme.accent)
             .background(RagdropTheme.canvas)
+            .environment(\.locale, Locale(identifier: "en"))
             .preferredColorScheme((RagdropAppearance(rawValue: mode) ?? .light).colorScheme)
     }
 }

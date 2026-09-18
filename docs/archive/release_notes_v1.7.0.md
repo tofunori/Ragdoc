@@ -1,3 +1,5 @@
+> Historical reference. These instructions describe an older version. Use the [current installation guide](../installation.md) for this release.
+
 # Release Notes v1.7.0 - The Contextualized Unification 🧠
 
 This release marks a major architectural shift for RAGDOC, moving away from the complex "Hybrid" mode to a fully **Contextualized** pipeline powered by **Voyage-Context-3**.
