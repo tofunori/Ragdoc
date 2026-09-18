@@ -1,5 +1,9 @@
 # Advanced BM25 Tokenization - RAGDOC v1.5.0
 
+> Historical v1.5 design notes. Paths, examples and performance claims below are
+> not a description or validation of the current release. Start with the
+> [current documentation](README.md).
+
 ## 📋 Overview
 
 RAGDOC v1.5.0 introduces **advanced tokenization** for improved BM25 search quality, achieving **+15% recall** improvement through sophisticated text processing optimized for scientific literature.
@@ -290,8 +294,8 @@ On scientific literature corpus (124 documents, ~25k chunks):
 
 ## 🔗 Related Documentation
 
-- [HYBRID_SEARCH_GUIDE.md](HYBRID_SEARCH_GUIDE.md) - Complete hybrid search guide
-- [MCP_TOOLS_GUIDE.md](MCP_TOOLS_GUIDE.md) - MCP tools reference
+- [Current backend guide](installation.md) - Configuration and hybrid retrieval
+- [Historical MCP tools guide](archive/mcp-tools-v1.3.md) - MCP tools reference
 - [MIGRATION_CHROMADB_NATIVE.md](MIGRATION_CHROMADB_NATIVE.md) - Future v2.0 migration plan
 
 ## 📝 Technical Details
@@ -329,4 +333,4 @@ ragdoc-mcp/
 
 **Version:** 1.5.0
 **Last Updated:** 2024
-**Maintenance:** Active
+**Maintenance:** Historical reference

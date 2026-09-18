@@ -18,10 +18,10 @@ struct PDFReviewView: View {
             if let document {
                 NativePDFView(document: document, page: $page)
             } else if loading {
-                ProgressView("Ouverture du PDF…")
+                ProgressView("Opening PDF…")
             } else {
-                ContentUnavailableView("PDF indisponible", systemImage: "doc.questionmark",
-                    description: Text("Le fichier original est absent, illisible ou verrouillé. L’extraction reste consultable."))
+                ContentUnavailableView("PDF unavailable", systemImage: "doc.questionmark",
+                    description: Text("The original file is missing, unreadable or locked. You can still read the extraction."))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

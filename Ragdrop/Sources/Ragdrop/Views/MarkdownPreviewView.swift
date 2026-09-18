@@ -26,9 +26,9 @@ struct MarkdownPreviewView: View {
     @State private var showRejectConfirmation = false
 
     private enum PreviewMode: String, CaseIterable, Identifiable {
-        case rendered = "Rendu"
+        case rendered = "Rendered"
         case source = "Source"
-        case visuals = "Tableaux et figures"
+        case visuals = "Tables and figures"
         var id: Self { self }
     }
     private var renderKey: String { "\(document != nil)-\(pageOnly)-\(pageOnly ? page : 0)" }
@@ -38,25 +38,25 @@ struct MarkdownPreviewView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(job.displayName).font(.headline).lineLimit(1).help(job.displayName)
-                    Text("Révision de l’extraction · \(document?.converter ?? job.converterName ?? "Convertisseur non renseigné")")
+                    Text("Extraction review · \(document?.converter ?? job.converterName ?? "Converter not specified")")
                         .font(.caption).foregroundStyle(RagdropTheme.secondary)
                 }
                 Spacer()
-                if remainingReviews > 0 { Text("\(remainingReviews) à réviser").font(.caption).foregroundStyle(RagdropTheme.secondary) }
-                if let onNext { Button("Suivant", action: onNext) }
+                if remainingReviews > 0 { Text("\(remainingReviews) to review").font(.caption).foregroundStyle(RagdropTheme.secondary) }
+                if let onNext { Button("Next", action: onNext) }
             }
             .padding(18)
             Divider()
             HSplitView {
                 VStack(spacing: 0) {
                     HStack {
-                        Label("PDF original", systemImage: "doc.richtext").font(.subheadline.weight(.semibold))
+                        Label("Original PDF", systemImage: "doc.richtext").font(.subheadline.weight(.semibold))
                         Spacer()
                         Button { page -= 1 } label: { Image(systemName: "chevron.left") }
-                            .disabled(page <= 1 || !pdfAvailable).help("Page précédente")
+                            .disabled(page <= 1 || !pdfAvailable).help("Previous page")
                         Text(pageCount > 0 ? "\(page) / \(pageCount)" : "—").monospacedDigit()
                         Button { page += 1 } label: { Image(systemName: "chevron.right") }
-                            .disabled(page >= pageCount || !pdfAvailable).help("Page suivante")
+                            .disabled(page >= pageCount || !pdfAvailable).help("Next page")
                     }.padding(12)
                     Divider()
                     PDFReviewView(url: job.fileURL, page: $page, pageCount: $pageCount, available: $pdfAvailable)
@@ -69,12 +69,12 @@ struct MarkdownPreviewView: View {
                     if let document {
                         VStack(alignment: .leading, spacing: 5) {
                             if !document.spans.isEmpty {
-                                Toggle("Extrait lié à la page \(page)", isOn: $pageOnly)
+                                Toggle("Excerpt linked to page \(page)", isOn: $pageOnly)
                                     .toggleStyle(.checkbox).disabled(mode == .visuals)
                             }
                             Text(document.provenanceNote).font(.caption).foregroundStyle(RagdropTheme.secondary)
                             if truncated {
-                                Text("Aperçu limité aux 200 000 premiers caractères. Consultez le fichier complet ou choisissez une page.")
+                                Text("Preview limited to the first 200,000 characters. Open the full file or select a page.")
                                     .font(.caption).foregroundStyle(RagdropTheme.warning)
                             }
                         }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.bottom, 10)
@@ -86,26 +86,26 @@ struct MarkdownPreviewView: View {
             }
             Divider()
             HStack {
-                Button("Fermer") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Close") { dismiss() }.keyboardShortcut(.cancelAction)
                 if let url = job.artifactURL {
-                    Button("Fichier extrait") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                    Button("Extracted file") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                 }
                 Spacer()
                 if job.stage == .awaitingReview {
-                    if !canDecide { Text("Décision disponible à la fin du traitement.").font(.caption).foregroundStyle(RagdropTheme.secondary) }
-                    Button("Écarter…", role: .destructive) { showRejectConfirmation = true }
+                    if !canDecide { Text("Review actions are available when processing finishes.").font(.caption).foregroundStyle(RagdropTheme.secondary) }
+                    Button("Reject…", role: .destructive) { showRejectConfirmation = true }
                         .disabled(!canDecide)
-                    Button("Approuver l’extraction", action: onApprove)
+                    Button("Approve extraction", action: onApprove)
                         .buttonStyle(RagdropPrimaryButtonStyle())
                         .disabled(!canDecide || document == nil || !pdfAvailable)
-                        .help("Autorise l’envoi à Ragdoc; l’ajout sera lancé depuis la file.")
+                        .help("Approves transfer to Ragdoc; start adding from the queue.")
                 }
             }.padding()
         }
         .frame(minWidth: 780, idealWidth: 1120, minHeight: 600, idealHeight: 800)
         .ragdropSurface()
-        .confirmationDialog("Écarter cette extraction ? Le PDF original est conservé.", isPresented: $showRejectConfirmation) {
-            Button("Écarter l’extraction", role: .destructive, action: onReject)
+        .confirmationDialog("Reject this extraction? The original PDF will be kept.", isPresented: $showRejectConfirmation) {
+            Button("Reject extraction", role: .destructive, action: onReject)
         }
         .task(id: job.id) {
             do {
@@ -121,13 +121,13 @@ struct MarkdownPreviewView: View {
 
     @ViewBuilder private var extraction: some View {
         if isLoading {
-            ProgressView("Lecture de l’extraction…")
+            ProgressView("Reading extraction…")
         } else if let loadError {
-            ContentUnavailableView("Extraction indisponible", systemImage: "exclamationmark.triangle", description: Text(loadError))
+            ContentUnavailableView("Extraction unavailable", systemImage: "exclamationmark.triangle", description: Text(loadError))
         } else if mode == .visuals {
             if document?.artifacts.isEmpty != false {
-                ContentUnavailableView("Aucun élément visuel conservé", systemImage: "photo.on.rectangle",
-                                       description: Text("Consultez le rendu ou la source pour examiner les tableaux intégrés au texte."))
+                ContentUnavailableView("No visual items saved", systemImage: "photo.on.rectangle",
+                                       description: Text("Use the rendered view or source to inspect tables embedded in the text."))
             } else {
                 ScrollView {
                     LazyVStack(spacing: 18) {
@@ -141,15 +141,15 @@ struct MarkdownPreviewView: View {
                 }
             }
         } else if pageOnly && document?.spans.contains(where: { $0.page == page }) != true {
-            ContentUnavailableView("Aucun extrait relié à cette page", systemImage: "text.page",
-                                   description: Text("Affichez le document complet pour comparer manuellement."))
+            ContentUnavailableView("No excerpt linked to this page", systemImage: "text.page",
+                                   description: Text("Show the full document to compare manually."))
         } else if mode == .source {
             SourceTextView(text: visibleText)
         } else if rendering {
-            ProgressView("Préparation du rendu…")
+            ProgressView("Preparing rendered view…")
         } else if let renderError {
-            ContentUnavailableView("Rendu indisponible", systemImage: "exclamationmark.triangle",
-                                   description: Text("\(renderError) L’onglet Source reste disponible."))
+            ContentUnavailableView("Rendered view unavailable", systemImage: "exclamationmark.triangle",
+                                   description: Text("\(renderError) The Source tab is still available."))
         } else {
             HTMLPreviewWebView(html: html, baseURL: job.artifactURL?.deletingLastPathComponent())
         }

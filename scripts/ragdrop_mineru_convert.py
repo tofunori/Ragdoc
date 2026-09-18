@@ -92,8 +92,8 @@ def _run_upload(command: list[str]) -> subprocess.CompletedProcess:
     return _run_cancellable_process(
         command,
         timeout=UPLOAD_MAX_SECONDS + 60,
-        cancellation_message="Téléversement MinerU annulé.",
-        timeout_message=f"Le téléversement MinerU a dépassé {UPLOAD_MAX_SECONDS // 60} minutes.",
+        cancellation_message="MinerU upload canceled.",
+        timeout_message=f"MinerU upload exceeded {UPLOAD_MAX_SECONDS // 60} minutes.",
     )
 
 
@@ -160,10 +160,10 @@ def pdf_page_count(pdf: Path) -> int:
         pages = len(PdfReader(str(pdf)).pages)
     except (ImportError, OSError, ValueError) as error:
         raise MinerUError(
-            "Impossible de compter les pages du PDF; installez qpdf ou pypdf."
+            "Unable to count PDF pages; install qpdf or pypdf."
         ) from error
     if pages < 1:
-        raise MinerUError("Le PDF ne contient aucune page lisible.")
+        raise MinerUError("The PDF contains no readable pages.")
     return pages
 
 
@@ -172,7 +172,7 @@ def _split_with_pypdf(pdf: Path, parts: list[tuple[Path, int, int]]) -> None:
         from pypdf import PdfReader, PdfWriter
     except ImportError as error:
         raise MinerUError(
-            "Ce PDF dépasse 200 pages; installez qpdf ou pypdf pour le découpage automatique."
+            "This PDF exceeds 200 pages; install qpdf or pypdf for automatic splitting."
         ) from error
     reader = PdfReader(str(pdf))
     for destination, page_offset, page_count in parts:
@@ -207,27 +207,27 @@ def split_pdf(pdf: Path, workspace: Path) -> list[tuple[Path, int, int]]:
                         f"{first_page}-{last_page}", "--", str(destination),
                     ],
                     timeout=300,
-                    cancellation_message="Découpage du PDF annulé.",
+                    cancellation_message="PDF splitting canceled.",
                     timeout_message=(
-                        f"Le découpage des pages {first_page}–{last_page} a dépassé 5 minutes."
+                        f"Splitting pages {first_page}–{last_page} exceeded 5 minutes."
                     ),
                 )
                 if result.returncode != 0:
                     detail = (result.stderr or result.stdout).strip().splitlines()
                     reason = detail[-1] if detail else f"qpdf code {result.returncode}"
                     raise MinerUError(
-                        f"Le découpage du PDF a échoué pour les pages "
+                        f"PDF splitting failed for pages "
                         f"{first_page}–{last_page}: {reason}"
                     )
             except (OSError, subprocess.SubprocessError) as error:
                 raise MinerUError(
-                    f"Le découpage du PDF a échoué pour les pages {first_page}–{last_page}."
+                    f"PDF splitting failed for pages {first_page}–{last_page}."
                 ) from error
     else:
         _split_with_pypdf(pdf, parts)
 
     if any(not path.is_file() or path.stat().st_size == 0 for path, _, _ in parts):
-        raise MinerUError("Le découpage automatique du PDF a produit une partie vide.")
+        raise MinerUError("Automatic PDF splitting produced an empty part.")
     return parts
 
 
@@ -239,7 +239,7 @@ def upload_pdf(pdf: Path, upload_url: str) -> None:
     """
     curl = shutil.which("curl")
     if not curl:
-        raise MinerUError("curl est introuvable; le téléversement MinerU ne peut pas démarrer.")
+        raise MinerUError("curl not found; MinerU upload cannot start.")
     command = [
         curl,
         "--fail-with-body",
@@ -260,7 +260,7 @@ def upload_pdf(pdf: Path, upload_url: str) -> None:
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip().splitlines()
         reason = detail[-1] if detail else f"curl code {result.returncode}"
-        raise MinerUError(f"Le téléversement MinerU a échoué après plusieurs tentatives: {reason}")
+        raise MinerUError(f"MinerU upload failed after several attempts: {reason}")
 
 
 def submit(pdf: Path, bearer: str) -> str:
@@ -281,13 +281,13 @@ def submit(pdf: Path, bearer: str) -> str:
         )
         response.raise_for_status()
     except requests.RequestException as error:
-        raise MinerUError(f"MinerU ne répond pas à la demande de téléversement: {error}") from error
+        raise MinerUError(f"MinerU did not respond to the upload request: {error}") from error
     try:
         body = response.json()
     except (ValueError, TypeError) as error:
-        raise MinerUError("MinerU a renvoyé une réponse de téléversement illisible.") from error
+        raise MinerUError("MinerU returned an unreadable upload response.") from error
     if body.get("code") != 0:
-        raise MinerUError(body.get("msg", "MinerU refuse la demande de téléversement"))
+        raise MinerUError(body.get("msg", "MinerU rejected the upload request"))
     batch_id = body["data"]["batch_id"]
     upload_url = body["data"]["file_urls"][0]
     upload_pdf(pdf, upload_url)
@@ -316,23 +316,23 @@ def wait_for_archive(batch_id: str, bearer: str, timeout: int = POLL_MAX_SECONDS
                 time.sleep(5)
                 continue
             if status in {401, 403}:
-                raise MinerUError("MinerU refuse le jeton d’accès; vérifiez ~/.mineru_token.") from error
-            raise MinerUError(f"MinerU refuse le suivi de la conversion (HTTP {status or 'inconnu'}).") from error
+                raise MinerUError("MinerU rejected the access token; check ~/.mineru_token.") from error
+            raise MinerUError(f"MinerU rejected conversion tracking (HTTP {status or 'unknown'}).") from error
         except requests.RequestException as error:
-            raise MinerUError(f"Le suivi MinerU a échoué: {error}") from error
+            raise MinerUError(f"MinerU tracking failed: {error}") from error
         body = response.json()
         if body.get("code") != 0:
-            raise MinerUError(body.get("msg", "MinerU ne peut pas lire l’état de la conversion"))
+            raise MinerUError(body.get("msg", "MinerU could not read conversion status"))
         results = body.get("data", {}).get("extract_result", [])
         if results:
             result = results[0]
             if result.get("state") == "done":
                 return result["full_zip_url"]
             if result.get("state") == "failed":
-                reason = result.get("err_msg") or "raison non fournie"
-                raise MinerUError(f"MinerU a refusé la conversion: {reason}")
+                reason = result.get("err_msg") or "reason not provided"
+                raise MinerUError(f"MinerU rejected the conversion: {reason}")
         time.sleep(5)
-    raise MinerUError(f"La conversion MinerU a dépassé {timeout // 60} minutes.")
+    raise MinerUError(f"MinerU conversion exceeded {timeout // 60} minutes.")
 
 
 def convert_part(pdf: Path, bearer: str) -> bytes:
@@ -350,8 +350,8 @@ def convert_part(pdf: Path, bearer: str) -> bytes:
                 raise
             delay = TRANSIENT_PARSE_RETRY_DELAYS[attempt]
             print(
-                f"MinerU: analyse refusée temporairement; nouvelle tentative "
-                f"{attempt + 2}/{attempts} dans {delay} s",
+                f"MinerU: parsing temporarily rejected; retry "
+                f"{attempt + 2}/{attempts} in {delay} s",
                 file=sys.stderr,
                 flush=True,
             )
@@ -373,7 +373,7 @@ def artifact_label(kind: str, caption: str, ordinal: int) -> str:
     match = re.match(r"\s*((?:table|figure|fig\.)\s+[A-Za-z]?\d+)", caption, re.IGNORECASE)
     if match:
         return match.group(1).replace("Fig.", "Figure").replace("fig.", "Figure")
-    names = {"table": "Tableau", "image": "Figure", "chart": "Graphique"}
+    names = {"table": "Table", "image": "Figure", "chart": "Chart"}
     return f"{names.get(kind, kind.title())} {ordinal}"
 
 
@@ -611,7 +611,7 @@ def download_archive(archive_url: str) -> bytes:
         response.raise_for_status()
         return response.content
     except requests.RequestException as error:
-        raise MinerUError(f"Le résultat MinerU ne peut pas être téléchargé: {error}") from error
+        raise MinerUError(f"Unable to download the MinerU result: {error}") from error
 
 
 def main() -> int:
@@ -627,7 +627,7 @@ def main() -> int:
     previous_handler = signal.getsignal(signal.SIGTERM)
 
     def cancel_conversion(_signum, _frame):
-        raise MinerUError("Conversion MinerU annulée.")
+        raise MinerUError("MinerU conversion canceled.")
 
     signal.signal(signal.SIGTERM, cancel_conversion)
     try:
@@ -640,7 +640,7 @@ def main() -> int:
                     first_page = page_offset + 1
                     last_page = page_offset + page_count
                     print(
-                        f"MinerU: partie {part_number}/{len(parts)}, pages {first_page}–{last_page}",
+                        f"MinerU: part {part_number}/{len(parts)}, pages {first_page}–{last_page}",
                         file=sys.stderr,
                         flush=True,
                     )
@@ -663,7 +663,7 @@ if __name__ == "__main__":
         print(str(error), file=sys.stderr)
         raise SystemExit(1)
     except Exception as error:
-        print(f"Erreur MinerU inattendue ({type(error).__name__}): {error}", file=sys.stderr)
+        print(f"Unexpected MinerU error ({type(error).__name__}): {error}", file=sys.stderr)
         if os.getenv("RAGDROP_DEBUG"):
             traceback.print_exc()
         raise SystemExit(1)

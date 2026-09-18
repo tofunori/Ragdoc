@@ -8,7 +8,7 @@ benchmark output. Keep the MIT license unchanged unless separately discussed.
 
 ## Local checks
 
-Set up the [isolated Python environment](INSTALLATION.md) first. These tests use
+Set up the [isolated Python environment](docs/installation.md) first. These tests use
 synthetic data, temporary databases and mocked providers; they do not require an
 index, paid service requests or a personal corpus:
 

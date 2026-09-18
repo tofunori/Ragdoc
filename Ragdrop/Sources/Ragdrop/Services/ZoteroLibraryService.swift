@@ -7,8 +7,8 @@ enum ZoteroLibraryError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unavailable: "Ouvrez Zotero pour lire votre bibliothèque locale."
-        case .invalidResponse: "Zotero a renvoyé une bibliothèque illisible."
+        case .unavailable: "Open Zotero to read your local library."
+        case .invalidResponse: "Zotero returned unreadable library data."
         }
     }
 }

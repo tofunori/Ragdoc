@@ -1,3 +1,5 @@
+> Historical reference. These instructions describe an older version. Use the [current installation guide](../installation.md) for this release.
+
 # MCP Tools Guide - RAGDOC v1.3.0
 
 Complete guide to all available MCP tools in RAGDOC for scientific literature research.
@@ -565,9 +567,9 @@ first_doc = get_document_content("1982_RGSP.md", format="markdown", max_length=3
 ---
 
 **For more information, see:**
-- [README.md](README.md) - Installation and setup
-- [HYBRID_SEARCH_GUIDE.md](HYBRID_SEARCH_GUIDE.md) - Hybrid search details
-- [MCP_SETUP.md](MCP_SETUP.md) - MCP server configuration
+- [README.md](../../README.md) - Installation and setup
+- [HYBRID_SEARCH_GUIDE.md](../../HYBRID_SEARCH_GUIDE.md) - Hybrid search details
+- [MCP_SETUP.md](../mcp-setup.md) - MCP server configuration
 
 ---
 

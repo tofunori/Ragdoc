@@ -44,7 +44,7 @@ struct PipelineSafetyTests {
         let size = PipelineError.oversizedPDF(provider: "Mistral OCR", limitMB: 512)
         let output = PipelineError.missingOutput("Mistral OCR")
 
-        #expect(size.localizedDescription.contains("512 Mo"))
+        #expect(size.localizedDescription.contains("512 MB"))
         #expect(output.localizedDescription.contains("Mistral OCR"))
     }
 
@@ -52,7 +52,7 @@ struct PipelineSafetyTests {
         let details = "Traceback line\nConnectionError: broken pipe\n"
         let error = PipelineError.processFailed(command: "MinerU", details: details)
 
-        #expect(error.localizedDescription == "MinerU a échoué. ConnectionError: broken pipe")
+        #expect(error.localizedDescription == "MinerU failed. ConnectionError: broken pipe")
         #expect(error.diagnosticDetails == details)
     }
 
@@ -60,7 +60,7 @@ struct PipelineSafetyTests {
         let error = PipelineError.timedOut(command: "MinerU", minutes: 30)
 
         #expect(error.localizedDescription.contains("30 minutes"))
-        #expect(error.localizedDescription.contains("relancer"))
+        #expect(error.localizedDescription.contains("retry"))
     }
 
     @MainActor
@@ -134,6 +134,6 @@ struct PipelineSafetyTests {
         #expect(restored.jobs[0].stage == .awaitingReview)
         #expect(restored.jobs[0].artifactURL == markdown)
         #expect(restored.jobs[1].stage == .queued)
-        #expect(restored.jobs[1].detail.contains("interrompu"))
+        #expect(restored.jobs[1].detail.contains("interrupted"))
     }
 }

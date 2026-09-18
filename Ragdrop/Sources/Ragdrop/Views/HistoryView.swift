@@ -17,21 +17,21 @@ struct HistoryView: View {
                 if store.isLoading && store.documents.isEmpty {
                     VStack(spacing: 12) {
                         ProgressView()
-                        Text("Lecture de la bibliothèque Ragdoc…")
+                        Text("Reading the Ragdoc library…")
                             .foregroundStyle(RagdropTheme.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if store.errorMessage != nil, store.documents.isEmpty {
                     ContentUnavailableView(
-                        "Historique indisponible",
+                        "Library unavailable",
                         systemImage: "externaldrive.badge.exclamationmark",
-                        description: Text("Vérifiez la connexion au NAS, puis actualisez.")
+                        description: Text("Check the server connection, then refresh.")
                     )
                 } else if store.documents.isEmpty {
-                    ContentUnavailableView("Votre bibliothèque est vide", systemImage: "books.vertical",
-                                           description: Text("Les articles ajoutés à Ragdoc apparaîtront ici."))
+                    ContentUnavailableView("Your library is empty", systemImage: "books.vertical",
+                                           description: Text("Articles added to Ragdoc will appear here."))
                 } else if filteredDocuments.isEmpty {
-                    ContentUnavailableView("Aucun article trouvé", systemImage: "magnifyingglass", description: Text("Essayez un autre titre, une source ou un DOI."))
+                    ContentUnavailableView("No articles found", systemImage: "magnifyingglass", description: Text("Try another title, source or DOI."))
                 } else {
                     documentTable
                 }
@@ -59,18 +59,18 @@ struct HistoryView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Bibliothèque")
+                Text("Library")
                     .font(RagdropTheme.title)
-                Text("\(filteredDocuments.count) / \(store.documents.count) documents dans la base canonique")
+                Text("\(filteredDocuments.count) / \(store.documents.count) documents in the canonical database")
                     .foregroundStyle(RagdropTheme.secondary)
             }
             Spacer()
-            Button("Actualiser", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+            Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
                 .disabled(store.isLoading)
             if store.isLoading {
                 ProgressView().controlSize(.small)
             } else if let lastUpdated = store.lastUpdated {
-                Text("Actualisé à \(lastUpdated.formatted(date: .omitted, time: .shortened))")
+                Text("Updated at \(lastUpdated.formatted(date: .omitted, time: .shortened))")
                     .font(.caption)
                     .foregroundStyle(RagdropTheme.secondary)
             }
@@ -98,7 +98,7 @@ struct HistoryView: View {
             }
             .width(min: 70, ideal: 85, max: 95)
 
-            TableColumn("Indexé le") { document in
+            TableColumn("Indexed on") { document in
                 Text(document.displayDate)
                     .foregroundStyle(RagdropTheme.secondary)
                     .monospacedDigit()

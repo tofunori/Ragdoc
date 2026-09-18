@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "ragdoc": {
+      "command": "/path/to/Ragdoc/.venv/bin/python",
+      "args": [
+        "/path/to/Ragdoc/src/server.py"
+      ],
+      "env": {
+        "CHROMA_DB_PATH": "/path/to/Ragdoc/chroma_db_new",
+        "COLLECTION_NAME": "ragdoc_contextualized_v1",
+        "RAGDOC_EMBEDDING_MODEL": "voyage-context-4",
+        "RAGDOC_CHROMA_MODE": "persistent",
+        "RAGDOC_LIBRARY_DIR": "/path/to/Ragdoc/ragdoc_library/ragdoc_contextualized_v1"
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 These YAML files are reference configurations. The current server and indexer
 read `src/config.py` and environment variables; editing these files alone does
-not configure the active pipeline. Start with the [current setup guide](../INSTALLATION.md#configuration).
+not configure the active pipeline. Start with the [current setup guide](../docs/installation.md#configuration).
 
 ## Configuration Files
 

@@ -1,3 +1,5 @@
+> Historical report for the initial Ragdrop source publication (0.5). See [current documentation](../README.md).
+
 # Ragdrop source publication
 
 This change brings the existing macOS application into the public repository and

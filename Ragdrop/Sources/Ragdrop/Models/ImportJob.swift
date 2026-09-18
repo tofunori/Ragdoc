@@ -25,18 +25,18 @@ enum ImportStage: String, Codable, Sendable {
 
     var title: String {
         switch self {
-        case .queued: "En attente"
-        case .checkingDuplicate: "Recherche de doublon"
-        case .converting: "Conversion du PDF"
-        case .awaitingReview: "À réviser"
-        case .readyForIndexing: "Approuvé"
-        case .transferring: "Transfert vers le NAS"
-        case .indexing: "Indexation Ragdoc"
-        case .verifying: "Contrôle des passages"
-        case .completed: "Ajouté"
-        case .duplicate: "Déjà présent"
-        case .rejected: "Écarté"
-        case .failed: "Échec"
+        case .queued: "Queued"
+        case .checkingDuplicate: "Checking for duplicates"
+        case .converting: "PDF conversion"
+        case .awaitingReview: "Review needed"
+        case .readyForIndexing: "Approved"
+        case .transferring: "Transfer to server"
+        case .indexing: "Ragdoc indexing"
+        case .verifying: "Passage verification"
+        case .completed: "Added"
+        case .duplicate: "Already present"
+        case .rejected: "Rejected"
+        case .failed: "Failed"
         }
     }
 
@@ -111,7 +111,7 @@ struct ImportJob: Codable, Identifiable, Equatable, Sendable {
         id = UUID()
         self.fileURL = fileURL.standardizedFileURL
         stage = .queued
-        detail = "Prêt à être ajouté"
+        detail = "Ready to add"
         stageStartedAt = Date()
         self.metadata = metadata
     }

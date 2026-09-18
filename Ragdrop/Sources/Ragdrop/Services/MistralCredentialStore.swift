@@ -62,9 +62,9 @@ enum CredentialError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .empty:
-            "La clé Mistral est vide."
+            "The Mistral key is empty."
         case .keychain(let status):
-            "Le trousseau macOS a refusé la clé (code \(status))."
+            "macOS Keychain rejected the key (code \(status))."
         }
     }
 }

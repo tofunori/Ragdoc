@@ -340,7 +340,7 @@ def test_polling_reports_permanent_authentication_error(monkeypatch):
     try:
         mineru.wait_for_archive("batch", "token", timeout=1)
     except mineru.MinerUError as caught:
-        assert "jeton" in str(caught)
+        assert "token" in str(caught)
     else:
         raise AssertionError("Permanent authentication errors must fail immediately")
 
@@ -356,7 +356,7 @@ def test_transient_parsing_failure_is_retried(monkeypatch, tmp_path):
     def wait(batch_id, _bearer):
         if batch_id == "first":
             raise mineru.MinerUError(
-                "MinerU a refusé la conversion: parsing failed, please try again later"
+                "MinerU rejected the conversion: parsing failed, please try again later"
             )
         return "https://example/archive.zip"
 

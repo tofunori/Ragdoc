@@ -1,6 +1,6 @@
 # Install Ragdoc
 
-For the desktop application, start with the [Ragdrop macOS guide](Ragdrop/README.md).
+For the desktop application, start with the [Ragdrop macOS guide](../Ragdrop/README.md).
 This guide covers the backend from source. It does not provision a NAS, an SSH
 account, or a public service. The Ragdrop integration currently expects Linux;
 the standalone Python backend can also be run on macOS or Windows with equivalent
@@ -20,8 +20,7 @@ export NLTK_DATA="$PWD/.venv/nltk_data"
 uv run --locked python src/server.py --check-runtime
 ```
 
-While this proposal is a draft PR, check out its branch before building; the
-unmerged default branch does not contain Ragdrop. Dependency/data downloads need
+For the released version, run `git checkout v1.8.0` before building. Dependency/data downloads need
 network access. `--check-runtime` itself does not open Chroma or call embedding or
 reranking APIs. It checks local SDK capabilities and tokenizer data; configured
 key presence is not proof that a service accepts the key. New indexing may also
@@ -62,7 +61,7 @@ the source code, not a promise of model availability, pricing or benchmark quali
 Use identical storage, model and collection settings for the MCP server and
 indexer. **Changing the model name does not migrate existing vectors.** For an
 existing library, back up Chroma, source Markdown, metadata and canonical snapshots
-and read [storage and migration](docs/SCIENTIFIC_RELIABILITY.md#storage-and-migration)
+and read [storage and migration](SCIENTIFIC_RELIABILITY.md#storage-and-migration)
 first. Model migration tooling is available in `scripts/migrate_embedding_collection.py`;
 inspect its `--help` and plan a separate collection before attempting migration.
 
@@ -177,7 +176,7 @@ address when that deployment is configured. No server service is installed by th
 macOS build script.
 
 The macOS side still needs its own Python converter dependencies and OCR credential:
-see [real-import setup](Ragdrop/README.md#set-up-real-imports).
+see [real-import setup](../Ragdrop/README.md#set-up-real-imports).
 
 ## Data handling and troubleshooting
 
@@ -197,5 +196,5 @@ see [real-import setup](Ragdrop/README.md#set-up-real-imports).
   Canonical reads do not call OCR or embeddings. Your MCP client's model calls are
   outside the backend's control.
 
-For supported offline tests, see [CONTRIBUTING.md](CONTRIBUTING.md). Several legacy
+For supported offline tests, see [CONTRIBUTING.md](../CONTRIBUTING.md). Several legacy
 scripts under `tests/` contact configured services; do not run all of them blindly.

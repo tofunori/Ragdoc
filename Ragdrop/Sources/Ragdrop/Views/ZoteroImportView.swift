@@ -15,24 +15,24 @@ struct ZoteroImportView: View {
         VStack(spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Importer depuis Zotero")
+                    Text("Import from Zotero")
                         .font(.system(size: 23, weight: .semibold))
                     Text(summary)
                         .foregroundStyle(RagdropTheme.secondary)
                 }
                 Spacer()
-                Button("Actualiser", systemImage: "arrow.clockwise") {
+                Button("Refresh", systemImage: "arrow.clockwise") {
                     Task { await store.load() }
                 }
                 .disabled(store.isLoading)
             }
 
-            TextField("Rechercher un titre, un auteur ou une année", text: $query)
+            TextField("Search by title, author or year", text: $query)
                 .textFieldStyle(.roundedBorder)
 
             if let error = store.errorMessage {
                 ContentUnavailableView(
-                    "Zotero indisponible",
+                    "Zotero unavailable",
                     systemImage: "books.vertical.fill",
                     description: Text(error)
                 )
@@ -40,16 +40,16 @@ struct ZoteroImportView: View {
             } else if store.isLoading && store.documents.isEmpty {
                 VStack(spacing: 10) {
                     ProgressView()
-                    Text("Lecture de Zotero et vérification des doublons…")
+                    Text("Reading Zotero and checking duplicates…")
                         .foregroundStyle(RagdropTheme.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if store.documents.isEmpty {
-                ContentUnavailableView("Aucun PDF local disponible", systemImage: "books.vertical",
-                                       description: Text("Les pièces jointes PDF locales de Zotero seront proposées ici."))
+                ContentUnavailableView("No local PDFs available", systemImage: "books.vertical",
+                                       description: Text("Local Zotero PDF attachments will appear here."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if filteredDocuments.isEmpty {
-                ContentUnavailableView("Aucun article trouvé", systemImage: "magnifyingglass", description: Text("Essayez un autre titre, un auteur ou une année."))
+                ContentUnavailableView("No articles found", systemImage: "magnifyingglass", description: Text("Try another title, author or year."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(filteredDocuments) { document in
@@ -59,7 +59,7 @@ struct ZoteroImportView: View {
                             set: { store.setSelected($0, key: document.attachmentKey) }
                         ))
                         .labelsHidden()
-                        .accessibilityLabel("Sélectionner \(document.title)")
+                        .accessibilityLabel("Select \(document.title)")
                         .disabled(document.isIndexed)
 
                         VStack(alignment: .leading, spacing: 3) {
@@ -73,11 +73,11 @@ struct ZoteroImportView: View {
                         }
                         Spacer()
                         if document.isIndexed {
-                            Label("Déjà indexé", systemImage: "checkmark.circle.fill")
+                            Label("Already indexed", systemImage: "checkmark.circle.fill")
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(RagdropTheme.success)
                         } else {
-                            Text("À ajouter")
+                            Text("To add")
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(RagdropTheme.secondary)
                         }
@@ -92,12 +92,12 @@ struct ZoteroImportView: View {
 
             Divider()
             HStack {
-                Button("Tout sélectionner") { store.select(filteredDocuments) }
+                Button("Select all") { store.select(filteredDocuments) }
                     .disabled(filteredDocuments.allSatisfy(\.isIndexed))
-                Button("Effacer la sélection", action: store.clearSelection)
+                Button("Clear selection", action: store.clearSelection)
                     .disabled(store.selectedKeys.isEmpty)
                 Spacer()
-                Button("Fermer", role: .cancel) { dismiss() }
+                Button("Close", role: .cancel) { dismiss() }
                 Button(addButtonTitle) {
                     onAdd(store.selectedDocuments)
                     dismiss()
@@ -123,14 +123,14 @@ struct ZoteroImportView: View {
     }
 
     private var summary: String {
-        guard !store.documents.isEmpty else { return "Sélectionnez les articles à ajouter à Ragdoc" }
+        guard !store.documents.isEmpty else { return "Select articles to add to Ragdoc" }
         let indexed = store.documents.filter(\.isIndexed).count
-        return "\(store.documents.count) PDF \(store.documents.count == 1 ? "local" : "locaux") · \(indexed) déjà indexé\(indexed > 1 ? "s" : "")"
+        return "\(RagdropText.pdfCount(store.documents.count)) available locally · \(indexed) already indexed"
     }
 
     private var addButtonTitle: String {
         let count = store.selectedKeys.count
-        return count == 1 ? "Ajouter 1 PDF à la file" : "Ajouter \(count) PDF à la file"
+        return count == 1 ? "Add 1 PDF to queue" : "Add \(count) PDFs to queue"
     }
 
     private func metadata(for document: ZoteroPDF) -> String {

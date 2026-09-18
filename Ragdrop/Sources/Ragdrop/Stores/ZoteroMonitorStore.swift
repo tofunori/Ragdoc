@@ -17,7 +17,7 @@ final class ZoteroMonitorStore {
     private(set) var isChecking = false
     private(set) var lastLocalCheck: Date?
     private(set) var lastRagdocCheck: Date?
-    private(set) var statusText = "Surveillance désactivée."
+    private(set) var statusText = "Monitoring disabled."
     private(set) var errorMessage: String?
     var showingNewArticles = false
     let isIsolated: Bool
@@ -43,7 +43,7 @@ final class ZoteroMonitorStore {
                 .appendingPathComponent("Ragdrop/zotero-watch.json"))
         self.ledgerURL = path
         self.ledger = (try? Data(contentsOf: path)).flatMap { try? JSONDecoder().decode(ZoteroWatchLedger.self, from: $0) } ?? ZoteroWatchLedger()
-        if isEnabled { statusText = "En attente de la première lecture de Zotero." }
+        if isEnabled { statusText = "Waiting for the first Zotero check." }
     }
 
     func setEnabled(_ value: Bool) {
@@ -60,7 +60,7 @@ final class ZoteroMonitorStore {
         ledger.pending = []
         cachedHistory = nil
         lastRagdocCheck = nil
-        statusText = value ? "Création de l’état de référence au prochain contrôle…" : "Surveillance désactivée."
+        statusText = value ? "Creating the baseline at the next check…" : "Monitoring disabled."
         persist()
     }
 
@@ -82,7 +82,7 @@ final class ZoteroMonitorStore {
 
     func check(queue: ImportStore) async {
         guard isEnabled, !isIsolated, !isChecking else { return }
-        if queue.isRunning { statusText = "Surveillance en attente de la fin du traitement en cours."; return }
+        if queue.isRunning { statusText = "Monitoring paused until current processing finishes."; return }
         isChecking = true
         defer { isChecking = false }
         let epoch = generation
@@ -95,7 +95,7 @@ final class ZoteroMonitorStore {
                 ledger.establishBaseline(local)
                 pendingDocuments = []
                 errorMessage = nil
-                statusText = "État de référence créé : \(local.count) PDF locaux déjà présents. Les prochains ajouts seront signalés."
+                statusText = "Baseline created: \(RagdropText.pdfCount(local.count)) already available locally. New additions will be reported."
                 persist()
                 return
             }
@@ -103,7 +103,7 @@ final class ZoteroMonitorStore {
             guard !candidates.isEmpty else {
                 pendingDocuments = []
                 errorMessage = nil
-                statusText = "Aucun nouveau PDF local à vérifier."
+                statusText = "No new local PDFs to review."
                 return
             }
             let enriched = try await fingerprints.enrich(candidates)
@@ -120,14 +120,14 @@ final class ZoteroMonitorStore {
             ledger.reconcile(enriched, history: cachedHistory ?? [], jobs: queue.jobs, queueHashes: queueHashes)
             pendingDocuments = ledger.availableNotifications(in: local)
             errorMessage = nil
-            statusText = pendingDocuments.isEmpty ? "Aucun nouveau PDF à intégrer après contrôle des doublons."
-                : "\(pendingDocuments.count) PDF locaux à examiner."
+            statusText = pendingDocuments.isEmpty ? "No new PDFs to add after checking duplicates."
+                : "\(RagdropText.pdfCount(pendingDocuments.count)) available locally to review."
             persist()
         } catch {
             guard !Task.isCancelled, epoch == generation, isEnabled else { return }
             pendingDocuments = []
             errorMessage = error.localizedDescription
-            statusText = "Vérification différée. Aucune nouveauté n’est annoncée sans contrôle de Ragdoc."
+            statusText = "Check deferred. New PDFs are reported only after checking Ragdoc."
             // Do not acknowledge unseen items on error: retry them after recovery.
         }
     }
@@ -164,7 +164,7 @@ final class ZoteroMonitorStore {
         pendingDocuments = documents
         lastLocalCheck = .now
         lastRagdocCheck = .now
-        statusText = "Nouveauté simulée · aucun accès à Zotero ou au NAS."
+        statusText = "Simulated new item · no Zotero or server access."
     }
 
     private func persist() {
@@ -172,7 +172,7 @@ final class ZoteroMonitorStore {
             try FileManager.default.createDirectory(at: ledgerURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONEncoder().encode(ledger).write(to: ledgerURL, options: .atomic)
         } catch {
-            errorMessage = "Impossible de conserver l’état de surveillance. \(error.localizedDescription)"
+            errorMessage = "Unable to save monitoring state. \(error.localizedDescription)"
         }
     }
 }

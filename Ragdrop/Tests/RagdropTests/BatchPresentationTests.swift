@@ -17,7 +17,7 @@ struct BatchPresentationTests {
     @Test func activeConversionDoesNotHideReviewOrErrors() {
         let p = BatchPresentation(jobs: [job(.awaitingReview), job(.failed), job(.converting)])
         #expect(p.focus?.stage == .converting && p.phase == .conversion && p.isWorking)
-        #expect(p.context == "1 à réviser · 1 à reprendre")
+        #expect(p.context == "1 to review · 1 to retry")
         #expect(!p.hasPassed(.conversion))
     }
     @Test func humanReviewAndApprovedWaitDoNotAnimate() {
@@ -28,11 +28,11 @@ struct BatchPresentationTests {
         #expect(ready.phase == .transfer && !ready.isWorking && !ready.hasPassed(.transfer))
     }
     @Test func recoverableErrorsOverrideHistoricalProgress() {
-        var retry = job(.readyForIndexing, error: "Indexation échouée")
+        var retry = job(.readyForIndexing, error: "Indexing failed")
         retry.progressHighWater = 0.88
         let p = BatchPresentation(jobs: [job(.completed), retry])
         #expect(p.hasFailure && !p.terminal && p.phase == nil && !p.isWorking)
-        #expect(p.headline == "Traitement à reprendre")
+        #expect(p.headline == "Processing needs attention")
         #expect(BatchPhase.allCases.allSatisfy { !p.hasPassed($0) })
     }
     @Test func sequentialVerificationTakesPrecedenceOverStaleIndexingRows() {
@@ -45,7 +45,7 @@ struct BatchPresentationTests {
             let p = BatchPresentation(jobs: [job(stage)])
             #expect(p.terminal && p.summary.added == 0 && p.phase == nil && !p.isWorking)
         }
-        #expect(BatchPresentation(jobs: [job(.duplicate)]).headline == "Doublon détecté")
+        #expect(BatchPresentation(jobs: [job(.duplicate)]).headline == "Duplicate detected")
         let done = BatchPresentation(jobs: [job(.completed)])
         #expect(done.allCompleted && BatchPhase.allCases.allSatisfy { done.hasPassed($0) })
         let empty = BatchPresentation(jobs: [])

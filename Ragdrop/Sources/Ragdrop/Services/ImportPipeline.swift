@@ -16,15 +16,15 @@ struct PipelineConfiguration: Sendable {
         var title: String {
             switch self {
             case .mistral: "Mistral OCR"
-            case .mineru: "MinerU (secours)"
-            case .custom: "Personnalisé"
+            case .mineru: "MinerU (fallback)"
+            case .custom: "Custom"
             }
         }
         var commandLabel: String {
             switch self {
             case .mistral: "Mistral OCR"
             case .mineru: "MinerU"
-            case .custom: "Le convertisseur PDF"
+            case .custom: "The PDF converter"
             }
         }
         var parser: String {
@@ -72,6 +72,8 @@ struct PipelineConfiguration: Sendable {
 
     private static func converterPath(named filename: String, skillCandidates: [URL]) -> String {
         let bundled = Bundle.main.resourceURL?.appendingPathComponent(filename)
+        var candidates = [bundled].compactMap { $0 }
+        #if DEBUG
         let project = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -79,7 +81,9 @@ struct PipelineConfiguration: Sendable {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("scripts/\(filename)")
-        let candidates = ([bundled, project].compactMap { $0 }) + skillCandidates
+        candidates.append(project)
+        #endif
+        candidates += skillCandidates
         return candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) })?.path
             ?? candidates[0].path
     }
@@ -118,10 +122,10 @@ struct PipelineConfiguration: Sendable {
 
     func validate() throws {
         guard nasHost.range(of: "^[A-Za-z0-9._-]+$", options: .regularExpression) != nil else {
-            throw PipelineError.invalidConfiguration("Le nom du NAS contient des caractères invalides.")
+            throw PipelineError.invalidConfiguration("The server name contains invalid characters.")
         }
         guard remoteRoot.range(of: "^/[A-Za-z0-9_./-]+$", options: .regularExpression) != nil else {
-            throw PipelineError.invalidConfiguration("Le dossier Ragdoc distant est invalide.")
+            throw PipelineError.invalidConfiguration("The remote Ragdoc directory is invalid.")
         }
     }
 }
@@ -150,19 +154,19 @@ enum PipelineError: LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .invalidPDF: "Le fichier sélectionné n’est pas un PDF lisible."
-        case .oversizedPDF(let provider, let limit): "\(provider) limite les fichiers à \(limit) Mo."
-        case .missingConverter(let path): "Convertisseur PDF introuvable : \(path)"
+        case .invalidPDF: "The selected file is not a readable PDF."
+        case .oversizedPDF(let provider, let limit): "\(provider) limits files to \(limit) MB."
+        case .missingConverter(let path): "PDF converter not found: \(path)"
         case .missingCredential(let message): message
         case .invalidConfiguration(let message): message
-        case .invalidRemoteFilename: "Le nom du Markdown distant est invalide."
-        case .missingOutput(let provider): "\(provider) n’a produit aucun fichier Markdown."
+        case .invalidRemoteFilename: "The remote Markdown filename is invalid."
+        case .missingOutput(let provider): "\(provider) produced no Markdown file."
         case .timedOut(let command, let minutes):
-            "\(command) a été arrêté après \(minutes) minutes. Vous pouvez relancer ce PDF."
-        case .cancelled: "Conversion annulée. Vous pouvez relancer ce PDF."
+            "\(command) stopped after \(minutes) minutes. You can retry this PDF."
+        case .cancelled: "Conversion canceled. You can retry this PDF."
         case .processFailed(let command, let details):
-            "\(command) a échoué. \(Self.lastUsefulLine(in: details))"
-        case .verificationFailed: "Ragdoc ne retrouve pas le document après l’indexation."
+            "\(command) failed. \(Self.lastUsefulLine(in: details))"
+        case .verificationFailed: "Ragdoc cannot find the document after indexing."
         }
     }
 
@@ -174,7 +178,7 @@ enum PipelineError: LocalizedError, Sendable {
     private static func lastUsefulLine(in details: String) -> String {
         details.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .last(where: { !$0.isEmpty }) ?? "Erreur inconnue."
+            .last(where: { !$0.isEmpty }) ?? "Unknown error."
     }
 }
 
@@ -229,7 +233,7 @@ struct ImportPipeline: Sendable {
         let result = try await run(
             executable: "/usr/bin/ssh",
             arguments: sshArguments(command),
-            label: "La recherche de doublons"
+            label: "Duplicate checking"
         )
         let path = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !path.isEmpty else { return (fingerprint, nil) }
@@ -258,13 +262,13 @@ struct ImportPipeline: Sendable {
         }
         if converterKind == .mistral, !MistralCredentialStore.isConfigured {
             throw PipelineError.missingCredential(
-                "Clé Mistral absente. Ajoutez-la dans Réglages > Mistral OCR."
+                "Mistral key missing. Add it in Settings > Mistral OCR."
             )
         }
         if converterKind == .mineru {
             let token = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".mineru_token")
             guard FileManager.default.fileExists(atPath: token.path) else {
-                throw PipelineError.missingCredential("Jeton MinerU absent de ~/.mineru_token.")
+                throw PipelineError.missingCredential("MinerU token missing from ~/.mineru_token.")
             }
         }
 
@@ -333,7 +337,7 @@ struct ImportPipeline: Sendable {
             _ = try await run(
                 executable: "/usr/bin/tar",
                 arguments: ["-czf", archive.path, "-C", bundle.path, "."],
-                label: "La préparation des tableaux et figures"
+                label: "Preparing tables and figures"
             )
             let artifactsRoot = "\(configuration.remoteRoot)/ragdoc_artifacts"
             let finalPath = "\(artifactsRoot)/\(stem)"
@@ -343,7 +347,7 @@ struct ImportPipeline: Sendable {
                 executable: "/usr/bin/ssh",
                 arguments: sshArguments(command),
                 standardInput: archive,
-                label: "Le transfert des tableaux et figures"
+                label: "Transferring tables and figures"
             )
         }
         let remoteDirectory = "\(configuration.remoteRoot)/articles_markdown"
@@ -359,7 +363,7 @@ struct ImportPipeline: Sendable {
                     "mkdir -p '\(remoteDirectory)' && cat > '\(temporarySidecar)' && mv -f '\(temporarySidecar)' '\(remoteSidecar)'"
                 ),
                 standardInput: metadataURL,
-                label: "Le transfert des métadonnées"
+                label: "Transferring metadata"
             )
         }
         let temporaryPath = "\(remoteDirectory)/.ragdrop-\(UUID().uuidString).upload"
@@ -369,7 +373,7 @@ struct ImportPipeline: Sendable {
                 "mkdir -p '\(remoteDirectory)' && cat > '\(temporaryPath)' && mv -f '\(temporaryPath)' '\(remotePath)'"
             ),
             standardInput: artifact.markdownURL,
-            label: "Le transfert vers le NAS"
+            label: "Transfer to the server"
         )
     }
 
@@ -447,7 +451,7 @@ struct ImportPipeline: Sendable {
         _ = try await run(
             executable: "/usr/bin/ssh",
             arguments: sshArguments(command),
-            label: "L’indexation Ragdoc"
+            label: "Ragdoc indexing"
         )
     }
 
@@ -465,7 +469,7 @@ struct ImportPipeline: Sendable {
         let result = try await run(
             executable: "/usr/bin/ssh",
             arguments: sshArguments(command),
-            label: "La vérification Ragdoc"
+            label: "Ragdoc verification"
         )
         return result.output
             .split(whereSeparator: \.isWhitespace)
@@ -563,11 +567,11 @@ struct ImportPipeline: Sendable {
                         try? await Task.sleep(for: .milliseconds(50))
                     }
                     if process.isRunning {
-                        let reason = killError.map { "SIGKILL a échoué : \($0)" }
-                            ?? "Le processus est resté actif après SIGKILL."
+                        let reason = killError.map { "SIGKILL failed: \($0)" }
+                            ?? "The process remained active after SIGKILL."
                         throw PipelineError.processFailed(
                             command: label,
-                            details: "\(reason) Vous pouvez relancer ce PDF."
+                            details: "\(reason) You can retry this PDF."
                         )
                     }
                 }

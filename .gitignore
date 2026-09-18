@@ -97,3 +97,6 @@ Ragdrop/*_REDESIGN.md
 # Swift build products and editor-specific local configuration
 .build/
 Ragdrop/.codex/
+
+# Each user configures their own MCP client locally
+.mcp.json

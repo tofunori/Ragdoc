@@ -68,8 +68,8 @@ struct ReviewDocument: Sendable {
             return ReviewDocument(
                 markdown: markdown, spans: spans, artifacts: manifest?.artifacts ?? [],
                 provenanceNote: spans.isEmpty
-                    ? "Correspondance de pages indisponible ou non vérifiable. Comparaison manuelle."
-                    : "Repères du convertisseur liés à ces fichiers. Ils peuvent ne couvrir qu’une partie de la page.",
+                    ? "Page mapping unavailable or unverifiable. Compare manually."
+                    : "Converter locators match these files. They may cover only part of the page.",
                 converter: job.converterName ?? sidecar?.parser
             )
         }.value
@@ -94,5 +94,5 @@ struct ReviewDocument: Sendable {
 
 enum ReviewLoadError: LocalizedError {
     case tooLarge
-    var errorDescription: String? { "L’extraction dépasse 20 Mo. Ouvrez le fichier dans un éditeur externe pour la réviser." }
+    var errorDescription: String? { "The extraction exceeds 20 MB. Open it in an external editor to review it." }
 }

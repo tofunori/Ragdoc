@@ -11,8 +11,8 @@ enum MarkdownPreviewError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unreadable: "Le Markdown produit par le convertisseur est illisible."
-        case .conversionFailed(let details): "Le rendu Markdown a échoué. \(details)"
+        case .unreadable: "The converter produced unreadable Markdown."
+        case .conversionFailed(let details): "Markdown rendering failed. \(details)"
         }
     }
 }
@@ -66,7 +66,7 @@ enum MarkdownHTMLRenderer {
             while process.isRunning && Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
             if process.isRunning {
                 process.terminate()
-                throw MarkdownPreviewError.conversionFailed("Le rendu a dépassé 30 secondes. Consultez l’onglet Source.")
+                throw MarkdownPreviewError.conversionFailed("Rendering exceeded 30 seconds. Use the Source tab.")
             }
             try? errorHandle.synchronize()
 

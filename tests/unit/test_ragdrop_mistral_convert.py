@@ -46,7 +46,7 @@ def test_materialize_preserves_pages_equations_tables_and_images(tmp_path):
 
     assert "\\tag{1}" in markdown
     assert "<table><tr><td>42</td></tr></table>" in markdown
-    assert "[Figure : Experimental setup]" in markdown
+    assert "[Figure: Experimental setup]" in markdown
     assert manifest["source"] == "paper.md"
     assert manifest["parser"] == "mistral-ocr"
     assert [span["page"] for span in manifest["page_spans"]] == [1, 2]
@@ -62,7 +62,7 @@ def test_image_caption_with_latex_is_inserted_literally():
     caption = r"Absorption coefficient $\kappa$"
 
     assert mistral._replace_image_reference(markdown, "figure.png", caption) == (
-        r"[Figure : Absorption coefficient $\kappa$]"
+        r"[Figure: Absorption coefficient $\kappa$]"
     )
 
 
@@ -107,7 +107,7 @@ def test_missing_api_key_has_actionable_message(monkeypatch, tmp_path):
     monkeypatch.setattr(mistral.Path, "home", lambda: tmp_path)
     monkeypatch.setattr(mistral.sys, "platform", "linux")
 
-    with pytest.raises(mistral.MistralOCRError, match="Réglages > Mistral OCR"):
+    with pytest.raises(mistral.MistralOCRError, match="Settings > Mistral OCR"):
         mistral.load_api_key()
 
 

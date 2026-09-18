@@ -1,3 +1,5 @@
+> Historical reference. These instructions describe an older version. Use the [current installation guide](../installation.md) for this release.
+
 # RAGDOC - Gestionnaire d'Indexation Chroma DB
 
 Interface complète et moderne pour gérer l'indexation des articles de recherche glaciaire.

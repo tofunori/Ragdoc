@@ -11,7 +11,7 @@ struct ErrorDetailView: View {
                     .font(.title2)
                     .foregroundStyle(RagdropTheme.error)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Échec du traitement")
+                    Text("Processing failed")
                         .font(.title2.bold())
                     Text(job.displayName)
                         .foregroundStyle(RagdropTheme.secondary)
@@ -20,10 +20,10 @@ struct ErrorDetailView: View {
                 Spacer()
             }
 
-            Text(job.detail)
+            Text(job.displayDetail)
                 .font(.body)
 
-            GroupBox("Détail technique") {
+            GroupBox("Technical details · original diagnostic") {
                 ScrollView {
                     Text(job.errorDetails ?? job.detail)
                         .font(.system(.caption, design: .monospaced))
@@ -36,7 +36,7 @@ struct ErrorDetailView: View {
 
             HStack {
                 Spacer()
-                Button("Fermer") { dismiss() }
+                Button("Close") { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
         }

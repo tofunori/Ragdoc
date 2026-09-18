@@ -33,7 +33,7 @@ class MistralOCRError(RuntimeError):
 
 
 def _cancel(_signum, _frame) -> None:
-    raise MistralOCRError("Conversion Mistral annulée. Vous pouvez relancer ce PDF.")
+    raise MistralOCRError("Mistral conversion canceled. You can retry this PDF.")
 
 
 def load_api_key() -> str:
@@ -65,7 +65,7 @@ def load_api_key() -> str:
         if result.returncode == 0 and key:
             return key
     raise MistralOCRError(
-        "Clé Mistral absente. Ajoutez-la dans Réglages > Mistral OCR de Ragdrop."
+        "Mistral key missing. Add it in Ragdrop Settings > Mistral OCR."
     )
 
 
@@ -99,7 +99,7 @@ def _request(method: str, url: str, api_key: str, **kwargs) -> requests.Response
             if response.status_code not in TRANSIENT_STATUS_CODES and not intermittent_auth_failure:
                 if not response.ok:
                     raise MistralOCRError(
-                        f"Mistral a refusé la conversion ({response.status_code}) : "
+                        f"Mistral rejected the conversion ({response.status_code}) : "
                         f"{_useful_api_error(response)}"
                     )
                 return response
@@ -111,7 +111,7 @@ def _request(method: str, url: str, api_key: str, **kwargs) -> requests.Response
             last_error = error
         if delay is not None:
             time.sleep(delay)
-    raise MistralOCRError(f"La requête Mistral a échoué après plusieurs essais : {last_error}")
+    raise MistralOCRError(f"The Mistral request failed after several attempts : {last_error}")
 
 
 def upload_pdf(pdf: Path, api_key: str) -> str:
@@ -126,7 +126,7 @@ def upload_pdf(pdf: Path, api_key: str) -> str:
         )
     file_id = str(response.json().get("id") or "").strip()
     if not file_id:
-        raise MistralOCRError("Mistral n’a retourné aucun identifiant de fichier.")
+        raise MistralOCRError("Mistral returned no file identifier.")
     return file_id
 
 
@@ -136,7 +136,7 @@ def signed_url(file_id: str, api_key: str) -> str:
     )
     url = str(response.json().get("url") or "").strip()
     if not url:
-        raise MistralOCRError("Mistral n’a retourné aucune URL de lecture du PDF.")
+        raise MistralOCRError("Mistral returned no PDF reading URL.")
     return url
 
 
@@ -160,7 +160,7 @@ def run_ocr(document_url: str, api_key: str) -> dict:
     )
     result = response.json()
     if not isinstance(result.get("pages"), list) or not result["pages"]:
-        raise MistralOCRError("Mistral n’a retourné aucune page OCR.")
+        raise MistralOCRError("Mistral returned no OCR pages.")
     return result
 
 
@@ -191,7 +191,7 @@ def _image_bytes(value: str) -> bytes:
     try:
         return base64.b64decode(encoded, validate=True)
     except ValueError as error:
-        raise MistralOCRError("Une figure Mistral contient des données illisibles.") from error
+        raise MistralOCRError("A Mistral figure contains unreadable data.") from error
 
 
 def _bbox(item: dict) -> list[float] | None:
@@ -235,7 +235,7 @@ def _inline_tables(markdown: str, tables: list[dict]) -> tuple[str, dict[str, st
 
 def _replace_image_reference(markdown: str, image_id: str, caption: str) -> str:
     label = caption or Path(image_id).stem.replace("_", " ").replace("-", " ")
-    replacement = f"[Figure : {label.strip()}]"
+    replacement = f"[Figure: {label.strip()}]"
     pattern = re.compile(r"!\[([^\]]*)\]\(" + re.escape(image_id) + r"\)")
     return pattern.sub(lambda _match: replacement, markdown)
 
@@ -355,7 +355,7 @@ def materialize(
                     {
                         "artifact_id": f"{output_name}:p{page_number}:table:{table_index}",
                         "type": "table",
-                        "label": f"Tableau {table_index}",
+                        "label": f"Table {table_index}",
                         "page": page_number,
                         "bbox": _bbox(table_block) or _bbox(table),
                         "caption": _nearest_caption(blocks, table_block) if table_block else "",
@@ -414,13 +414,13 @@ def main() -> int:
     pdf = Path(sys.argv[1]).expanduser().resolve()
     output_name = sys.argv[2]
     if not pdf.is_file() or pdf.suffix.lower() != ".pdf":
-        print("Le fichier sélectionné n’est pas un PDF lisible.", file=sys.stderr)
+        print("The selected file is not a readable PDF.", file=sys.stderr)
         return 2
     if pdf.stat().st_size > MAX_PDF_BYTES:
-        print("Mistral limite chaque fichier téléversé à 512 Mo.", file=sys.stderr)
+        print("Mistral limits each uploaded file to 512 MB.", file=sys.stderr)
         return 2
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", output_name):
-        print("Le nom de sortie contient des caractères invalides.", file=sys.stderr)
+        print("The output name contains invalid characters.", file=sys.stderr)
         return 2
 
     previous_handler = signal.signal(signal.SIGTERM, _cancel)
