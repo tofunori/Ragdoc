@@ -8,7 +8,7 @@ enum WorkspaceSection: String, CaseIterable, Identifiable {
         case .home: "Home"
         case .review: "To review"
         case .library: "Library"
-        case .status: "Ragdoc · NAS"
+        case .status: "Ragdoc"
         case .settings: "Settings"
         }
     }
@@ -30,6 +30,11 @@ struct WorkspaceView: View {
     @Bindable var monitor: ZoteroMonitorStore
     @Binding var section: WorkspaceSection
     @State private var libraryQuery = ""
+    @AppStorage("localSetupCompleted") private var localSetupCompleted = false
+    private var usesLocal: Bool { !store.isIsolated && LibraryLocation.resolve() == .local }
+    private var canChangeLocation: Bool { !store.isRunning && !store.jobs.contains { ![.completed, .duplicate, .rejected].contains($0.stage) } }
+    private var needsSetup: Bool { usesLocal && (!localSetupCompleted || LocalEngine.current.connection == nil) }
+
 
     var body: some View {
         HStack(spacing: 0) {
@@ -64,20 +69,28 @@ struct WorkspaceView: View {
                     ZoteroNotificationView(monitor: monitor).padding(.horizontal, RagdropTheme.pagePadding).padding(.top, 16)
                 }
                 Group {
-                switch section {
+                if needsSetup {
+                    LocalSetupView(allowServer: canChangeLocation,
+                        onDone: { localSetupCompleted = true; section = .home },
+                        onServer: { UserDefaults.standard.set(LibraryLocation.server.rawValue, forKey: "libraryLocation") })
+                } else { switch section {
                 case .home, .review:
                     ContentView(store: store, history: history, reviewOnly: section == .review,
                                 onLibrary: { section = .library })
                 case .library: HistoryView(store: history, query: $libraryQuery)
-                case .status: RagdocStatusView(store: status)
-                case .settings: SettingsView(isIsolated: store.isIsolated, monitor: monitor)
-                }
+                case .status:
+                    if usesLocal {
+                        LocalSetupView(allowServer: false, allowMaintenance: !store.isRunning, onDone: { section = .home })
+                    } else { RagdocStatusView(store: status) }
+                case .settings: SettingsView(isIsolated: store.isIsolated, monitor: monitor, allowDestinationChange: canChangeLocation, allowMaintenance: !store.isRunning)
+                } }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(RagdropTheme.canvas)
             }
         }
-        .onAppear { monitor.start(queue: store) }
+        .onAppear { if !needsSetup { monitor.start(queue: store) } }
+        .onChange(of: localSetupCompleted) { _, ready in if ready { monitor.start(queue: store) } }
         .onChange(of: monitor.isEnabled) { _, _ in monitor.start(queue: store) }
         .onChange(of: store.jobs) { _, jobs in monitor.reconcileQueue(jobs) }
         .sheet(isPresented: $monitor.showingNewArticles) {

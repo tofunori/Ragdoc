@@ -28,7 +28,7 @@ COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 # src/config.py -> project_root is parent of parent
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-MARKDOWN_DIR = PROJECT_ROOT / "articles_markdown"
+MARKDOWN_DIR = Path(os.getenv("RAGDOC_MARKDOWN_DIR", str(PROJECT_ROOT / "articles_markdown")))
 
 # Main database paths
 # NOTE: Using chroma_db_new for unified database (server + MCP + scripts)

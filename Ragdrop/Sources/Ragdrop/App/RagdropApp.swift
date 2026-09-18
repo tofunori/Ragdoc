@@ -12,27 +12,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-#if !RAGDROP_REVIEW_DEMO && !RAGDROP_THEME_DEMO
+#if !RAGDROP_REVIEW_DEMO && !RAGDROP_THEME_DEMO && !RAGDROP_SETUP_DEMO
 @main
 struct RagdropApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var store = ImportStore()
-    @State private var historyStore = HistoryStore()
-    @State private var statusStore = RagdocStatusStore()
-    @State private var monitor = ZoteroMonitorStore()
+    @AppStorage("libraryLocation") private var location = LibraryLocation.resolve().rawValue
+    @AppStorage("localLibraryPath") private var localLibraryPath = ""
+    @State private var importRequest = UUID()
     @State private var selectedSection: WorkspaceSection = .home
 
     var body: some Scene {
         WindowGroup("Ragdrop", id: "main") {
-            WorkspaceView(store: store, history: historyStore, status: statusStore, monitor: monitor, section: $selectedSection)
+            WorkspaceSession(section: $selectedSection, importRequest: importRequest)
+                .id(location + localLibraryPath)
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1180, height: 860)
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { selectedSection = .settings }.keyboardShortcut(",", modifiers: .command)
+            }
             CommandGroup(after: .newItem) {
                 Button("Import PDFs…") {
                     selectedSection = .home
-                    store.showingFileImporter = true
+                    importRequest = UUID()
                 }.keyboardShortcut("o", modifiers: .command)
             }
             CommandMenu("Navigation") {
@@ -42,7 +45,20 @@ struct RagdropApp: App {
                 }
             }
         }
-        Settings { SettingsView(monitor: monitor).ragdropSurface().frame(width: 680, height: 700) }
+    }
+}
+
+private struct WorkspaceSession: View {
+    @State private var store = ImportStore()
+    @State private var history = HistoryStore()
+    @State private var status = RagdocStatusStore()
+    @State private var monitor = ZoteroMonitorStore()
+    @Binding var section: WorkspaceSection
+    let importRequest: UUID
+    var body: some View {
+        WorkspaceView(store: store, history: history, status: status, monitor: monitor, section: $section)
+            .onChange(of: importRequest) { _, _ in store.showingFileImporter = true }
+            .onDisappear { monitor.stop() }
     }
 }
 #endif

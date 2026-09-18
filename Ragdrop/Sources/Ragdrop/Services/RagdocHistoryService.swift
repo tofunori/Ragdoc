@@ -17,6 +17,9 @@ struct RagdocHistoryService: Sendable {
 
     func fetchDocuments(includePDFIdentity: Bool = false) async throws -> [HistoryDocument] {
         try configuration.validate()
+        if configuration.location == .local {
+            return try await LocalEngine.current.decoded("documents", connection: configuration.localConnection)
+        }
         return try await Task.detached(priority: .userInitiated) {
             let root = configuration.remoteRoot
             let python = """

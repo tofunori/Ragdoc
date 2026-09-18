@@ -6,6 +6,8 @@ struct PipelineConfiguration: Sendable {
     let converterPath: String
     let nasHost: String
     let remoteRoot: String
+    var location: LibraryLocation = .server
+    var localConnection: LocalConnection? = nil
 
     enum ConverterKind: String, CaseIterable, Identifiable, Sendable {
         case mistral
@@ -90,6 +92,8 @@ struct PipelineConfiguration: Sendable {
 
     static func current() -> PipelineConfiguration {
         let defaults = UserDefaults.standard
+        let location = LibraryLocation.resolve(defaults: defaults)
+        if defaults.string(forKey: "libraryLocation") == nil { defaults.set(location.rawValue, forKey: "libraryLocation") }
         let savedConverter = defaults.string(forKey: "converterPath")?.nonEmpty
         let converter: String
         if defaults.integer(forKey: "converterMigrationVersion") < 2,
@@ -103,6 +107,11 @@ struct PipelineConfiguration: Sendable {
         let host = defaults.string(forKey: "nasHost")?.nonEmpty ?? "ragdoc-server"
         let root = defaults.string(forKey: "remoteRoot")?.nonEmpty
             ?? "/srv/ragdoc"
+        if location == .local {
+            let engine = LocalEngine.current
+            return PipelineConfiguration(converterPath: converter, nasHost: "", remoteRoot: engine.recordedConnection?.library ?? defaults.string(forKey: "localLibraryPath") ?? engine.defaultLibrary.path,
+                                         location: .local, localConnection: engine.connection)
+        }
         return PipelineConfiguration(converterPath: converter, nasHost: host, remoteRoot: root)
     }
 
@@ -121,6 +130,15 @@ struct PipelineConfiguration: Sendable {
     var converterKind: ConverterKind { Self.converterKind(for: converterPath) }
 
     func validate() throws {
+        if location == .local {
+            guard remoteRoot.hasPrefix("/"), !remoteRoot.contains("\0") else {
+                throw PipelineError.invalidConfiguration("Choose an absolute local library folder.")
+            }
+            guard let localConnection, localConnection.library == remoteRoot else {
+                throw PipelineError.invalidConfiguration("Prepare your local library in Settings first.")
+            }
+            return
+        }
         guard nasHost.range(of: "^[A-Za-z0-9._-]+$", options: .regularExpression) != nil else {
             throw PipelineError.invalidConfiguration("The server name contains invalid characters.")
         }
@@ -182,45 +200,6 @@ enum PipelineError: LocalizedError, Sendable {
     }
 }
 
-private struct ProcessResult: Sendable {
-    let output: String
-    let error: String
-}
-
-private final class ProcessController: @unchecked Sendable {
-    private let lock = NSLock()
-    private var process: Process?
-    private var cancelled = false
-
-    func attach(_ process: Process) {
-        lock.lock()
-        self.process = process
-        let shouldCancel = cancelled
-        lock.unlock()
-        if shouldCancel, process.isRunning { process.terminate() }
-    }
-
-    func detach() {
-        lock.lock()
-        process = nil
-        lock.unlock()
-    }
-
-    func cancel() {
-        lock.lock()
-        cancelled = true
-        let running = process
-        lock.unlock()
-        if running?.isRunning == true { running?.terminate() }
-    }
-
-    var wasCancelled: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return cancelled
-    }
-}
-
 struct ImportPipeline: Sendable {
     let configuration: PipelineConfiguration
 
@@ -228,9 +207,18 @@ struct ImportPipeline: Sendable {
         try configuration.validate()
         let fingerprint = try await sha256(of: pdfURL)
         let hashPrefix = String(fingerprint.prefix(12))
+        if configuration.location == .local {
+            let directory = URL(fileURLWithPath: configuration.remoteRoot).appendingPathComponent("articles_markdown")
+            let candidates = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                .filter { $0.lastPathComponent.hasSuffix("_\(hashPrefix).md") }
+            for candidate in candidates {
+                if try await indexedChunkCount(for: candidate.lastPathComponent) > 0 { return (fingerprint, candidate.lastPathComponent) }
+            }
+            return (fingerprint, nil)
+        }
         let remoteDirectory = "\(configuration.remoteRoot)/articles_markdown"
         let command = "find '\(remoteDirectory)' -maxdepth 1 -type f -name '*_\(hashPrefix).md' -print -quit"
-        let result = try await run(
+        let result = try await ProcessRunner.run(
             executable: "/usr/bin/ssh",
             arguments: sshArguments(command),
             label: "Duplicate checking"
@@ -279,9 +267,9 @@ struct ImportPipeline: Sendable {
             .appendingPathExtension("md")
         try? FileManager.default.removeItem(at: markdownURL)
 
-        _ = try await run(
-            executable: "/usr/bin/env",
-            arguments: ["python3", configuration.converterPath, pdfURL.path, outputName],
+        _ = try await ProcessRunner.run(
+            executable: configuration.localConnection?.python ?? "/usr/bin/env",
+            arguments: (configuration.location == .local ? [] : ["python3"]) + [configuration.converterPath, pdfURL.path, outputName],
             label: converterKind.commandLabel,
             timeout: converterKind.timeout
         )
@@ -326,6 +314,10 @@ struct ImportPipeline: Sendable {
 
     func transfer(_ artifact: ConversionArtifact) async throws {
         try configuration.validate()
+        if configuration.location == .local {
+            try LocalTransfer.save(artifact, root: URL(fileURLWithPath: configuration.remoteRoot))
+            return
+        }
         if let bundle = artifact.artifactBundleURL {
             let stem = URL(fileURLWithPath: artifact.remoteFilename).deletingPathExtension().lastPathComponent
             guard stem.range(of: "^[A-Za-z0-9_.-]+$", options: .regularExpression) != nil else {
@@ -334,7 +326,7 @@ struct ImportPipeline: Sendable {
             let archive = FileManager.default.temporaryDirectory
                 .appendingPathComponent("ragdrop-\(UUID().uuidString).tar.gz")
             defer { try? FileManager.default.removeItem(at: archive) }
-            _ = try await run(
+            _ = try await ProcessRunner.run(
                 executable: "/usr/bin/tar",
                 arguments: ["-czf", archive.path, "-C", bundle.path, "."],
                 label: "Preparing tables and figures"
@@ -343,7 +335,7 @@ struct ImportPipeline: Sendable {
             let finalPath = "\(artifactsRoot)/\(stem)"
             let temporaryPath = "\(artifactsRoot)/.ragdrop-\(UUID().uuidString)"
             let command = "mkdir -p '\(artifactsRoot)' '\(temporaryPath)' && tar -xzf - -C '\(temporaryPath)' && if [ -d '\(finalPath)' ]; then rm -rf '\(temporaryPath)'; else mv '\(temporaryPath)' '\(finalPath)'; fi"
-            _ = try await run(
+            _ = try await ProcessRunner.run(
                 executable: "/usr/bin/ssh",
                 arguments: sshArguments(command),
                 standardInput: archive,
@@ -357,7 +349,7 @@ struct ImportPipeline: Sendable {
                 .deletingPathExtension().lastPathComponent + ".metadata.json"
             let remoteSidecar = "\(remoteDirectory)/\(sidecarName)"
             let temporarySidecar = "\(remoteDirectory)/.ragdrop-\(UUID().uuidString).metadata"
-            _ = try await run(
+            _ = try await ProcessRunner.run(
                 executable: "/usr/bin/ssh",
                 arguments: sshArguments(
                     "mkdir -p '\(remoteDirectory)' && cat > '\(temporarySidecar)' && mv -f '\(temporarySidecar)' '\(remoteSidecar)'"
@@ -367,7 +359,7 @@ struct ImportPipeline: Sendable {
             )
         }
         let temporaryPath = "\(remoteDirectory)/.ragdrop-\(UUID().uuidString).upload"
-        _ = try await run(
+        _ = try await ProcessRunner.run(
             executable: "/usr/bin/ssh",
             arguments: sshArguments(
                 "mkdir -p '\(remoteDirectory)' && cat > '\(temporaryPath)' && mv -f '\(temporaryPath)' '\(remotePath)'"
@@ -433,6 +425,10 @@ struct ImportPipeline: Sendable {
               sources.allSatisfy({ $0.range(of: "^[A-Za-z0-9_.-]+$", options: .regularExpression) != nil }) else {
             throw PipelineError.invalidRemoteFilename
         }
+        if configuration.location == .local {
+            _ = try await LocalEngine.current.call("index", sources: sources, connection: configuration.localConnection)
+            return
+        }
         let root = configuration.remoteRoot
         let sourceArguments = sources.map { "--source \(shellQuote($0))" }.joined(separator: " ")
         let command = [
@@ -448,7 +444,7 @@ struct ImportPipeline: Sendable {
             "./ragdoc-env-new/bin/python3 scripts/index_incremental.py \(sourceArguments)",
             "./ragdoc-env-new/bin/python3 scripts/index_artifacts.py \(sourceArguments)"
         ].joined(separator: " && ")
-        _ = try await run(
+        _ = try await ProcessRunner.run(
             executable: "/usr/bin/ssh",
             arguments: sshArguments(command),
             label: "Ragdoc indexing"
@@ -463,10 +459,15 @@ struct ImportPipeline: Sendable {
     }
 
     private func indexedChunkCount(for source: String) async throws -> Int {
+        if configuration.location == .local {
+            struct Count: Decodable { let count: Int }
+            let data = try await LocalEngine.current.call("count", sources: [source], connection: configuration.localConnection)
+            return try JSONDecoder().decode(Count.self, from: data).count
+        }
         let root = configuration.remoteRoot
         let python = "import chromadb,sys;c=chromadb.PersistentClient(path='\(root)/chroma_db_new').get_collection('ragdoc_contextualized_v1');print(len(c.get(where={'source':sys.argv[1]},include=[])['ids']))"
         let command = "cd '\(root)' && ./ragdoc-env-new/bin/python3 -c \(shellQuote(python)) \(shellQuote(source))"
-        let result = try await run(
+        let result = try await ProcessRunner.run(
             executable: "/usr/bin/ssh",
             arguments: sshArguments(command),
             label: "Ragdoc verification"
@@ -499,100 +500,7 @@ struct ImportPipeline: Sendable {
         }.value
     }
 
-    private func run(
-        executable: String,
-        arguments: [String],
-        standardInput: URL? = nil,
-        label: String,
-        timeout: TimeInterval? = nil
-    ) async throws -> ProcessResult {
-        let controller = ProcessController()
-        return try await withTaskCancellationHandler {
-            try await Task.detached(priority: .userInitiated) {
-                let fileManager = FileManager.default
-                let temporary = fileManager.temporaryDirectory
-                let outputURL = temporary.appendingPathComponent("ragdrop-\(UUID().uuidString).out")
-                let errorURL = temporary.appendingPathComponent("ragdrop-\(UUID().uuidString).err")
-                fileManager.createFile(atPath: outputURL.path, contents: nil)
-                fileManager.createFile(atPath: errorURL.path, contents: nil)
-                defer {
-                    try? fileManager.removeItem(at: outputURL)
-                    try? fileManager.removeItem(at: errorURL)
-                }
 
-                let outputHandle = try FileHandle(forWritingTo: outputURL)
-                let errorHandle = try FileHandle(forWritingTo: errorURL)
-                let inputHandle = try standardInput.map { try FileHandle(forReadingFrom: $0) }
-                defer {
-                    try? outputHandle.close()
-                    try? errorHandle.close()
-                    try? inputHandle?.close()
-                }
-
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: executable)
-                process.arguments = arguments
-                process.standardOutput = outputHandle
-                process.standardError = errorHandle
-                process.standardInput = inputHandle
-                var environment = ProcessInfo.processInfo.environment
-                environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-                process.environment = environment
-
-                try process.run()
-                controller.attach(process)
-                defer { controller.detach() }
-                let deadline = timeout.map { Date().addingTimeInterval($0) }
-                var didTimeOut = false
-                while process.isRunning {
-                    if controller.wasCancelled { break }
-                    if let deadline, Date() >= deadline {
-                        didTimeOut = true
-                        process.terminate()
-                        break
-                    }
-                    try? await Task.sleep(for: .milliseconds(100))
-                }
-                if process.isRunning {
-                    let grace = Date().addingTimeInterval(3)
-                    while process.isRunning, Date() < grace {
-                        try? await Task.sleep(for: .milliseconds(50))
-                    }
-                }
-                if process.isRunning {
-                    let killResult = kill(process.processIdentifier, SIGKILL)
-                    let killError = killResult == 0 ? nil : String(cString: strerror(errno))
-                    let killGrace = Date().addingTimeInterval(3)
-                    while process.isRunning, Date() < killGrace {
-                        try? await Task.sleep(for: .milliseconds(50))
-                    }
-                    if process.isRunning {
-                        let reason = killError.map { "SIGKILL failed: \($0)" }
-                            ?? "The process remained active after SIGKILL."
-                        throw PipelineError.processFailed(
-                            command: label,
-                            details: "\(reason) You can retry this PDF."
-                        )
-                    }
-                }
-                try? outputHandle.synchronize()
-                try? errorHandle.synchronize()
-                let output = String(decoding: (try? Data(contentsOf: outputURL)) ?? Data(), as: UTF8.self)
-                let error = String(decoding: (try? Data(contentsOf: errorURL)) ?? Data(), as: UTF8.self)
-                if controller.wasCancelled { throw CancellationError() }
-                if didTimeOut, let timeout {
-                    throw PipelineError.timedOut(command: label, minutes: max(1, Int(timeout / 60)))
-                }
-                guard process.terminationStatus == 0 else {
-                    let details = String((error.isEmpty ? output : error).suffix(8_000))
-                    throw PipelineError.processFailed(command: label, details: details)
-                }
-                return ProcessResult(output: output, error: error)
-            }.value
-        } onCancel: {
-            controller.cancel()
-        }
-    }
 }
 
 private extension String {

@@ -1,0 +1,18 @@
+{
+  "manifest_version": "0.3",
+  "name": "ragdoc-local",
+  "display_name": "Ragdoc — My scientific library",
+  "version": "0.7.0",
+  "description": "Search and read the scientific library prepared by Ragdrop on this Mac.",
+  "long_description": "Prepare a local library in Ragdrop first. This extension uses its private Python runtime and existing index, without a NAS or a separate Python installation. Voyage API access is required for semantic queries; local lexical searches and canonical reads can work without it. Retrieved passages are shared with Claude when tools are used. This extension does not import PDFs or automatically upload your library.",
+  "author": {"name": "Thierry"},
+  "repository": {"type": "git", "url": "https://github.com/tofunori/Ragdoc"},
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {"command": "node", "args": ["${__dirname}/server/index.js"]}
+  },
+  "tools_generated": true,
+  "compatibility": {"platforms": ["darwin"], "runtimes": {"node": ">=18.0.0"}}
+}
