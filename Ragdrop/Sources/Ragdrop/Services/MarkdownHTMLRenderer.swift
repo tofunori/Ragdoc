@@ -31,6 +31,12 @@ enum MarkdownHTMLRenderer {
                 throw MarkdownPreviewError.unreadable
             }
 
+            if LibraryLocation.resolve() == .local, let connection = LocalEngine.current.connection {
+                let result = try await ProcessRunner.run(executable: connection.python,
+                    arguments: ["-c", "import pypandoc,sys; print(pypandoc.convert_file(sys.argv[1], 'html5', format='gfm+tex_math_dollars', extra_args=['--mathml', '--wrap=none']))", markdownURL.path],
+                    label: "Markdown rendering", timeout: 30, environment: LocalEngine.cleanEnvironment())
+                return PreviewDocument(markdown: markdown, html: wrapHTML(result.output))
+            }
             let candidates = ["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"]
             guard let pandoc = candidates.first(where: FileManager.default.fileExists(atPath:)) else {
                 return PreviewDocument(markdown: markdown, html: wrapHTML("<pre>\(escapeHTML(markdown))</pre>"))

@@ -1,5 +1,7 @@
 # Ragdrop for macOS
 
+> **Local setup preview (0.7):** this branch adds a guided library on your Mac, managed Python and a Claude Desktop extension. See the [local setup guide](../docs/local-setup.md). The published 0.6 release still uses the server workflow below.
+
 Ragdrop is the desktop intake and review application for [Ragdoc](../README.md).
 Import local or Zotero PDFs, compare extraction with the source, approve or reject
 it, then add approved documents to your search library. The interface is in English and supports light, dark and system appearance.

@@ -23,6 +23,7 @@ final class ZoteroMonitorStore {
     let isIsolated: Bool
     @ObservationIgnored private let services: ZoteroMonitorServices
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let watchPreferenceKey: String
     @ObservationIgnored private let ledgerURL: URL
     @ObservationIgnored private var ledger: ZoteroWatchLedger
     @ObservationIgnored private var task: Task<Void, Never>?
@@ -36,8 +37,12 @@ final class ZoteroMonitorStore {
         self.isIsolated = isIsolated
         let prefs = defaults ?? (isIsolated ? UserDefaults(suiteName: "com.tofunori.ragdrop.theme-demo")! : .standard)
         self.defaults = prefs
-        self.isEnabled = isIsolated ? false : prefs.bool(forKey: "watchZotero")
-        let path = ledgerURL ?? (isIsolated
+        let isLocal = !isIsolated && LibraryLocation.resolve(defaults: prefs) == .local
+        self.watchPreferenceKey = isLocal ? "watchZoteroLocal" : "watchZotero"
+        self.isEnabled = isIsolated ? false : prefs.bool(forKey: watchPreferenceKey)
+        let localRoot = LocalEngine.current.recordedConnection?.library ?? prefs.string(forKey: "localLibraryPath") ?? LocalEngine.current.defaultLibrary.path
+        let localLedger = URL(fileURLWithPath: localRoot).appendingPathComponent("zotero-watch.json")
+        let path = ledgerURL ?? (isLocal ? localLedger : nil) ?? (isIsolated
             ? FileManager.default.temporaryDirectory.appendingPathComponent("ragdrop-watch-demo-\(UUID().uuidString).json")
             : FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("Ragdrop/zotero-watch.json"))
@@ -52,7 +57,7 @@ final class ZoteroMonitorStore {
         task?.cancel()
         task = nil
         isEnabled = value
-        defaults.set(value, forKey: "watchZotero")
+        defaults.set(value, forKey: watchPreferenceKey)
         pendingDocuments = []
         errorMessage = nil
         // Each explicit activation establishes a new baseline, without announcing the backlog.
@@ -62,6 +67,12 @@ final class ZoteroMonitorStore {
         lastRagdocCheck = nil
         statusText = value ? "Creating the baseline at the next check…" : "Monitoring disabled."
         persist()
+    }
+
+    func stop() {
+        generation = UUID()
+        task?.cancel()
+        task = nil
     }
 
     func start(queue: ImportStore) {

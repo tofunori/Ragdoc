@@ -8,12 +8,19 @@ struct SettingsView: View {
     @State private var newAPIKey = ""
     @AppStorage("appearanceMode", store: RagdropAppearance.defaults) private var appearanceMode = RagdropAppearance.light.rawValue
     let isIsolated: Bool
+    var allowDestinationChange: Bool
+    var allowMaintenance: Bool
+    @State private var showingLocalSetup = false
+    private var usesLocal: Bool { !isIsolated && LibraryLocation.resolve() == .local }
+
     @State private var credentialConfigured = false
     @State private var credentialMessage: String?
 
-    init(isIsolated: Bool = false, monitor: ZoteroMonitorStore? = nil) {
+    init(isIsolated: Bool = false, monitor: ZoteroMonitorStore? = nil, allowDestinationChange: Bool = false, allowMaintenance: Bool = true) {
         self.monitor = monitor ?? ZoteroMonitorStore(isIsolated: isIsolated)
         self.isIsolated = isIsolated
+        self.allowDestinationChange = allowDestinationChange
+        self.allowMaintenance = allowMaintenance
         let defaults = isIsolated ? UserDefaults(suiteName: "com.tofunori.ragdrop.theme-demo")! : .standard
         _converterPath = AppStorage(wrappedValue: PipelineConfiguration.defaultConverterPath, "converterPath", store: defaults)
         _nasHost = AppStorage(wrappedValue: "ragdoc-server", "nasHost", store: defaults)
@@ -25,6 +32,19 @@ struct SettingsView: View {
             PageHeading(title: "Settings", subtitle: "Conversion, access and destination for your articles.")
             if isIsolated { InlineNotice(text: "Isolated demo · no real key is read or changed.") }
             Form {
+            Section("Library location") {
+                Text(usesLocal ? "This Mac" : "Your server")
+                if usesLocal {
+                    Button("Manage local engine, keys and Claude…") { showingLocalSetup = true }.disabled(!allowMaintenance)
+                    Button("Use an existing server") { UserDefaults.standard.set(LibraryLocation.server.rawValue, forKey: "libraryLocation") }
+                        .disabled(!allowDestinationChange || isIsolated)
+                } else {
+                    Button("Set up a library on this Mac…") { UserDefaults.standard.set(LibraryLocation.local.rawValue, forKey: "libraryLocation") }
+                        .disabled(!allowDestinationChange || isIsolated)
+                }
+                Text("Locations keep separate queues. Switching does not move articles. Finish or remove pending items before switching.")
+                    .font(.caption).foregroundStyle(RagdropTheme.secondary)
+            }
             Section("Appearance") {
                 Picker("Theme", selection: $appearanceMode) {
                     ForEach(RagdropAppearance.allCases) { appearance in
@@ -94,10 +114,10 @@ struct SettingsView: View {
             DisclosureGroup("Advanced settings") {
                 TextField("Converter", text: $converterPath)
             }
-            Section("Ragdoc on your server") {
+            if !usesLocal { Section("Ragdoc on your server") {
                 TextField("SSH host", text: $nasHost)
                 TextField("Directory", text: $remoteRoot)
-            }
+            } }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -105,6 +125,9 @@ struct SettingsView: View {
         .padding(RagdropTheme.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .ragdropSurface()
+        .sheet(isPresented: $showingLocalSetup) {
+            LocalSetupView(allowServer: false, allowMaintenance: allowMaintenance, onDone: { showingLocalSetup = false }).frame(width: 800, height: 760)
+        }
         .onAppear {
             guard !isIsolated else { return }
             let current = PipelineConfiguration.current()

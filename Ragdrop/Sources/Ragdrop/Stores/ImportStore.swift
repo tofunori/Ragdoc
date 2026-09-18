@@ -343,6 +343,10 @@ final class ImportStore {
 
     private static var defaultQueueStoreURL: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        if LibraryLocation.resolve() == .local {
+            let root = LocalEngine.current.recordedConnection?.library ?? UserDefaults.standard.string(forKey: "localLibraryPath") ?? LocalEngine.current.defaultLibrary.path
+            return URL(fileURLWithPath: root).appendingPathComponent("ragdrop-queue.json")
+        }
         return support.appendingPathComponent("Ragdrop", isDirectory: true)
             .appendingPathComponent("queue.json")
     }

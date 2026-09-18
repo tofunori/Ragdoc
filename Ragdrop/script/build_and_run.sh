@@ -27,6 +27,7 @@ cp "$ROOT_DIR/Assets/RagdropIcon.icns" "$APP_RESOURCES/RagdropIcon.icns"
 cp "$ROOT_DIR/../scripts/ragdrop_mistral_convert.py" "$APP_RESOURCES/ragdrop_mistral_convert.py"
 cp "$ROOT_DIR/../scripts/ragdrop_mineru_convert.py" "$APP_RESOURCES/ragdrop_mineru_convert.py"
 chmod +x "$APP_BINARY"
+python3 "$ROOT_DIR/script/package_local_engine.py" "$APP_RESOURCES"
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -42,9 +43,9 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.6</string>
+  <string>0.7</string>
   <key>CFBundleVersion</key>
-  <string>26</string>
+  <string>27</string>
   <key>CFBundleIconFile</key>
   <string>RagdropIcon</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>

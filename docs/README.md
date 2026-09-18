@@ -3,6 +3,7 @@
 | Start with | What it covers |
 |---|---|
 | [Product overview](../README.md) | Search your own papers from Claude, Codex and compatible MCP clients |
+| [Local setup preview](local-setup.md) | Guided Mac library, managed engine and Claude Desktop extension |
 | [Ragdrop for macOS](../Ragdrop/README.md) | Demo, build, settings and PDF review |
 | [Backend installation](installation.md) | Python, storage, SSH and first index |
 | [MCP connection](mcp-setup.md) | Connect an assistant to the library |

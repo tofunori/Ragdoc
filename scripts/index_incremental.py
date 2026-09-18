@@ -229,7 +229,8 @@ def remove_empty_chunks(chunks):
 
 def index_incremental(force_reindex: bool = False,
                       delete_missing: bool = False,
-                      sources: Optional[List[str]] = None) -> dict:
+                      sources: Optional[List[str]] = None,
+                      before_write=None) -> dict:
     """Incremental indexing simplifiée."""
 
     if not VOYAGE_API_KEY:
@@ -243,6 +244,8 @@ def index_incremental(force_reindex: bool = False,
         sys.exit(1)
 
     try:
+        if before_write is not None:
+            before_write()
         print("\n" + "=" * 70)
         print(f"RAGDOC INDEXING - {EMBEDDING_MODEL}")
         print("=" * 70)
