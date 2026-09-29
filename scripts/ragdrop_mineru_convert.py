@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import bisect
 import hashlib
 import io
 import json
@@ -414,23 +415,55 @@ def build_manifest(content: list[dict], source: str, asset_names: set[str]) -> d
     }
 
 
+def _pages_in_reading_order(matches: list[tuple[int, int, int]]) -> list[tuple[int, int, int]]:
+    """Keep the longest run of non-overlapping matches whose pages never decrease."""
+    tails: list[int] = []  # page ending the best run of each length
+    tail_index: list[int] = []
+    previous: list[int] = []
+    for index, (_start, _end, page) in enumerate(matches):
+        length = bisect.bisect_right(tails, page)
+        if length == len(tails):
+            tails.append(page)
+            tail_index.append(index)
+        else:
+            tails[length] = page
+            tail_index[length] = index
+        previous.append(tail_index[length - 1] if length else -1)
+    kept = []
+    index = tail_index[-1] if tail_index else -1
+    while index >= 0:
+        kept.append(matches[index])
+        index = previous[index]
+    kept.reverse()
+    result = []
+    for match in kept:
+        if result and match[0] < result[-1][1]:
+            continue
+        result.append(match)
+    return result
+
+
 def page_spans_from_content(content: list[dict], markdown: str) -> list[dict]:
-    """Map unique MinerU text to exact Python character offsets by PDF page."""
-    bounds: dict[int, list[int]] = {}
-    cursor = 0
+    """Map unique MinerU text to exact Python character offsets by PDF page.
+
+    MinerU may place a block (a footnote, an affiliation) far from its page in
+    the Markdown. Such a block would stretch its page over every later page, so
+    only matches whose pages never decrease in reading order are kept.
+    """
+    matches = []
     for item in content:
         text = item.get("text")
         page = item.get("page_idx")
         if not text or not isinstance(page, int) or markdown.count(text) != 1:
             continue
-        start = markdown.find(text, cursor)
-        if start < 0:
-            continue
-        end = start + len(text)
-        current = bounds.setdefault(page + 1, [start, end])
+        start = markdown.find(text)
+        matches.append((start, start + len(text), page + 1))
+    matches.sort()
+    bounds: dict[int, list[int]] = {}
+    for start, end, page in _pages_in_reading_order(matches):
+        current = bounds.setdefault(page, [start, end])
         current[0] = min(current[0], start)
         current[1] = max(current[1], end)
-        cursor = end
     return [
         {"page": page, "start": start, "end": end}
         for page, (start, end) in sorted(bounds.items())
