@@ -10,7 +10,9 @@ import uuid
 import zipfile
 
 import scripts.ragdrop_mineru_convert as mineru
-from scripts.ragdrop_mineru_convert import build_manifest, extract_archive, extract_archives
+from scripts.ragdrop_mineru_convert import (
+    build_manifest, extract_archive, extract_archives, page_spans_from_content,
+)
 
 
 def mineru_archive(markdown: str, content: list[dict], assets: dict[str, bytes] | None = None) -> bytes:
@@ -120,6 +122,41 @@ def test_multiple_archives_merge_pages_markdown_and_colliding_asset_names():
     finally:
         markdown.unlink(missing_ok=True)
         shutil.rmtree(bundle, ignore_errors=True)
+
+
+def test_block_placed_out_of_order_does_not_stretch_its_page():
+    markdown = (
+        "Title on page one.\n\nIntro on page one.\n\nMiddle of page two.\n\n"
+        "Text on page three.\n\nFootnote from page one.\n"
+    )
+    content = [
+        {"text": "Title on page one.", "page_idx": 0},
+        {"text": "Footnote from page one.", "page_idx": 0},
+        {"text": "Intro on page one.", "page_idx": 0},
+        {"text": "Middle of page two.", "page_idx": 1},
+        {"text": "Text on page three.", "page_idx": 2},
+    ]
+
+    spans = page_spans_from_content(content, markdown)
+
+    assert [span["page"] for span in spans] == [1, 2, 3]
+    assert spans[0]["end"] == markdown.index("Intro on page one.") + len("Intro on page one.")
+    assert markdown[spans[1]["start"]:spans[1]["end"]] == "Middle of page two."
+    assert markdown[spans[2]["start"]:spans[2]["end"]] == "Text on page three."
+
+
+def test_nested_unique_blocks_do_not_produce_overlapping_spans():
+    markdown = "Alpha beta gamma.\n\nDelta.\n"
+    content = [
+        {"text": "Alpha beta gamma.", "page_idx": 0},
+        {"text": "beta", "page_idx": 1},
+        {"text": "Delta.", "page_idx": 1},
+    ]
+
+    spans = page_spans_from_content(content, markdown)
+
+    assert all(a["end"] <= b["start"] for a, b in zip(spans, spans[1:]))
+    assert [span["page"] for span in spans] == [1, 2]
 
 
 def test_invalid_later_archive_cleans_staged_outputs():
